@@ -28,7 +28,7 @@ interface ChartDef {
 
 // ─── FLOATING CHART COMPONENTS ───────────────────────────────────────────────
 
-export function GlowAreaChart({ className = "",style }: FloatingCardProps) {
+export function GlowAreaChart({ className = "", style }: FloatingCardProps) {
   return (
     <div
       className={`absolute bg-white/20 backdrop-blur-2xl border border-white/90 rounded-[18px] shadow-[0_4px_24px_rgba(60,90,200,0.10),0_1.5px_6px_rgba(60,90,200,0.07),inset_0_1px_0_rgba(255,255,255,0.8)] flex items-center justify-center ${className}`}
@@ -160,7 +160,6 @@ export function Bars3DChart({ className = "", style }: FloatingCardProps) {
     <div
       className={`absolute  backdrop-blur-2xl border border-white/90 rounded-[18px] shadow-[0_4px_24px_rgba(60,90,200,0.10),0_1.5px_6px_rgba(60,90,200,0.07),inset_0_1px_0_rgba(255,255,255,0.8)] flex items-center justify-center ${className}`}
       style={{ ...style, padding: "16px 18px" }}
-    
     >
       <svg width="150" height="105" viewBox="0 0 150 105">
         <defs>
@@ -249,7 +248,7 @@ export function Bars3DChart({ className = "", style }: FloatingCardProps) {
   );
 }
 
-export function RichDonut({ className = "",style }: FloatingCardProps) {
+export function RichDonut({ className = "", style }: FloatingCardProps) {
   const segs: [number, number, [string, string], string][] = [
     [0, 130, ["#4F7FFF", "#2A55DD"], "Series A"],
     [130, 90, ["#A78BFA", "#7C55EE"], "Series B"],
@@ -341,7 +340,7 @@ export function RichDonut({ className = "",style }: FloatingCardProps) {
   );
 }
 
-export function BeautifulHeatmap({ className = "",style }: FloatingCardProps) {
+export function BeautifulHeatmap({ className = "", style }: FloatingCardProps) {
   const data = [
     [0.1, 0.4, 0.8, 0.6, 0.3, 0.9, 0.5],
     [0.7, 0.2, 0.5, 1.0, 0.4, 0.6, 0.2],
@@ -886,7 +885,6 @@ const CHARTS: ChartDef[] = [
     },
   },
 ];
-
 
 // ─── PLOTLY CHART RENDERER ────────────────────────────────────────────────────
 

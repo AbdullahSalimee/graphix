@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef, MouseEvent } from "react";
 
 const NAV_LINKS = [
@@ -96,8 +97,8 @@ export default function Nav({ onLaunch }: NavProps) {
       </div>
 
       {/* CTA */}
-      <button
-        onClick={onLaunch}
+      <Link
+        href="/auth/signin"
         className={`
           relative overflow-hidden
           font-sans text-[0.82rem] font-semibold
@@ -114,8 +115,8 @@ export default function Nav({ onLaunch }: NavProps) {
           hover:before:translate-x-[100%]
         `}
       >
-        Launch App →
-      </button>
+        Sign in/ Sign up
+      </Link>
     </nav>
   );
 }

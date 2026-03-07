@@ -1,11 +1,18 @@
-"use client";
-
-import LandingPage from "@/components/landing/main";
+import Hero from "@/components/landing/Hero";
+import HowItWorks from "@/components/landing/HowitWorks";
+import HeroSection from "@/components/landing/Section";
 
 export default function Home() {
-  const handleLaunch = () => {
-    window.location.href = "/app";
-  };
+  return (
+    <div className="relative overflow-hidden bg-[#111212]">
+<Hero/>
 
-  return <LandingPage onLaunch={handleLaunch} />;
+      
+
+      <HeroSection /> 
+    <HowItWorks/>
+
+      
+    </div>
+  );
 }

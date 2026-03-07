@@ -35,21 +35,6 @@ const C = {
   cage: new THREE.Color(0xbbbbcc),
 };
 
-/* ─────────────────────────────────────────────────────────
-   KEY INSIGHT:
-   We inject the keyframes + a `.gx-ready` class via a <style>
-   tag that lives in the component tree (always rendered).
-   Elements always start at opacity:0 (inline style).
-   Once mounted, we add the `gx-ready` class to the wrapper
-   which triggers CSS animations via descendant selectors.
-   No JS timing races. No flash.
-───────────────────────────────────────────────────────── */
-
-
-
-/* ════════════════════════════════════════════
-   THREE.JS CUBE  (unchanged logic)
-════════════════════════════════════════════ */
 function ThreeCube() {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -64,13 +49,14 @@ function ThreeCube() {
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    // Pull camera back further so the cube never gets clipped when tilted
     const camera = new THREE.PerspectiveCamera(
-      38,
+      34,
       el.clientWidth / el.clientHeight,
       0.1,
       500,
     );
-    camera.position.set(0, 0, 14);
+    camera.position.set(0, 0, 20);
     camera.lookAt(0, 0, 0);
 
     let isOrbit = false,
@@ -586,9 +572,6 @@ function ThreeCube() {
   return <div ref={mountRef} className="w-full h-full" />;
 }
 
-/* ════════════════════════════════════════════
-   HERO
-════════════════════════════════════════════ */
 const NAV_LINKS = ["PRODUCT", "DOCS", "RESOURCES ▾", "ABOUT ▾"];
 const WORDS = "Where natural language meets stunning visualization.".split(" ");
 
@@ -596,9 +579,6 @@ export default function Hero(): any {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Double rAF: first frame renders HTML at opacity:0 (via CSS),
-    // second frame browser has painted — now add class to start animations.
-    // Zero flash, zero blank screen.
     const id = requestAnimationFrame(() =>
       requestAnimationFrame(() => setReady(true)),
     );
@@ -607,7 +587,6 @@ export default function Hero(): any {
 
   return (
     <>
-      {/* Scoped styles — always in DOM so opacity:0 rule applies from frame 1 */}
       
 
       <div className={`gx-hero${ready ? " gx-ready" : ""}`}>
@@ -622,7 +601,6 @@ export default function Hero(): any {
           >
             Graphix
           </div>
-
           <div className="hidden md:flex items-center gap-9">
             {NAV_LINKS.map((label, idx) => (
               <a
@@ -635,7 +613,6 @@ export default function Hero(): any {
               </a>
             ))}
           </div>
-
           <a
             data-anim="nav-cta"
             href="#"
@@ -646,51 +623,62 @@ export default function Hero(): any {
         </nav>
 
         {/* ── HERO BODY ── */}
-        <div className="flex flex-col md:flex-row py-12 md:pt-20 justify-between  px-4 md:px-8 gap-6">
-          <div className="w-full md:w-1/2 shrink-0">
-            {/* Accent bar */}
-            <div
-              data-anim="accent-bar"
-              className="h-px bg-gradient-to-r from-cyan-400/70 via-white/30 to-transparent mt-8 md:mt-12 mb-4"
-              style={{ width: "220px" }}
-            />
+        <div className="flex flex-col md:flex-row py-12 md:pt-16 justify-between px-4 md:px-8 gap-6">
+          {/* LEFT — text + CSS grid pattern */}
+          <div className="w-full md:w-1/2 shrink-0 relative">
+            {/* grid bg — scoped to this column */}
+            <div className="gx-grid-bg" />
 
-            {/* Headline — word stagger */}
-            <h1 className="text-white text-4xl md:text-6xl font-extrabold leading-tight md:leading-16 tracking-tighter mb-5">
-              {WORDS.map((word, i) => (
-                <span
-                  key={i}
-                  data-anim={`word-${i}`}
-                  style={{ display: "inline-block", marginRight: "0.28em" }}
-                >
-                  {word}
-                </span>
-              ))}
-            </h1>
+            {/* text content above the grid */}
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <div
+                data-anim="accent-bar"
+                className="h-px  mt-14 "
+                style={{ width: "220px" }}
+              />
 
-            <p
-              data-anim="subtext"
-              className="text-[#666] leading-relaxed mb-8 max-w-[420px]"
-            >
-              Describe the insight you need. Upload your CSV if you want. Graph
-              AI handles the rest — intelligent chart selection, smart styling,
-              instant beauty
-            </p>
+              <h1 className="text-white text-4xl md:text-6xl font-extrabold leading-tight md:leading-[1.05] tracking-tighter mb-5">
+                {WORDS.map((word, i) => (
+                  <span
+                    key={i}
+                    data-anim={`word-${i}`}
+                    style={{ display: "inline-block", marginRight: "0.28em" }}
+                  >
+                    {word}
+                  </span>
+                ))}
+              </h1>
 
-            <a
-              data-anim="hero-cta"
-              href="#"
-              className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
-            >
-              INSTALL NOW
-            </a>
+              <p
+                data-anim="subtext"
+                className="text-[#666] leading-relaxed mb-8 max-w-[420px]"
+              >
+                Describe the insight you need. Upload your CSV if you want.
+                Graph AI handles the rest — intelligent chart selection, smart
+                styling, instant beauty
+              </p>
+
+              <a
+                data-anim="hero-cta"
+                href="#"
+                className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
+              >
+                INSTALL NOW
+              </a>
+            </div>
           </div>
 
-          {/* Three.js cube */}
+          {/* RIGHT — cube
+              Taller + wider so spinning corners never get clipped.
+              overflow-visible so the canvas isn't masked by parent bounds. */}
           <div
             data-anim="cube"
             className="shrink-0 relative w-full md:w-auto"
-            style={{ flex: "0 0 44%", height: "min(400px, 50vh)" }}
+            style={{
+              flex: "0 0 52%",
+              height: "min(560px, 65vh)",
+              overflow: "visible",
+            }}
           >
             <ThreeCube />
           </div>

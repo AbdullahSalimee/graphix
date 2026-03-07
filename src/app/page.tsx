@@ -1,6 +1,6 @@
 // src/app/page.tsx
 import Hero from "@/components/landing/Hero";
-import HowItWorks from "@/components/landing/HowItWorks";
+import HowItWorks from "@/components/landing/HowitWorks";
 import PricingSection from "@/components/landing/Pricing";
 import HeroSection from "@/components/landing/Section";
 

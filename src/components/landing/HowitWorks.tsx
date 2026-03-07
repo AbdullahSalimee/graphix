@@ -2,28 +2,436 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface ChartSubtype {
   label: string;
   prompt: string | null;
 }
-
 interface ChartGroup {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   description: string;
   subtypes: ChartSubtype[];
 }
 
-// ─── ALL chart groups with every subtype ──────────────────────────────────────
+// Clean, purposeful SVG icons that actually represent each chart type
+const Icons = {
+  LineScatter: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <polyline
+        points="1,12 4,7 7,9 10,4 13,6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="4" cy="7" r="1.2" fill="currentColor" />
+      <circle cx="10" cy="4" r="1.2" fill="currentColor" />
+      <circle cx="13" cy="6" r="1.2" fill="currentColor" />
+    </svg>
+  ),
+  Bar: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect
+        x="1"
+        y="7"
+        width="3"
+        height="7"
+        rx="0.5"
+        fill="currentColor"
+        opacity="0.5"
+      />
+      <rect
+        x="5.5"
+        y="4"
+        width="3"
+        height="10"
+        rx="0.5"
+        fill="currentColor"
+        opacity="0.7"
+      />
+      <rect
+        x="10"
+        y="2"
+        width="3"
+        height="12"
+        rx="0.5"
+        fill="currentColor"
+        opacity="0.95"
+      />
+      <line
+        x1="0.5"
+        y1="14.5"
+        x2="14.5"
+        y2="14.5"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeOpacity="0.3"
+      />
+    </svg>
+  ),
+  PieBubble: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M8 8 L8 1.5 A6.5 6.5 0 0 1 14.5 8 Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <path
+        d="M8 8 L14.5 8 A6.5 6.5 0 0 1 3.5 13.2 Z"
+        fill="currentColor"
+        opacity="0.55"
+      />
+      <path
+        d="M8 8 L3.5 13.2 A6.5 6.5 0 0 1 8 1.5 Z"
+        fill="currentColor"
+        opacity="0.3"
+      />
+    </svg>
+  ),
+  Statistical: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect
+        x="4"
+        y="5"
+        width="8"
+        height="6"
+        rx="0.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        fill="none"
+      />
+      <line
+        x1="8"
+        y1="5"
+        x2="8"
+        y2="11"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
+      <line
+        x1="4"
+        y1="8"
+        x2="2"
+        y2="8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="12"
+        y1="8"
+        x2="14"
+        y2="8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="2"
+        y1="6.5"
+        x2="2"
+        y2="9.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <line
+        x1="14"
+        y1="6.5"
+        x2="14"
+        y2="9.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  Histogram: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect
+        x="1"
+        y="9"
+        width="2.5"
+        height="5"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.4"
+      />
+      <rect
+        x="4"
+        y="6"
+        width="2.5"
+        height="8"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.65"
+      />
+      <rect
+        x="7"
+        y="3"
+        width="2.5"
+        height="11"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <rect
+        x="10"
+        y="5"
+        width="2.5"
+        height="9"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.65"
+      />
+      <rect
+        x="13"
+        y="8"
+        width="2.5"
+        height="6"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.4"
+      />
+    </svg>
+  ),
+  FilledError: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M1 11 Q4 6 7 8 Q10 10 14 4 L14 13 Q10 14 7 12 Q4 12 1 14 Z"
+        fill="currentColor"
+        opacity="0.2"
+      />
+      <polyline
+        points="1,11 4,7 7,8 10,5 14,4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  ContourHeat: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect
+        x="1"
+        y="1"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.12"
+      />
+      <rect
+        x="4.9"
+        y="1"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.4"
+      />
+      <rect
+        x="8.8"
+        y="1"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.8"
+      />
+      <rect
+        x="1"
+        y="4.9"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.4"
+      />
+      <rect
+        x="4.9"
+        y="4.9"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.95"
+      />
+      <rect
+        x="8.8"
+        y="4.9"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.55"
+      />
+      <rect
+        x="1"
+        y="8.8"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.65"
+      />
+      <rect
+        x="4.9"
+        y="8.8"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.35"
+      />
+      <rect
+        x="8.8"
+        y="8.8"
+        width="3.2"
+        height="3.2"
+        rx="0.3"
+        fill="currentColor"
+        opacity="0.15"
+      />
+    </svg>
+  ),
+  Scientific: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <polygon
+        points="8,1.5 14.5,13.5 1.5,13.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        fill="none"
+        strokeLinejoin="round"
+      />
+      <line
+        x1="4.75"
+        y1="9.5"
+        x2="11.25"
+        y2="9.5"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeOpacity="0.45"
+      />
+      <line
+        x1="6.4"
+        y1="6.5"
+        x2="9.6"
+        y2="6.5"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeOpacity="0.3"
+      />
+      <circle cx="8" cy="9.5" r="1.1" fill="currentColor" />
+      <circle cx="5.5" cy="12.5" r="0.8" fill="currentColor" opacity="0.55" />
+      <circle cx="11" cy="11" r="0.8" fill="currentColor" opacity="0.55" />
+    </svg>
+  ),
+  Financial: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <line
+        x1="3"
+        y1="2.5"
+        x2="3"
+        y2="13.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeOpacity="0.4"
+      />
+      <rect
+        x="1.5"
+        y="5"
+        width="3"
+        height="5"
+        rx="0.4"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        fill="none"
+      />
+      <line
+        x1="8"
+        y1="1.5"
+        x2="8"
+        y2="12.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeOpacity="0.4"
+      />
+      <rect
+        x="6.5"
+        y="3.5"
+        width="3"
+        height="4.5"
+        rx="0.4"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <line
+        x1="13"
+        y1="3.5"
+        x2="13"
+        y2="14.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeOpacity="0.4"
+      />
+      <rect
+        x="11.5"
+        y="6"
+        width="3"
+        height="6"
+        rx="0.4"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        fill="none"
+      />
+    </svg>
+  ),
+  ThreeD: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M8 1.5 L14 5 L14 11.5 L8 15 L2 11.5 L2 5 Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        fill="none"
+        strokeLinejoin="round"
+        strokeOpacity="0.6"
+      />
+      <line
+        x1="8"
+        y1="1.5"
+        x2="8"
+        y2="15"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeOpacity="0.3"
+      />
+      <line
+        x1="2"
+        y1="5"
+        x2="14"
+        y2="5"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeOpacity="0.3"
+      />
+      <circle cx="8" cy="8.5" r="1.6" fill="currentColor" opacity="0.9" />
+      <circle cx="5" cy="11.5" r="1" fill="currentColor" opacity="0.5" />
+      <circle cx="11.5" cy="7" r="0.8" fill="currentColor" opacity="0.5" />
+    </svg>
+  ),
+};
 
 const CHART_GROUPS: ChartGroup[] = [
   {
     id: "line-scatter",
     label: "Line & Scatter",
-    icon: "〜",
+    icon: <Icons.LineScatter />,
     description: "Trends, correlations, time series",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -62,7 +470,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "bar",
     label: "Bar Charts",
-    icon: "▐",
+    icon: <Icons.Bar />,
     description: "Comparisons, rankings, categories",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -91,7 +499,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "pie-bubble",
     label: "Pie & Bubble",
-    icon: "◉",
+    icon: <Icons.PieBubble />,
     description: "Proportions, distributions, sizes",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -114,7 +522,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "statistical",
     label: "Statistical",
-    icon: "σ",
+    icon: <Icons.Statistical />,
     description: "Distributions, errors, outliers",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -138,7 +546,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "histogram",
     label: "Histograms",
-    icon: "⬛",
+    icon: <Icons.Histogram />,
     description: "Frequency, distribution, density",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -161,7 +569,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "filled-error",
     label: "Filled & Error",
-    icon: "≋",
+    icon: <Icons.FilledError />,
     description: "Confidence bands, filled areas",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -180,7 +588,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "contour-heat",
     label: "Contour & Heat",
-    icon: "◈",
+    icon: <Icons.ContourHeat />,
     description: "Density, intensity, 2D patterns",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -199,7 +607,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "scientific",
     label: "Scientific",
-    icon: "⬡",
+    icon: <Icons.Scientific />,
     description: "Ternary, parallel coords, log scales",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -221,7 +629,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "financial",
     label: "Financial",
-    icon: "₿",
+    icon: <Icons.Financial />,
     description: "Candlestick, waterfall, funnel, time series",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -260,7 +668,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "3d",
     label: "3D Charts",
-    icon: "◆",
+    icon: <Icons.ThreeD />,
     description: "Three-dimensional visualizations",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -286,7 +694,6 @@ const CHART_GROUPS: ChartGroup[] = [
 const TOTAL_TYPES = CHART_GROUPS.reduce((s, g) => s + g.subtypes.length - 1, 0);
 
 // ─── Step 1 ───────────────────────────────────────────────────────────────────
-
 const DEMO_TEXT = "Show me a 3D scatter of sales vs. engagement by region";
 
 function StepInput({ active }: { active: boolean }) {
@@ -323,7 +730,6 @@ function StepInput({ active }: { active: boolean }) {
             "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
         }}
       >
-        {/* Chrome */}
         <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
           <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -335,7 +741,6 @@ function StepInput({ active }: { active: boolean }) {
             </span>
           </div>
         </div>
-        {/* Empty canvas */}
         <div
           className="h-44 flex items-center justify-center"
           style={{
@@ -352,7 +757,6 @@ function StepInput({ active }: { active: boolean }) {
             </p>
           </div>
         </div>
-        {/* Input bar */}
         <div className="p-3 border-t border-zinc-100">
           <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
             <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-zinc-200 text-zinc-500 text-[11px] font-mono whitespace-nowrap shadow-sm">
@@ -406,7 +810,7 @@ function StepInput({ active }: { active: boolean }) {
         </div>
       </div>
       <div
-        className={`mt-5 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
         <p className="text-white/70 text-sm leading-relaxed">
           Type any plain-English request —{" "}
@@ -421,7 +825,6 @@ function StepInput({ active }: { active: boolean }) {
 }
 
 // ─── Step 2 ───────────────────────────────────────────────────────────────────
-
 function StepSelector({ active }: { active: boolean }) {
   const [activeGroup, setActiveGroup] = useState<ChartGroup | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -451,7 +854,6 @@ function StepSelector({ active }: { active: boolean }) {
             "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
         }}
       >
-        {/* Chrome */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 border-b border-zinc-100">
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
@@ -465,10 +867,7 @@ function StepSelector({ active }: { active: boolean }) {
             {CHART_GROUPS.length} categories · {TOTAL_TYPES} types
           </span>
         </div>
-
-        {/* Body */}
         <div className="flex" style={{ height: 360 }}>
-          {/* Groups */}
           <div className="w-44 flex-shrink-0 border-r border-zinc-100 overflow-y-auto bg-zinc-50 py-1">
             {CHART_GROUPS.map((g) => (
               <button
@@ -476,14 +875,10 @@ function StepSelector({ active }: { active: boolean }) {
                 onClick={() =>
                   setActiveGroup(activeGroup?.id === g.id ? null : g)
                 }
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-all duration-150 border-l-2 ${
-                  activeGroup?.id === g.id
-                    ? "bg-white border-l-zinc-800"
-                    : "border-l-transparent hover:bg-white/80 hover:border-l-zinc-300"
-                }`}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-all duration-150 border-l-2 ${activeGroup?.id === g.id ? "bg-white border-l-zinc-800" : "border-l-transparent hover:bg-white/80 hover:border-l-zinc-300"}`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-base w-5 text-center flex-shrink-0 text-zinc-500">
+                  <span className="w-5 flex-shrink-0 flex items-center justify-center text-zinc-400">
                     {g.icon}
                   </span>
                   <div className="min-w-0">
@@ -497,20 +892,62 @@ function StepSelector({ active }: { active: boolean }) {
                     </div>
                   </div>
                 </div>
-                <span
-                  className={`text-[9px] flex-shrink-0 transition-transform duration-150 ${activeGroup?.id === g.id ? "rotate-90 text-zinc-800" : "text-zinc-300"}`}
+                <svg
+                  width="8"
+                  height="8"
+                  viewBox="0 0 8 8"
+                  fill="none"
+                  className={`flex-shrink-0 transition-transform duration-150 ${activeGroup?.id === g.id ? "rotate-90" : ""}`}
                 >
-                  ▶
-                </span>
+                  <path
+                    d="M2 1.5l3 2.5-3 2.5"
+                    stroke={activeGroup?.id === g.id ? "#27272a" : "#d4d4d8"}
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             ))}
           </div>
-
-          {/* Subtypes */}
           <div className="flex-1 overflow-y-auto p-3 bg-white">
             {!activeGroup ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-300">
-                <span className="text-5xl">⬡</span>
+                <svg
+                  width="40"
+                  height="40"
+                  viewBox="0 0 40 40"
+                  fill="none"
+                  className="text-zinc-200"
+                >
+                  <rect
+                    x="4"
+                    y="10"
+                    width="8"
+                    height="20"
+                    rx="1"
+                    fill="currentColor"
+                    opacity="0.4"
+                  />
+                  <rect
+                    x="16"
+                    y="6"
+                    width="8"
+                    height="24"
+                    rx="1"
+                    fill="currentColor"
+                    opacity="0.65"
+                  />
+                  <rect
+                    x="28"
+                    y="14"
+                    width="8"
+                    height="16"
+                    rx="1"
+                    fill="currentColor"
+                    opacity="0.3"
+                  />
+                </svg>
                 <span className="text-xs font-mono text-zinc-400 text-center">
                   Select a category
                   <br />
@@ -518,7 +955,7 @@ function StepSelector({ active }: { active: boolean }) {
                 </span>
               </div>
             ) : (
-              <div style={{ animation: "hiwFadeSlide 0.18s ease both" }}>
+              <div>
                 <div className="flex items-start justify-between px-1 pb-3 mb-2 border-b border-zinc-100">
                   <div>
                     <div className="text-xs font-bold text-zinc-900">
@@ -537,18 +974,24 @@ function StepSelector({ active }: { active: boolean }) {
                     <button
                       key={i}
                       onClick={() => setSelected(sub.label)}
-                      className={`text-left px-2.5 py-2 rounded-lg text-[11px] transition-all duration-100 border ${
-                        sub.prompt === null
-                          ? "col-span-2 bg-zinc-900 border-zinc-900 text-white font-semibold hover:bg-zinc-800"
-                          : selected === sub.label
-                            ? "bg-zinc-900 border-zinc-900 text-white"
-                            : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50"
-                      }`}
+                      className={`text-left px-2.5 py-2 rounded-lg text-[11px] transition-all duration-100 border ${sub.prompt === null ? "col-span-2 bg-zinc-900 border-zinc-900 text-white font-semibold hover:bg-zinc-800" : selected === sub.label ? "bg-zinc-900 border-zinc-900 text-white" : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50"}`}
                     >
                       {sub.prompt === null ? (
                         <span className="flex items-center gap-2">
-                          <span>✦</span>Let AI choose the best{" "}
-                          {activeGroup.label} type
+                          <svg
+                            width="11"
+                            height="11"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                          >
+                            <path
+                              d="M6 1v2M6 9v2M1 6h2M9 6h2M2.5 2.5l1.4 1.4M8.1 8.1l1.4 1.4M9.5 2.5L8.1 3.9M3.9 8.1L2.5 9.5"
+                              stroke="currentColor"
+                              strokeWidth="1.4"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          Let AI choose the best {activeGroup.label} type
                         </span>
                       ) : (
                         <span className="flex items-center gap-2 font-mono">
@@ -565,8 +1008,6 @@ function StepSelector({ active }: { active: boolean }) {
             )}
           </div>
         </div>
-
-        {/* Footer */}
         <div className="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
           <span className="font-mono text-[10px] text-zinc-400">
             Click category → pick type → AI generates it
@@ -578,9 +1019,8 @@ function StepSelector({ active }: { active: boolean }) {
           )}
         </div>
       </div>
-
       <div
-        className={`mt-5 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
         <p className="text-white/70 text-sm leading-relaxed">
           Choose from {TOTAL_TYPES}+ chart types across {CHART_GROUPS.length}{" "}
@@ -593,7 +1033,6 @@ function StepSelector({ active }: { active: boolean }) {
 }
 
 // ─── Step 3 ───────────────────────────────────────────────────────────────────
-
 function StepProcessing({ active }: { active: boolean }) {
   const [step, setStep] = useState(0);
   const PROC = [
@@ -642,7 +1081,6 @@ function StepProcessing({ active }: { active: boolean }) {
             "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
         }}
       >
-        {/* Chrome */}
         <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
           <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
           <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
@@ -657,11 +1095,10 @@ function StepProcessing({ active }: { active: boolean }) {
             </span>
           </div>
         </div>
-
         <div className="divide-y divide-zinc-50">
           {PROC.map((s, i) => {
-            const done = step > i + 1;
-            const current = step === i + 1;
+            const done = step > i + 1,
+              current = step === i + 1;
             return (
               <div
                 key={i}
@@ -728,7 +1165,6 @@ function StepProcessing({ active }: { active: boolean }) {
             );
           })}
         </div>
-
         <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50">
           <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
             <div
@@ -746,9 +1182,8 @@ function StepProcessing({ active }: { active: boolean }) {
           </div>
         </div>
       </div>
-
       <div
-        className={`mt-5 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
         <p className="text-white/70 text-sm leading-relaxed">
           GraphAI parses intent, maps every dimension to an optimal visual
@@ -761,7 +1196,6 @@ function StepProcessing({ active }: { active: boolean }) {
 }
 
 // ─── Step 4 ───────────────────────────────────────────────────────────────────
-
 function StepChart({ active }: { active: boolean }) {
   const plotRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -778,11 +1212,11 @@ function StepChart({ active }: { active: boolean }) {
         const n = 130;
         const regions = ["North", "South", "East", "West", "Central"];
         const palette: Record<string, string> = {
-          North: "#06b6d4", // cyan
-          South: "#a855f7", // violet
-          East: "#f59e0b", // amber
-          West: "#10b981", // emerald
-          Central: "#f43f5e", // rose
+          North: "#06b6d4",
+          South: "#a855f7",
+          East: "#f59e0b",
+          West: "#10b981",
+          Central: "#f43f5e",
         };
         const base: Record<string, [number, number]> = {
           North: [62, 72],
@@ -797,11 +1231,10 @@ function StepChart({ active }: { active: boolean }) {
         const colors: string[] = [],
           sizes: number[] = [],
           texts: string[] = [];
-
         for (let i = 0; i < n; i++) {
           const r = regions[Math.floor(Math.random() * regions.length)];
-          const xv = base[r][0] + (Math.random() - 0.5) * 38;
-          const yv = base[r][1] + (Math.random() - 0.5) * 38;
+          const xv = base[r][0] + (Math.random() - 0.5) * 38,
+            yv = base[r][1] + (Math.random() - 0.5) * 38;
           const zv = xv * 0.42 + yv * 0.34 + Math.random() * 18;
           x.push(+xv.toFixed(1));
           y.push(+yv.toFixed(1));
@@ -812,16 +1245,14 @@ function StepChart({ active }: { active: boolean }) {
             `<b>${r}</b><br>Sales: ${xv.toFixed(0)}k<br>Engagement: ${yv.toFixed(0)}%<br>Score: ${zv.toFixed(0)}`,
           );
         }
-
         Plotly.react(
           plotRef.current!,
           [
-            // one trace per region so we get a proper colored legend
             ...Object.entries(palette).map(([region, color]) => {
               const xi: number[] = [],
                 yi: number[] = [],
-                zi: number[] = [];
-              const ti: string[] = [],
+                zi: number[] = [],
+                ti: string[] = [],
                 si: number[] = [];
               for (let k = 0; k < x.length; k++) {
                 if (texts[k].startsWith(`<b>${region}`)) {
@@ -902,11 +1333,9 @@ function StepChart({ active }: { active: boolean }) {
           },
           { displayModeBar: false, responsive: true },
         );
-
         setReady(true);
       });
     }, 350);
-
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -923,13 +1352,12 @@ function StepChart({ active }: { active: boolean }) {
       <div
         className="rounded-2xl overflow-hidden"
         style={{
-          background: "#080f1a",    
+          background: "#080f1a",
           border: "1px solid rgba(6,182,212,0.25)",
           boxShadow:
             "0 0 0 1px rgba(6,182,212,0.08), 0 24px 64px rgba(0,0,0,0.8), 0 0 80px rgba(6,182,212,0.08)",
         }}
       >
-        {/* Chrome */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{
@@ -975,7 +1403,6 @@ function StepChart({ active }: { active: boolean }) {
             ))}
           </div>
         </div>
-
         <div className="relative" style={{ height: 360 }}>
           <div
             className={`absolute inset-0 transition-opacity duration-700 ${ready ? "opacity-100" : "opacity-0"}`}
@@ -1013,7 +1440,6 @@ function StepChart({ active }: { active: boolean }) {
             </div>
           )}
         </div>
-
         <div
           className={`px-4 py-3 flex items-center gap-2.5 transition-all duration-500 delay-700 ${ready ? "opacity-100" : "opacity-0"}`}
           style={{
@@ -1028,9 +1454,8 @@ function StepChart({ active }: { active: boolean }) {
           </span>
         </div>
       </div>
-
       <div
-        className={`mt-5 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
         <p className="text-white/70 text-sm leading-relaxed">
           Your chart is fully interactive — rotate, zoom, hover for details.
@@ -1041,8 +1466,7 @@ function StepChart({ active }: { active: boolean }) {
   );
 }
 
-// ─── Main Export ──────────────────────────────────────────────────────────────
-
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const NAV_STEPS = [
   { label: "Write your request", sub: "Plain English or CSV upload" },
   {
@@ -1057,13 +1481,11 @@ export default function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
   const sectionRef = useRef<HTMLElement>(null);
-  // Track whether the left nav should be visible (only while section is in view)
+  const contentRef = useRef<HTMLDivElement>(null);
   const [navVisible, setNavVisible] = useState(false);
   const [navStyle, setNavStyle] = useState<React.CSSProperties>({});
 
-  // ── IntersectionObserver for step highlighting.
-  //    Skip the first callback burst that fires synchronously on mount
-  //    (before any scroll) so it never overrides the default step-0 on load.
+  // ── Step highlighting via IntersectionObserver
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
     stepRefs.current.forEach((el, i) => {
@@ -1073,7 +1495,7 @@ export default function HowItWorks() {
         (entries) => {
           entries.forEach((entry) => {
             if (!initialFired) {
-              initialFired = true; // swallow the mount-time callback
+              initialFired = true;
               return;
             }
             if (entry.isIntersecting) setActiveStep(i);
@@ -1087,33 +1509,31 @@ export default function HowItWorks() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  // ── Scroll handler: compute the fixed left nav position so it tracks
-  //    the section's left edge and stays vertically centered in viewport.
-  //    It shows only while the scrollable content block is on screen.
+  // ── Fixed nav: show ONLY while the scrollable steps block is in the viewport
   useEffect(() => {
     const onScroll = () => {
+      const content = contentRef.current;
       const section = sectionRef.current;
-      if (!section) return;
+      if (!content || !section) return;
 
-      const rect = section.getBoundingClientRect();
-      // The scrollable content starts after the header (~300px into section)
-      const contentStart = rect.top + 300;
-      const contentEnd = rect.bottom - 200; // leave room for CTA
+      const contentRect = content.getBoundingClientRect();
+      const sectionRect = section.getBoundingClientRect();
 
-      // Show nav only when content zone is on screen
-      if (contentStart > window.innerHeight || contentEnd < 0) {
+      // Show nav only when the steps content block is actually on screen
+      // — not before it enters, not after it leaves
+      const inView =
+        contentRect.top < window.innerHeight * 0.85 &&
+        contentRect.bottom > window.innerHeight * 0.15;
+
+      if (!inView) {
         setNavVisible(false);
         return;
       }
 
       setNavVisible(true);
 
-      // Left position = section's left edge + some padding
-      // Right panel starts at ~260px from section left (w-56 + gap)
-      const leftPx = rect.left + 32; // 32px = px-8
-
-      // Vertical: center the nav panel in the viewport
-      const navHeight = 280; // approx height of nav
+      const leftPx = sectionRect.left + 32;
+      const navHeight = 280;
       const top = Math.max(
         80,
         Math.min(
@@ -1133,7 +1553,7 @@ export default function HowItWorks() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
-    onScroll();
+    // Don't call onScroll on mount — nav should be hidden until user scrolls to the section
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
@@ -1226,7 +1646,7 @@ export default function HowItWorks() {
                 {s.label}
               </p>
               <p
-                className="hiw-mono text-[10px] mt-0.5"
+                className="font-mono text-[10px] mt-0.5"
                 style={{ color: "rgba(255,255,255,0.2)" }}
               >
                 {s.sub}
@@ -1235,8 +1655,6 @@ export default function HowItWorks() {
           </button>
         ))}
       </div>
-
-      {/* Progress bar */}
       <div className="mt-5 px-3">
         <div
           className="h-px rounded-full overflow-hidden"
@@ -1251,7 +1669,7 @@ export default function HowItWorks() {
           />
         </div>
         <p
-          className="hiw-mono text-[10px] mt-2"
+          className="font-mono text-[10px] mt-2"
           style={{ color: "rgba(6,182,212,0.4)" }}
         >
           Step {activeStep + 1} of {NAV_STEPS.length}
@@ -1262,23 +1680,19 @@ export default function HowItWorks() {
 
   return (
     <>
-      {/* The fixed nav lives OUTSIDE the section so it's never clipped by overflow:hidden */}
       <NavPanel />
 
       <section
         ref={sectionRef}
-        className="hiw-root relative overflow-hidden"
+        className="relative overflow-hidden"
         style={{
           background: "#111212",
-          backgroundImage: `
-      linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)
-    `,
+          backgroundImage: `linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)`,
           backgroundSize: "40px 40px",
         }}
       >
         {/* Header */}
-        <div className="max-w-5xl mx-auto px-8 pt-28 pb-20 text-center">
+        <div className="max-w-5xl mx-auto px-8 pt-28 pb-16 text-center">
           <div
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6"
             style={{
@@ -1288,13 +1702,13 @@ export default function HowItWorks() {
           >
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             <span
-              className=" text-[10px] tracking-[0.2em] uppercase"
+              className="text-[10px] tracking-[0.2em] uppercase"
               style={{ color: "rgba(6,182,212,0.8)" }}
             >
               How it works
             </span>
           </div>
-          <h2 className="text-4xl md:text-7xl font-extrabold text-white tracking-tighter  mb-5">
+          <h2 className="text-4xl md:text-7xl font-extrabold text-white tracking-tighter mb-5">
             From question to chart
             <br />
             <span style={{ color: "rgba(255,255,255,0.2)" }}>
@@ -1302,7 +1716,7 @@ export default function HowItWorks() {
             </span>
           </h2>
           <p
-            className="hiw-mono text-sm max-w-sm mx-auto leading-relaxed"
+            className="font-mono text-sm max-w-sm mx-auto leading-relaxed"
             style={{ color: "rgba(255,255,255,0.4)" }}
           >
             No code. No SQL. No configuration.
@@ -1311,11 +1725,14 @@ export default function HowItWorks() {
           </p>
         </div>
 
-        {/* Content: right-side scrolling steps with left gutter for the fixed nav */}
-        <div className="max-w-5xl mx-auto px-8 pb-32">
-          {/* Indent the right content to leave room for the fixed nav */}
+        {/* Steps content — ref'd so nav visibility tracks this block */}
+        <div ref={contentRef} className="max-w-5xl mx-auto px-8 pb-24">
           <div className="lg:pl-64">
-            <div className="space-y-40">
+            {/* 
+              KEY CHANGE: replaced space-y-40 + min-h-[85vh] with
+              space-y-20 + no min-height — steps are compact and close together
+            */}
+            <div className="space-y-20">
               {[StepInput, StepSelector, StepProcessing, StepChart].map(
                 (StepComponent, i) => (
                   <div
@@ -1323,7 +1740,7 @@ export default function HowItWorks() {
                     ref={(el) => {
                       stepRefs.current[i] = el;
                     }}
-                    className="min-h-[85vh] flex flex-col justify-center"
+                    className="py-8"
                   >
                     <StepComponent active={activeStep === i} />
                   </div>
@@ -1334,29 +1751,25 @@ export default function HowItWorks() {
         </div>
 
         {/* CTA */}
-        <div
-          
-        >
-          <div className=" w-full px-8 py-20 text-center  ">
-            <p className="text-2xl font-bold text-white mb-2">
-              Ready to see your data differently?
-            </p>
-            <p
-              className="hiw-mono text-sm mb-8"
-              style={{ color: "rgba(6,182,212,0.5)" }}
-            >
-              Join 12,000+ teams already using GraphAI.
-            </p>
-            <button
-              className="px-8 py-3.5 rounded-xl text-black text-sm font-bold transition-all hover:scale-105"
-              style={{
-                background: "linear-gradient(135deg, #06b6d4, #0891b2)",
-                boxShadow: "0 0 40px rgba(6,182,212,0.35)",
-              }}
-            >
-              Start for free →
-            </button>
-          </div>
+        <div className="w-full px-8 py-20 text-center">
+          <p className="text-2xl font-bold text-white mb-2">
+            Ready to see your data differently?
+          </p>
+          <p
+            className="font-mono text-sm mb-8"
+            style={{ color: "rgba(6,182,212,0.5)" }}
+          >
+            Join 12,000+ teams already using GraphAI.
+          </p>
+          <button
+            className="px-8 py-3.5 rounded-xl text-black text-sm font-bold transition-all hover:scale-105"
+            style={{
+              background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+              boxShadow: "0 0 40px rgba(6,182,212,0.35)",
+            }}
+          >
+            Start for free →
+          </button>
         </div>
       </section>
     </>

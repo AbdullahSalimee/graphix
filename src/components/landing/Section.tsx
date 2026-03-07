@@ -598,7 +598,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
         style={{ paddingTop: "4.5rem", paddingBottom: "4.5rem" }}
       >
         {/* White background */}
-        <div className="absolute inset-0 bg-neutral-100" />
+        <div className="absolute inset-0 bg-neutral-300" />
 
         {/* Black grid lines */}
         <div

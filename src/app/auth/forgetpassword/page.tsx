@@ -9,6 +9,7 @@ import { AuthCard, AuthField, AuthButton } from "@/components/auth/authUI";
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -18,7 +19,7 @@ export default function ForgotPasswordPage() {
   });
 
   const onSubmit = async (_data: ForgotValues) => {
-    // TODO: call your reset endpoint
+    // call reset password endpoint here later
     setSent(true);
   };
 

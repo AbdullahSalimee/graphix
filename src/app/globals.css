@@ -149,11 +149,29 @@ html, body {
         }
 
 
-        @keyframes itemIn {
-          from { opacity: 0; transform: translateY(8px); }
+		
+        @keyframes hiwFadeSlide {
+          from { opacity: 0; transform: translateX(-8px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+  @keyframes ctSpin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+		    @keyframes hiwFadeSlide {
+          from { opacity: 0; transform: translateX(-8px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+
+
+		
+        @keyframes pricingFadeUp {
+          from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes ping {
-          75%, 100% { transform: scale(2); opacity: 0; }
+        .pricing-card-enter {
+          animation: pricingFadeUp 0.55s ease both;
         }
      

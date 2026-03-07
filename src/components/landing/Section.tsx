@@ -19,6 +19,61 @@ interface HeroSectionProps {
   onLaunch?: () => void;
 }
 
+// ─── Keyframes ───────────────────────────────────────────────────────────────
+const KEYFRAMES = `
+  @keyframes hs-fade-up   { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes hs-fade-down { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes hs-fade-in   { from{opacity:0} to{opacity:1} }
+  @keyframes hs-scale-in  { from{opacity:0;transform:scale(0.94) translateY(24px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  @keyframes hs-slide-r   { from{opacity:0;transform:translateX(-24px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes hs-slide-l   { from{opacity:0;transform:translateX(24px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes hs-word      { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes hs-dot-pop   { 0%{opacity:0;transform:scale(0)} 65%{transform:scale(1.3)} 100%{opacity:1;transform:scale(1)} }
+
+  /* All animated children hidden until .hs-go is applied */
+  .hs-root [data-anim] { opacity: 0; }
+
+  /* Headline */
+  .hs-root.hs-go [data-anim="headline"]  { animation: hs-fade-up  .65s cubic-bezier(.22,1,.36,1) .05s forwards; }
+
+  /* Subtext */
+  .hs-root.hs-go [data-anim="subtext"]   { animation: hs-fade-up  .6s  cubic-bezier(.22,1,.36,1) .22s forwards; }
+
+  /* Whole card */
+  .hs-root.hs-go [data-anim="card"]      { animation: hs-scale-in .85s cubic-bezier(.22,1,.36,1) .35s forwards; }
+
+  /* Traffic lights */
+  .hs-root.hs-go [data-anim="d0"]        { animation: hs-dot-pop  .4s  cubic-bezier(.34,1.56,.64,1) .52s forwards; }
+  .hs-root.hs-go [data-anim="d1"]        { animation: hs-dot-pop  .4s  cubic-bezier(.34,1.56,.64,1) .59s forwards; }
+  .hs-root.hs-go [data-anim="d2"]        { animation: hs-dot-pop  .4s  cubic-bezier(.34,1.56,.64,1) .66s forwards; }
+
+  /* URL bar */
+  .hs-root.hs-go [data-anim="urlbar"]    { animation: hs-fade-in  .5s  cubic-bezier(.22,1,.36,1) .70s forwards; }
+
+  /* Window tabs */
+  .hs-root.hs-go [data-anim="t0"]        { animation: hs-fade-down .4s cubic-bezier(.22,1,.36,1) .74s forwards; }
+  .hs-root.hs-go [data-anim="t1"]        { animation: hs-fade-down .4s cubic-bezier(.22,1,.36,1) .80s forwards; }
+  .hs-root.hs-go [data-anim="t2"]        { animation: hs-fade-down .4s cubic-bezier(.22,1,.36,1) .86s forwards; }
+
+  /* Sidebar */
+  .hs-root.hs-go [data-anim="hist-lbl"]  { animation: hs-fade-in  .4s ease                       .76s forwards; }
+  .hs-root.hs-go [data-anim="hist-a"]    { animation: hs-slide-r  .45s cubic-bezier(.22,1,.36,1)  .82s forwards; }
+  .hs-root.hs-go [data-anim="hi0"]       { animation: hs-fade-up  .4s  cubic-bezier(.22,1,.36,1)  .88s forwards; }
+  .hs-root.hs-go [data-anim="hi1"]       { animation: hs-fade-up  .4s  cubic-bezier(.22,1,.36,1)  .93s forwards; }
+  .hs-root.hs-go [data-anim="hi2"]       { animation: hs-fade-up  .4s  cubic-bezier(.22,1,.36,1)  .98s forwards; }
+  .hs-root.hs-go [data-anim="hi3"]       { animation: hs-fade-up  .4s  cubic-bezier(.22,1,.36,1) 1.03s forwards; }
+  .hs-root.hs-go [data-anim="sb-stats"]  { animation: hs-fade-in  .5s  ease                      1.10s forwards; }
+
+  /* Main pane */
+  .hs-root.hs-go [data-anim="main-msg"]  { animation: hs-slide-l  .5s  cubic-bezier(.22,1,.36,1)  .84s forwards; }
+  .hs-root.hs-go [data-anim="chart-hdr"] { animation: hs-fade-down .45s cubic-bezier(.22,1,.36,1)  .92s forwards; }
+  .hs-root.hs-go [data-anim="chart-body"]{ animation: hs-fade-up  .65s cubic-bezier(.22,1,.36,1)  .98s forwards; }
+  .hs-root.hs-go [data-anim="input-bar"] { animation: hs-fade-up  .5s  cubic-bezier(.22,1,.36,1) 1.08s forwards; }
+
+  @keyframes itemIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes ping   { 75%,100%{transform:scale(2);opacity:0} }
+`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HISTORY: string[] = [
@@ -457,7 +512,6 @@ function PlotlyChart({ chartIndex, animating }: PlotlyChartProps) {
 
   useEffect(() => {
     if (!ref.current || typeof window === "undefined") return;
-
     import("plotly.js-dist-min").then(({ default: Plotly }) => {
       Plotly.purge(ref.current!);
       CHARTS[chartIndex].build(Plotly, ref.current!);
@@ -493,23 +547,32 @@ function PlotlyChart({ chartIndex, animating }: PlotlyChartProps) {
 export default function HeroSection({ onLaunch }: HeroSectionProps) {
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [animating, setAnimating] = useState<boolean>(false);
-  const [entered, setEntered] = useState<boolean>(false);
+  const [go, setGo] = useState<boolean>(false);
   const sectionRef = useRef<HTMLElement>(null);
 
+  // Inject keyframes once
+  useEffect(() => {
+    const ID = "hs-kf";
+    if (document.getElementById(ID)) return;
+    const s = document.createElement("style");
+    s.id = ID;
+    s.textContent = KEYFRAMES;
+    document.head.appendChild(s);
+  }, []);
+
+  // IntersectionObserver → double rAF → add .hs-go (no flash)
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
-
     const obs = new IntersectionObserver(
       ([entry]: IntersectionObserverEntry[]) => {
         if (entry.isIntersecting) {
-          setEntered(true);
+          requestAnimationFrame(() => requestAnimationFrame(() => setGo(true)));
           obs.disconnect();
         }
       },
-      { threshold: 0.08 },
+      { threshold: 0.06 },
     );
-
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -522,7 +585,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
         setAnimating(false);
       }, 450);
     }, 4000);
-
     return () => clearInterval(id);
   }, []);
 
@@ -532,11 +594,11 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
     <>
       <section
         ref={sectionRef}
-        className="relative w-full flex flex-col justify-center  overflow-hidden"
+        className={`hs-root relative w-full flex flex-col justify-center overflow-hidden${go ? " hs-go" : ""}`}
         style={{ paddingTop: "4.5rem", paddingBottom: "4.5rem" }}
       >
         {/* White background */}
-        <div className="absolute inset-0 bg-white" />
+        <div className="absolute inset-0 bg-neutral-100" />
 
         {/* Black grid lines */}
         <div
@@ -550,32 +612,28 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
           }}
         />
 
+        {/* ── Headline ── */}
         <div className="relative z-10 text-center mb-10 md:mb-16 px-4">
           <h2
-            className="
-  text-6xl bg-cyan-600/70 text-black p-3 rounded-lg tracking-tighter font-bold w-fit mx-auto
-    "
+            data-anim="headline"
+            className="text-6xl bg-cyan-600/70 text-black p-3 rounded-lg tracking-tighter font-bold w-fit mx-auto"
           >
             Type once. Understand everything.
           </h2>
 
-          {/* Optional short explainer */}
-          <p className="mt-4 md:mt-6 text-lg md:text-xl text-zinc-600 max-w-3xl mx-auto">
+          <p
+            data-anim="subtext"
+            className="mt-4 md:mt-6 text-lg md:text-xl text-zinc-600 max-w-3xl mx-auto"
+          >
             Describe your data in plain English — Graph AI instantly turns it
             into beautiful, accurate charts.
           </p>
         </div>
-        {/* APP PREVIEW CARD */}
+
+        {/* ── APP PREVIEW CARD ── */}
         <div
+          data-anim="card"
           className="relative z-10 w-full mx-auto max-w-[960px] px-4"
-          style={{
-            opacity: entered ? 1 : 0,
-            transform: entered
-              ? "translateY(0) scale(1)"
-              : "translateY(36px) scale(0.98)",
-            transition:
-              "opacity 0.85s cubic-bezier(0.16,1,0.3,1), transform 0.85s cubic-bezier(0.16,1,0.3,1)",
-          }}
         >
           {/* Card shadow */}
           <div
@@ -602,12 +660,22 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
               style={{ background: "#fafafa", borderColor: "rgba(0,0,0,0.08)" }}
             >
               {/* Traffic lights */}
-              <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
-              <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
-              <div className="w-3 h-3 rounded-full bg-[#28c840]" />
+              <div
+                data-anim="d0"
+                className="w-3 h-3 rounded-full bg-[#ff5f57]"
+              />
+              <div
+                data-anim="d1"
+                className="w-3 h-3 rounded-full bg-[#febc2e]"
+              />
+              <div
+                data-anim="d2"
+                className="w-3 h-3 rounded-full bg-[#28c840]"
+              />
 
               {/* URL bar */}
               <div
+                data-anim="urlbar"
                 className="flex-1 h-6 rounded-md ml-3 flex items-center gap-1.5 px-3 border"
                 style={{ background: "#fff", borderColor: "rgba(0,0,0,0.1)" }}
               >
@@ -622,6 +690,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                 {["Workspace", "Charts", "Export"].map((t, i) => (
                   <span
                     key={t}
+                    data-anim={`t${i}`}
                     className="font-mono text-[0.65rem] px-2.5 py-0.5 rounded-md transition-colors"
                     style={{
                       color: i === 0 ? "#18181b" : "#a1a1aa",
@@ -648,12 +717,16 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                   borderColor: "rgba(0,0,0,0.07)",
                 }}
               >
-                <div className="font-mono text-[0.58rem] text-zinc-400 tracking-[0.18em] uppercase mb-2.5 px-1">
+                <div
+                  data-anim="hist-lbl"
+                  className="font-mono text-[0.58rem] text-zinc-400 tracking-[0.18em] uppercase mb-2.5 px-1"
+                >
                   History
                 </div>
 
                 {/* Active item */}
                 <div
+                  data-anim="hist-a"
                   key={activeIdx}
                   className="px-2.5 py-2 rounded-lg font-mono text-[0.7rem] flex items-center gap-2 overflow-hidden"
                   style={{
@@ -670,13 +743,17 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                 {HISTORY.map((t, i) => (
                   <div
                     key={i}
+                    data-anim={`hi${i}`}
                     className="px-2.5 py-1.5 font-mono text-[0.68rem] rounded-lg truncate cursor-pointer text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
                   >
                     {t}
                   </div>
                 ))}
 
-                <div className="mt-auto pt-3 border-t border-zinc-100 space-y-2">
+                <div
+                  data-anim="sb-stats"
+                  className="mt-auto pt-3 border-t border-zinc-100 space-y-2"
+                >
                   {[
                     { label: "Charts", val: "142" },
                     { label: "Exports", val: "38" },
@@ -699,7 +776,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
               {/* Main content */}
               <div className="flex-1 flex flex-col p-4 gap-3 min-w-0 overflow-hidden bg-white">
                 {/* User message bubble */}
-                <div className="flex justify-end">
+                <div data-anim="main-msg" className="flex justify-end">
                   <div
                     key={`msg-${activeIdx}`}
                     className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 font-mono text-[0.76rem] max-w-xs"
@@ -737,6 +814,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
 
                 {/* Chart card */}
                 <div
+                  data-anim="chart-body"
                   className="rounded-xl border flex-1 flex flex-col overflow-hidden min-h-0"
                   style={{
                     background: "#fff",
@@ -747,6 +825,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                 >
                   {/* Chart header */}
                   <div
+                    data-anim="chart-hdr"
                     className="flex items-center justify-between px-4 py-2.5 border-b shrink-0"
                     style={{
                       borderColor: "rgba(0,0,0,0.07)",
@@ -805,6 +884,7 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
 
                 {/* Input bar */}
                 <div
+                  data-anim="input-bar"
                   className="flex items-center gap-2 rounded-xl px-3 py-2.5 border shrink-0"
                   style={{
                     background: "#fafafa",

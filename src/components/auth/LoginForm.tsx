@@ -24,7 +24,6 @@ export default function LoginForm() {
   const onSubmit = async (data: LoginInput) => {
     setServerError(null);
     try {
-      // Replace with your actual auth call e.g. signIn(data)
       await new Promise((r) => setTimeout(r, 1500));
       console.log("Login:", data);
     } catch {
@@ -34,19 +33,19 @@ export default function LoginForm() {
 
   return (
     <AuthCard
-      title="Welcome back."
-      subtitle="Sign in to your account and pick up right where you left off."
+      title="Sign in"
+      subtitle="Welcome back. Pick up right where you left off."
       footerText="Don't have an account?"
-      footerLinkLabel="Sign up free"
-      footerLinkHref="/auth/signup"
+      footerLinkLabel="Sign up"
+      footerLinkHref="/signup"
     >
       <form
         onSubmit={handleSubmit(onSubmit)}
         noValidate
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
       >
         <AuthInput
-          label="Email"
+          label="Email address"
           type="email"
           placeholder="you@company.com"
           autoComplete="email"
@@ -63,9 +62,9 @@ export default function LoginForm() {
           right={
             <Link
               href="/auth/forgotpassword"
-              className="text-[0.72rem] text-[#00d4c8] hover:opacity-75 transition-opacity"
+              className="text-[0.72rem] text-[#6b7280] hover:text-[#00d4c8] transition-colors"
             >
-              Forgot?
+              Forgot password?
             </Link>
           }
           {...register("password")}
@@ -77,14 +76,24 @@ export default function LoginForm() {
           </p>
         )}
 
-        <AuthButton
-          loading={isSubmitting}
-          label="Sign In →"
-          loadingLabel="Signing in…"
-        />
+        {/* Submit + inline link */}
+        <div className="flex items-center gap-6 mt-1">
+          <AuthButton
+            loading={isSubmitting}
+            label="Sign in"
+            loadingLabel="Signing in…"
+          />
+          <Link
+            href="/auth/signup"
+            className="text-[0.82rem] text-[#6b7280] hover:text-white transition-colors whitespace-nowrap"
+          >
+            Don't have an account?{" "}
+            <span className="text-white font-medium">Sign up</span>
+          </Link>
+        </div>
       </form>
 
-      <AuthDivider />
+      <AuthDivider showGithub />
     </AuthCard>
   );
 }

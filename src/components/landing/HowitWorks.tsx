@@ -1535,10 +1535,10 @@ export default function HowItWorks() {
       const leftPx = sectionRect.left + 32;
       const navHeight = 280;
       const top = Math.max(
-        80,
+        60,
         Math.min(
-          window.innerHeight - navHeight - 40,
-          window.innerHeight / 2 - navHeight / 2,
+          window.innerHeight - navHeight - 30,
+          window.innerHeight / 2.4 - navHeight / 2,
         ),
       );
 
@@ -1575,7 +1575,7 @@ export default function HowItWorks() {
                 block: "center",
               })
             }
-            className="w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all duration-300"
+            className="w-full flex items-start gap-3 px-4 py-4 rounded-xl text-left transition-all duration-300"
             style={{
               background:
                 activeStep === i ? "rgba(6,182,212,0.07)" : "transparent",
@@ -1585,7 +1585,7 @@ export default function HowItWorks() {
                   : "1px solid transparent",
             }}
           >
-            <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
+            <div className="flex flex-col items-center justify-start gap-1">
               <div
                 className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-300"
                 style={{
@@ -1633,7 +1633,7 @@ export default function HowItWorks() {
             </div>
             <div className="min-w-0 pb-2">
               <p
-                className="text-xs font-semibold transition-colors duration-300"
+                className="text-sm font-semibold transition-colors duration-300"
                 style={{
                   color:
                     activeStep === i

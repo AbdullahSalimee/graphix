@@ -293,3 +293,62 @@ body {
 .pricing-card-enter {
   animation: pricingFadeUp 0.55s ease both;
 }
+
+
+          .gx-grid-bg {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          /* the grid lines */
+          background-image:
+            linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+          background-size: 40px 40px;
+          /* fade right so it doesn't bleed toward the cube */
+          -webkit-mask-image: linear-gradient(to right, black 55%, transparent 95%);
+          mask-image: linear-gradient(to right, black 55%, transparent 95%);
+        }
+        /* cyan dots at every grid intersection */
+        .gx-grid-bg::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle, rgba(34,211,238,0.22) 1.2px, transparent 1.2px);
+          background-size: 40px 40px;
+          -webkit-mask-image: linear-gradient(to right, black 55%, transparent 95%);
+          mask-image: linear-gradient(to right, black 55%, transparent 95%);
+        }
+
+        /* ── entry animations ── */
+        [data-anim] { opacity: 0; }
+        .gx-ready [data-anim="fade-down-nav"]  { animation: gx-fade-down 0.6s ease forwards 0.05s; }
+        .gx-ready [data-anim="logo-pop"]        { animation: gx-pop  0.5s cubic-bezier(.34,1.56,.64,1) forwards 0.10s; }
+        .gx-ready [data-anim="nav-0"]           { animation: gx-fade-up 0.4s ease forwards 0.18s; }
+        .gx-ready [data-anim="nav-1"]           { animation: gx-fade-up 0.4s ease forwards 0.24s; }
+        .gx-ready [data-anim="nav-2"]           { animation: gx-fade-up 0.4s ease forwards 0.30s; }
+        .gx-ready [data-anim="nav-3"]           { animation: gx-fade-up 0.4s ease forwards 0.36s; }
+        .gx-ready [data-anim="nav-cta"]         { animation: gx-fade-up 0.4s ease forwards 0.42s; }
+        .gx-ready [data-anim="accent-bar"]      { animation: gx-grow-x 0.7s ease forwards 0.50s; }
+        .gx-ready [data-anim="word-0"]          { animation: gx-word 0.5s ease forwards 0.55s; }
+        .gx-ready [data-anim="word-1"]          { animation: gx-word 0.5s ease forwards 0.62s; }
+        .gx-ready [data-anim="word-2"]          { animation: gx-word 0.5s ease forwards 0.69s; }
+        .gx-ready [data-anim="word-3"]          { animation: gx-word 0.5s ease forwards 0.76s; }
+        .gx-ready [data-anim="word-4"]          { animation: gx-word 0.5s ease forwards 0.83s; }
+        .gx-ready [data-anim="word-5"]          { animation: gx-word 0.5s ease forwards 0.90s; }
+        .gx-ready [data-anim="word-6"]          { animation: gx-word 0.5s ease forwards 0.97s; }
+        .gx-ready [data-anim="subtext"]         { animation: gx-fade-up 0.6s ease forwards 1.10s; }
+        .gx-ready [data-anim="hero-cta"]        { animation: gx-pop  0.5s cubic-bezier(.34,1.56,.64,1) forwards 1.25s; }
+        .gx-ready [data-anim="cube"]            { animation: gx-fade-up 0.8s ease forwards 0.40s; }
+
+        @keyframes gx-fade-down { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes gx-fade-up   { from { opacity:0; transform:translateY(12px);  } to { opacity:1; transform:translateY(0); } }
+        @keyframes gx-pop       { from { opacity:0; transform:scale(0.82);       } to { opacity:1; transform:scale(1);    } }
+        @keyframes gx-grow-x    { from { opacity:0; transform:scaleX(0); transform-origin:left; } to { opacity:1; transform:scaleX(1); transform-origin:left; } }
+        @keyframes gx-word      { from { opacity:0; transform:translateY(18px) skewY(3deg); } to { opacity:1; transform:translateY(0) skewY(0deg); } }
+
+
+           @keyframes bg-scrolling {
+          0%   { background-position: 0 0; }
+          100% { background-position: 50px 50px; }
+        }

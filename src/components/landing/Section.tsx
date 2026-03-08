@@ -30,6 +30,11 @@ const KEYFRAMES = `
   @keyframes hs-word      { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
   @keyframes hs-dot-pop   { 0%{opacity:0;transform:scale(0)} 65%{transform:scale(1.3)} 100%{opacity:1;transform:scale(1)} }
 
+  @keyframes bg-scrolling {
+    0%   { background-position: 0 0; }
+    100% { background-position: 50px 50px; }
+  }
+
   /* All animated children hidden until .hs-go is applied */
   .hs-root [data-anim] { opacity: 0; }
 
@@ -595,23 +600,17 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
       <section
         ref={sectionRef}
         className={`hs-root relative w-full flex flex-col justify-center overflow-hidden${go ? " hs-go" : ""}`}
-        style={{ paddingTop: "4.5rem", paddingBottom: "4.5rem" }}
+        style={{
+          paddingTop: "4.5rem",
+          paddingBottom: "4.5rem",
+          /* ── Animated scrolling grid background ── */
+          backgroundColor: "#d4d4d4",
+          backgroundImage: `url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC")`,
+          backgroundRepeat: "repeat",
+          backgroundPosition: "0 0",
+          animation: "bg-scrolling 0.92s linear infinite",
+        }}
       >
-        {/* White background */}
-        <div className="absolute inset-0 bg-neutral-300" />
-
-        {/* Black grid lines */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(0,0,0,0.07) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0,0,0,0.07) 1px, transparent 1px)
-            `,
-            backgroundSize: "40px 40px",
-          }}
-        />
-
         {/* ── Headline ── */}
         <div className="relative z-10 text-center mb-10 md:mb-16 px-4">
           <h2
@@ -659,7 +658,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
               className="flex items-center gap-2 px-4 py-3 border-b"
               style={{ background: "#fafafa", borderColor: "rgba(0,0,0,0.08)" }}
             >
-              {/* Traffic lights */}
               <div
                 data-anim="d0"
                 className="w-3 h-3 rounded-full bg-[#ff5f57]"
@@ -673,7 +671,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                 className="w-3 h-3 rounded-full bg-[#28c840]"
               />
 
-              {/* URL bar */}
               <div
                 data-anim="urlbar"
                 className="flex-1 h-6 rounded-md ml-3 flex items-center gap-1.5 px-3 border"
@@ -685,7 +682,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                 </span>
               </div>
 
-              {/* Window tabs */}
               <div className="hidden sm:flex items-center gap-1">
                 {["Workspace", "Charts", "Export"].map((t, i) => (
                   <span
@@ -724,7 +720,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                   History
                 </div>
 
-                {/* Active item */}
                 <div
                   data-anim="hist-a"
                   key={activeIdx}
@@ -833,7 +828,6 @@ export default function HeroSection({ onLaunch }: HeroSectionProps) {
                     }}
                   >
                     <div className="flex items-center gap-2.5">
-                      {/* Pulsing dot */}
                       <span className="relative flex w-2 h-2">
                         <span
                           className="absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-40"

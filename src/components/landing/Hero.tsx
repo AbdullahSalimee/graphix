@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import Navbar from "../NavBar";
 
 type ChartMode = "bar" | "line" | "scatter";
 interface BarPair {
@@ -19,8 +19,8 @@ const DATA_B = [
   0.35, 0.51, 0.72,
 ];
 const N = DATA_A.length;
-const HOLD = 300,
-  MORPH = 150;
+const HOLD = 300;
+const MORPH = 150;
 const CYCLE: ChartMode[] = ["bar", "line", "scatter"];
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
 
@@ -36,6 +36,8 @@ const C = {
   cage: new THREE.Color(0xbbbbcc),
 };
 
+// ─── ThreeCube ───────────────────────────────────────────────────────────────
+
 function ThreeCube() {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +52,6 @@ function ThreeCube() {
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    // Pull camera back further so the cube never gets clipped when tilted
     const camera = new THREE.PerspectiveCamera(
       34,
       el.clientWidth / el.clientHeight,
@@ -69,6 +70,7 @@ function ThreeCube() {
       velX = 0,
       autoSpin = 0;
     const DAMPING = 0.88;
+
     const onMD = (e: MouseEvent) => {
       isOrbit = true;
       ox = e.clientX;
@@ -93,6 +95,7 @@ function ThreeCube() {
       isOrbit = false;
       renderer.domElement.style.cursor = "grab";
     };
+
     renderer.domElement.addEventListener("mousedown", onMD);
     window.addEventListener("mousemove", onMM);
     window.addEventListener("mouseup", onMU);
@@ -101,6 +104,7 @@ function ThreeCube() {
     const root = new THREE.Group();
     scene.add(root);
 
+    // ── Cage ─────────────────────────────────────────────────────────────────
     const CAGE = 3.2,
       DIVS = 10;
     const cageGroup = new THREE.Group();
@@ -143,12 +147,13 @@ function ThreeCube() {
       addLine(t, -CAGE, -CAGE, t, -CAGE, CAGE);
     }
 
+    // ── Chart group ───────────────────────────────────────────────────────────
     const chartGroup = new THREE.Group();
     root.add(chartGroup);
     const CW = CAGE * 1.5,
       CH = CAGE * 1.4,
-      CD = CAGE * 0.35,
-      X0 = -CW / 2,
+      CD = CAGE * 0.35;
+    const X0 = -CW / 2,
       Y0 = -CAGE * 0.85,
       Z0 = 0.0;
     const step = CW / (N - 1);
@@ -178,6 +183,7 @@ function ThreeCube() {
         axisMat,
       ),
     );
+
     const gridMat = new THREE.LineBasicMaterial({
       color: C.grid,
       transparent: true,
@@ -215,6 +221,7 @@ function ThreeCube() {
         ),
       );
 
+    // ── Bars ──────────────────────────────────────────────────────────────────
     const barW = step * 0.28;
     const mkEdge = (geo: THREE.BoxGeometry, col: THREE.Color) =>
       new THREE.LineSegments(
@@ -252,11 +259,13 @@ function ThreeCube() {
       return { a: mA, b: mB };
     });
 
+    // ── Line chart ────────────────────────────────────────────────────────────
     let tubeMeshA: THREE.Mesh | null = null,
-      tubeMeshB: THREE.Mesh | null = null,
-      areaA: THREE.Mesh | null = null,
+      tubeMeshB: THREE.Mesh | null = null;
+    let areaA: THREE.Mesh | null = null,
       areaB: THREE.Mesh | null = null;
     const dotGeo = new THREE.SphereGeometry(0.085, 10, 10);
+
     const lineDotA: THREE.Mesh[] = DATA_A.map(() => {
       const m = new THREE.Mesh(
         dotGeo,
@@ -337,6 +346,7 @@ function ThreeCube() {
       lineDotB[i].position.set(px(i), py(DATA_B[i]), Z0 - 0.08);
     });
 
+    // ── Scatter ───────────────────────────────────────────────────────────────
     const scatA: THREE.Mesh[] = DATA_A.map((v, i) => {
       const m = new THREE.Mesh(
         new THREE.SphereGeometry(0.08 + v * 0.08, 12, 12),
@@ -397,6 +407,7 @@ function ThreeCube() {
       return l;
     });
 
+    // ── Legend ────────────────────────────────────────────────────────────────
     const mkLegend = (color: THREE.Color, y: number) => {
       const m = new THREE.Mesh(
         new THREE.BoxGeometry(0.22, 0.22, 0.06),
@@ -408,6 +419,7 @@ function ThreeCube() {
     mkLegend(C.barA, Y0 + CH * 0.62);
     mkLegend(C.barB, Y0 + CH * 0.52);
 
+    // ── Visibility helpers ────────────────────────────────────────────────────
     const setMeshVis = (meshes: THREE.Object3D[], o: number, baseO: number) => {
       const show = o > 0.001;
       meshes.forEach((m) => {
@@ -477,6 +489,7 @@ function ThreeCube() {
       });
     };
 
+    // ── Entry + state ─────────────────────────────────────────────────────────
     root.scale.setScalar(0.01);
     const ENTRY_FRAMES = 90;
     let entryFrame = 0;
@@ -487,20 +500,22 @@ function ThreeCube() {
 
     let haloPhase = 0,
       timer = 0,
-      modeIdx = 0,
-      phase: "hold" | "morph" = "hold",
-      rafId: number;
+      modeIdx = 0;
+    let phase: "hold" | "morph" = "hold";
+    let rafId: number;
     const AUTO_SPEED = 0.003;
 
     const animate = () => {
       haloPhase += 0.03;
       timer++;
+
       if (entryFrame < ENTRY_FRAMES) {
         entryFrame++;
         root.scale.setScalar(
           0.01 + easeInOut(entryFrame / ENTRY_FRAMES) * 0.99,
         );
       }
+
       if (!isOrbit) {
         velY *= DAMPING;
         velX *= DAMPING;
@@ -511,11 +526,13 @@ function ThreeCube() {
       } else {
         autoSpin = 0;
       }
+
       root.rotation.y = rotY + autoSpin;
       root.rotation.x = rotX;
       halos.forEach((h, i) =>
         h.scale.setScalar(1 + Math.sin(haloPhase + i * 0.6) * 0.18),
       );
+
       const cur = CYCLE[modeIdx],
         nxt = CYCLE[(modeIdx + 1) % CYCLE.length];
       if (phase === "hold") {
@@ -547,6 +564,7 @@ function ThreeCube() {
           timer = 0;
         }
       }
+
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(animate);
     };
@@ -573,10 +591,11 @@ function ThreeCube() {
   return <div ref={mountRef} className="w-full h-full" />;
 }
 
-const NAV_LINKS = ["PRODUCT", "DOCS", "RESOURCES ▾", "ABOUT ▾"];
+// ─── Hero ────────────────────────────────────────────────────────────────────
+
 const WORDS = "Where natural language meets stunning visualization.".split(" ");
 
-export default function Hero(): any {
+export default function Hero() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -587,104 +606,61 @@ export default function Hero(): any {
   }, []);
 
   return (
-    <>
-      <div className={`gx-hero${ready ? " gx-ready" : ""}`}>
-        {/* ── NAV ── */}
-        <nav
-          data-anim="fade-down-nav"
-          className="relative z-20 flex items-center justify-between h-14 px-4 md:px-11 border-b border-x border-white/20"
-        >
-          <div
-            data-anim="logo-pop"
-            className="border-2 border-white px-2.5 py-0.5 text-white text-lg tracking-tight shrink-0"
-          >
-            Graphix
-          </div>
-          <div className="hidden md:flex items-center gap-9">
-            {NAV_LINKS.map((label, idx) => (
-              <a
-                key={label}
-                data-anim={`nav-${idx}`}
-                href="#"
-                className="text-white hover:text-white transition-colors duration-150 no-underline tracking-wider text-xs"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-          <Link
-            href="/auth/signin"
-            className="group relative min-h-[40px] hover:cursor-pointer rounded-xs w-40 overflow-hidden bg-white text-black shadow-2xl transition-all before:absolute before:left-0 before:top-0 before:h-0 before:w-1/4 before:bg-cyan-600 before:duration-500 after:absolute after:bottom-0 after:right-0 after:h-0 after:w-1/4 after:bg-cyan-600 after:duration-500 hover:text-white hover:before:h-full hover:after:h-full"
-          >
-            <span className="top-0 flex h-full w-full items-center justify-center before:absolute before:bottom-0 before:left-1/4 before:z-0 before:h-0 before:w-1/4 before:bg-cyan-600 before:duration-500 after:absolute after:right-1/4 after:top-0 after:z-0 after:h-0 after:w-1/4 after:bg-cyan-600 after:duration-500 hover:text-white group-hover:before:h-full group-hover:after:h-full"></span>
-            <span className="absolute bottom-0 left-0 right-0 top-0 z-10 flex h-full w-full items-center justify-center group-hover:text-white">
-              Sign In / Sign Up
-            </span>
-          </Link>
-        </nav>
+    <div className={`gx-hero${ready ? " gx-ready" : ""}`}>
+      <Navbar />
 
-        {/* ── HERO BODY ── */}
-        <div className="flex flex-col md:flex-row py-12 md:pt-16 justify-between px-4 md:px-8 gap-6">
-          {/* LEFT — text + CSS grid pattern */}
-          <div className="w-full md:w-1/2 shrink-0 relative">
-            {/* grid bg — scoped to this column */}
-            <div className="gx-grid-bg" />
-
-            {/* text content above the grid */}
-            <div style={{ position: "relative", zIndex: 1 }}>
-              <div
-                data-anim="accent-bar"
-                className="h-px  mt-14 "
-                style={{ width: "220px" }}
-              />
-
-              <h1 className="text-white text-4xl md:text-6xl font-extrabold leading-tight md:leading-[1.05] tracking-tighter mb-5">
-                {WORDS.map((word, i) => (
-                  <span
-                    key={i}
-                    data-anim={`word-${i}`}
-                    style={{ display: "inline-block", marginRight: "0.28em" }}
-                  >
-                    {word}
-                  </span>
-                ))}
-              </h1>
-
-              <p
-                data-anim="subtext"
-                className="text-[#666] leading-relaxed mb-8 max-w-[420px]"
-              >
-                Describe the insight you need. Upload your CSV if you want.
-                Graph AI handles the rest — intelligent chart selection, smart
-                styling, instant beauty
-              </p>
-
-              <a
-                data-anim="hero-cta"
-                href="#"
-                className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
-              >
-                INSTALL NOW
-              </a>
-            </div>
-          </div>
-
-          {/* RIGHT — cube
-              Taller + wider so spinning corners never get clipped.
-              overflow-visible so the canvas isn't masked by parent bounds. */}
-          <div
-            data-anim="cube"
-            className="shrink-0 relative w-full md:w-auto"
-            style={{
-              flex: "0 0 52%",
-              height: "min(560px, 65vh)",
-              overflow: "visible",
-            }}
-          >
-            <ThreeCube />
+      <div className="flex flex-col md:flex-row py-12 md:pt-16 justify-between px-4 md:px-8 gap-6">
+        {/* LEFT — text */}
+        <div className="w-full md:w-1/2 shrink-0 relative">
+          <div className="gx-grid-bg" />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div
+              data-anim="accent-bar"
+              className="h-px mt-14"
+              style={{ width: "220px" }}
+            />
+            <h1 className="text-white text-4xl md:text-6xl font-extrabold leading-tight md:leading-[1.05] tracking-tighter mb-5">
+              {WORDS.map((word, i) => (
+                <span
+                  key={i}
+                  data-anim={`word-${i}`}
+                  style={{ display: "inline-block", marginRight: "0.28em" }}
+                >
+                  {word}
+                </span>
+              ))}
+            </h1>
+            <p
+              data-anim="subtext"
+              className="text-[#666] leading-relaxed mb-8 max-w-[420px]"
+            >
+              Describe the insight you need. Upload your CSV if you want. Graph
+              AI handles the rest — intelligent chart selection, smart styling,
+              instant beauty.
+            </p>
+            <a
+              data-anim="hero-cta"
+              href="#"
+              className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
+            >
+              INSTALL NOW
+            </a>
           </div>
         </div>
+
+        {/* RIGHT — 3D cube */}
+        <div
+          data-anim="cube"
+          className="shrink-0 relative w-full md:w-auto"
+          style={{
+            flex: "0 0 52%",
+            height: "min(560px, 65vh)",
+            overflow: "visible",
+          }}
+        >
+          <ThreeCube />
+        </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,44 +1,54 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-const links = [
-  { href: "/", label: "Product" },
-  { href: "/docs", label: "Docs" },
-  { href: "/resources", label: "Resources" },
-  { href: "/about", label: "About" },
-];
+const NAV_LINKS = ["PRODUCT", "DOCS", "RESOURCES ▾", "ABOUT ▾"];
 
-export default function NavBar() {
-  const pathname = usePathname();
+export default function Navbar() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setReady(true)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   return (
-    <nav className="fixed  flex items-center justify-between px-12 h-16 bg-[rgba(9,11,14,0.88)] backdrop-blur-lg border-b border-[#1e2227]">
-      {/* Logo */}
-      <span className="font-syne font-extrabold text-[1.05rem] border border-white px-3 py-1 tracking-wide text-white">
+    <nav
+      data-anim="fade-down-nav"
+      className="relative z-20 flex items-center justify-between h-14 px-4 md:px-11 border-b border-x border-white/20"
+    >
+      <div
+        data-anim="logo-pop"
+        className="border-2 border-white px-2.5 py-0.5 text-white text-lg tracking-tight shrink-0"
+      >
         Graphix
-      </span>
+      </div>
 
-      {/* Links */}
-      <div className="hidden md:flex gap-10">
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            className={`text-[0.78rem] uppercase tracking-widest font-medium transition-colors duration-200 ${
-              pathname === l.href ? "text-white" : "text-[#6b7280] hover:text-white"
-            }`}
+      <div className="hidden md:flex items-center gap-9">
+        {NAV_LINKS.map((label, idx) => (
+          <a
+            key={label}
+            data-anim={`nav-${idx}`}
+            href="#"
+            className="text-white hover:text-white transition-colors duration-150 no-underline tracking-wider text-xs"
           >
-            {l.label}
-          </Link>
+            {label}
+          </a>
         ))}
       </div>
 
-      {/* CTA */}
-      <button className="border border-white px-4 py-[7px] text-[0.74rem] uppercase tracking-widest font-semibold text-white bg-transparent hover:bg-white hover:text-[#090b0e] transition-all duration-200">
-        Install Now
-      </button>
+      <Link
+        href="/auth/signin"
+        className="group relative min-h-[40px] hover:cursor-pointer rounded-xs w-40 overflow-hidden bg-white text-black shadow-2xl transition-all before:absolute before:left-0 before:top-0 before:h-0 before:w-1/4 before:bg-cyan-600 before:duration-500 after:absolute after:bottom-0 after:right-0 after:h-0 after:w-1/4 after:bg-cyan-600 after:duration-500 hover:text-white hover:before:h-full hover:after:h-full"
+      >
+        <span className="top-0 flex h-full w-full items-center justify-center before:absolute before:bottom-0 before:left-1/4 before:z-0 before:h-0 before:w-1/4 before:bg-cyan-600 before:duration-500 after:absolute after:right-1/4 after:top-0 after:z-0 after:h-0 after:w-1/4 after:bg-cyan-600 after:duration-500 hover:text-white group-hover:before:h-full group-hover:after:h-full" />
+        <span className="absolute bottom-0 left-0 right-0 top-0 z-10 flex h-full w-full items-center justify-center group-hover:text-white">
+          Sign In / Sign Up
+        </span>
+      </Link>
     </nav>
   );
 }

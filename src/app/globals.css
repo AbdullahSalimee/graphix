@@ -395,3 +395,14 @@ body {
           background: rgba(255,255,255,0.15);
           color: #fff;
         }
+
+
+          @keyframes spinLoader { to { transform: rotate(360deg); } }
+        .ib-spinner { animation: spinLoader 0.8s linear infinite; }
+        .ib-send-on { transition: box-shadow 0.15s ease, transform 0.1s ease; }
+        .ib-send-on:hover  { box-shadow: 0 2px 10px rgba(0,0,0,0.12); transform: translateY(-1px); }
+        .ib-send-on:active { transform: scale(0.93); }
+        .ib-attach svg { transition: transform 0.18s ease; }
+        .ib-attach:hover svg { transform: rotate(-15deg); }
+        .ib-input::placeholder { color: #a1a1aa; }
+        .ib-focused { border-color: #a1a1aa !important; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }

@@ -61,17 +61,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
 
   return (
     <>
-      <style>{`
-        @keyframes spinLoader { to { transform: rotate(360deg); } }
-        .ib-spinner { animation: spinLoader 0.8s linear infinite; }
-        .ib-send-on { transition: box-shadow 0.15s ease, transform 0.1s ease; }
-        .ib-send-on:hover  { box-shadow: 0 2px 10px rgba(0,0,0,0.12); transform: translateY(-1px); }
-        .ib-send-on:active { transform: scale(0.93); }
-        .ib-attach svg { transition: transform 0.18s ease; }
-        .ib-attach:hover svg { transform: rotate(-15deg); }
-        .ib-input::placeholder { color: #a1a1aa; }
-        .ib-focused { border-color: #a1a1aa !important; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
-      `}</style>
+     
 
       <div
         className="sticky bottom-0 z-10 bg-neutral-50/95 backdrop-blur-xl border-t border-neutral-200 px-3 md:px-5 pt-2 pb-2"
@@ -206,17 +196,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
           </div>
 
           {/* ── Hint row ── */}
-          <div className="flex items-center justify-between px-0.5">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.15)]" />
-              <span className="font-mono text-[9px] uppercase tracking-widest text-neutral-400">
-                Groq · llama-3.3-70b
-              </span>
-            </div>
-            <span className="font-mono text-[9px] text-neutral-300 hidden sm:block">
-              ↵ send
-            </span>
-          </div>
+        
         </div>
       </div>
     </>

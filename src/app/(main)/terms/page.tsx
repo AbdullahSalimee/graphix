@@ -104,23 +104,7 @@ export default function TermsPage() {
       `}</style>
 
       {/* ── NAV ── */}
-      <nav className="relative z-20 flex items-center justify-between px-8 py-5 border-b border-[#1e2227] bg-[rgba(9,11,14,0.85)] backdrop-blur-md">
-        <Link
-          href="/"
-          className="font-syne font-extrabold text-[1rem] text-white tracking-tight"
-        >
-          Graphix
-        </Link>
-        <div className="flex items-center gap-6 text-[0.78rem] text-[rgba(255,255,255,0.35)]">
-          <Link href="/privacy" className="hover:text-white transition-colors">
-            Privacy Policy
-          </Link>
-          <Link href="/feedback" className="hover:text-white transition-colors">
-            Feedback
-          </Link>
-        </div>
-      </nav>
-
+     
       {/* ── HERO ── */}
       <section className="relative z-10 px-8 pt-24 pb-20 max-w-[980px] mx-auto">
         <div

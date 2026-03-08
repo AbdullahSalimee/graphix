@@ -1,5 +1,7 @@
 // src/app/page.tsx
-import HeroFooterCTA from "@/components/landing/Footer";
+import CtaSection from "@/components/CtaSection";
+import CTA from "@/components/landing/CTA";
+import Footer from "@/components/landing/Footer";
 import Hero from "@/components/landing/Hero";
 import HowItWorks from "@/components/landing/HowItWorks";
 import PricingSection from "@/components/landing/Pricing";
@@ -12,7 +14,8 @@ export default function Home() {
       <HeroSection />
       <HowItWorks />
       <PricingSection />
-      <HeroFooterCTA/>
+      <CTA />    
+<Footer/>      
     </div>
   );
 }

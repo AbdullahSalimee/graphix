@@ -176,7 +176,7 @@ export default function GraphApp() {
 
   return (
     // graph-app-root prevents CSS bleed to landing page
-    <div className="graph-app-root fixed inset-0 bg-[#030810] overflow-hidden">
+    <div className="graph-app-root fixed inset-0 bg-[#030810] overflow-hidden ">
       {/* Plotly.js (loaded via CDN) */}
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
@@ -208,7 +208,7 @@ export default function GraphApp() {
         {/* Main content area */}
         <div className="main flex-1 flex flex-col min-w-0 relative">
           {/* Topbar (mobile menu + title) */}
-          <div className="topbar flex items-center gap-3 px-4 py-3 bg-[#070d1a]/65 backdrop-blur-xl border-b border-white/4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="topbar flex items-center gap-3 px-4 py-1 bg-white backdrop-blur-xl border-b border-[#111212]/20 pt-[max(0.75rem,env(safe-area-inset-top))]">
             {!sidebarOpen && (
               <button
                 className="icon-btn p-2 rounded-lg text-slate-600 hover:text-slate-300 transition-colors"

@@ -17,21 +17,20 @@ export default function Navbar() {
 
   return (
     <nav
-      data-anim="fade-down-nav"
-      className="relative z-20 flex items-center justify-between h-14 px-4 md:px-11 border-b border-x border-white/20"
+      className="relative z-20 flex items-center justify-between h-14 px-4 md:px-11 border-b border-x border-white/20 transition-all duration-700"
+      style={{
+        opacity: ready ? 1 : 0,
+        transform: ready ? "translateY(0)" : "translateY(-14px)",
+      }}
     >
-      <div
-        data-anim="logo-pop"
-        className="border-2 border-white px-2.5 py-0.5 text-white text-lg tracking-tight shrink-0"
-      >
+      <div className="border-2 border-white px-2.5 py-0.5 text-white text-lg tracking-tight shrink-0">
         Graphix
       </div>
 
       <div className="hidden md:flex items-center gap-9">
-        {NAV_LINKS.map((label, idx) => (
+        {NAV_LINKS.map((label) => (
           <a
             key={label}
-            data-anim={`nav-${idx}`}
             href="#"
             className="text-white hover:text-white transition-colors duration-150 no-underline tracking-wider text-xs"
           >

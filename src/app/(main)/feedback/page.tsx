@@ -10,12 +10,9 @@ export const metadata = {
 
 export default function FeedbackPage() {
   return (
-    <main className="bg-[#111212] text-white min-h-screen">
-      <NavBar />
-      <div className="pt-16 grid grid-cols-1">
+    <main className="text-white min-h-screen">
         {/* <FeedbackForm /> */}
         <FeedbackForm2 />
-      </div>
     </main>
   );
 }

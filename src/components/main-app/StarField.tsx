@@ -1,85 +1,75 @@
-// components/StarField.tsx
+// components/AnimatedBackground.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
-
-export default function StarField() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animationFrameId: number;
-
-    // Soft floating dust particles — subtle on light bg
-    const particles = Array.from({ length: 120 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      radius: Math.random() * 1.6 + 0.3,
-      speed: Math.random() * 0.08 + 0.015,
-      baseOpacity: Math.random() * 0.18 + 0.04,
-      pulseOffset: Math.random() * Math.PI * 2,
-      drift: (Math.random() - 0.5) * 0.12, // gentle horizontal drift
-    }));
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      particles.forEach((p) => {
-        p.x = Math.random() * canvas.width;
-        p.y = Math.random() * canvas.height;
-      });
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-
-    const draw = () => {
-      // Fade with warm off-white — matches neutral-50 bg
-      ctx.fillStyle = "rgba(247, 246, 244, 0.18)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const time = Date.now() / 2000;
-
-      particles.forEach((p) => {
-        const pulse =
-          Math.sin(time * p.speed * 10 + p.pulseOffset) * 0.35 + 0.65;
-        const opacity = p.baseOpacity * pulse;
-
-        // Soft warm-neutral dot
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(100, 94, 88, ${opacity})`;
-        ctx.fill();
-
-        // Drift particles slowly upward + sideways
-        p.y -= p.speed * 0.4;
-        p.x += p.drift;
-
-        // Wrap around
-        if (p.y < -4) p.y = canvas.height + 4;
-        if (p.x < -4) p.x = canvas.width + 4;
-        if (p.x > canvas.width + 4) p.x = -4;
-      });
-
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
+export default function AnimatedBackground() {
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 z-0 pointer-events-none bg-gradient-to-br from-neutral-100 via-neutral-50 to-stone-100"
-    />
+    <>
+      <style jsx global>{`
+        @keyframes slide {
+          0% {
+            transform: translateX(-25%);
+          }
+          100% {
+            transform: translateX(25%);
+          }
+        }
+
+        .bg-layer {
+          animation: slide 3s ease-in-out infinite alternate;
+          background-image: linear-gradient(-60deg, #ffffff, #ffffff 50%);
+          position: fixed;
+          inset: 0;
+          left: -50%;
+          right: -50%;
+          z-index: -2;
+          pointer-events: none;
+        }
+
+        /* light neutral layer */
+        .bg-layer:nth-child(2) {
+          animation-direction: alternate-reverse;
+          animation-duration: 4.2s;
+          background-image: linear-gradient(
+            -60deg,
+            rgba(243, 244, 246, 0.7) 50%,
+            /* gray-100 */ rgba(229, 231, 235, 0.7) 50% /* gray-200 */
+          );
+        }
+
+        /* deeper neutral layer */
+        .bg-layer:nth-child(3) {
+          animation-duration: 5.5s;
+          background-image: linear-gradient(
+            -60deg,
+            rgba(229, 231, 235, 0.5) 50%,
+            /* gray-200 */ rgba(209, 213, 219, 0.5) 50% /* gray-300 */
+          );
+        }
+
+        /* soft depth overlay */
+        .bg-overlay {
+          position: fixed;
+          inset: 0;
+          background: radial-gradient(
+            circle at 30% 70%,
+            rgba(0, 0, 0, 0.05) 0%,
+            transparent 60%
+          );
+          z-index: -1;
+          pointer-events: none;
+        }
+
+        .content-wrapper {
+          position: relative;
+          z-index: 1;
+          min-height: 100vh;
+        }
+      `}</style>
+
+      <div className="bg-layer" />
+      <div className="bg-layer" />
+      <div className="bg-layer" />
+      <div className="bg-overlay" />
+    </>
   );
 }

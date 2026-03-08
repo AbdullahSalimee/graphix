@@ -1,4 +1,3 @@
-import NavBar from "@/components/NavBar";
 import AboutHero from "@/components/about/AboutHero";
 import MissionSection from "@/components/about/MissionSection";
 import ValuesSection from "@/components/about/ValuesSection";
@@ -15,7 +14,6 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <main className="bg-[#111212] text-white">
-      <NavBar />
       <AboutHero />
       <MissionSection />
       <ValuesSection />

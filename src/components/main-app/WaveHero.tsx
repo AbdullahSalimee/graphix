@@ -1,591 +1,418 @@
 // components/ChartMorph.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
 
-// ── Static data ───────────────────────────────────────────────────────────────
-const DATA = [
-  { v: 0.38, color: "#60a5fa" },
-  { v: 0.71, color: "#34d399" },
-  { v: 0.52, color: "#f472b6" },
-  { v: 0.89, color: "#fbbf24" },
-  { v: 0.61, color: "#a78bfa" },
-  { v: 0.95, color: "#fb7185" },
-  { v: 0.44, color: "#38bdf8" },
-] as const;
+const BAR_COLORS = [
+  0x292524, 0x44403c, 0x57534e, 0x78716c, 0xa8a29e, 0xc4bfbb, 0xd6d3d1,
+];
+const DATA = [0.38, 0.71, 0.52, 0.89, 0.61, 0.95, 0.44];
+const SPACING = 0.82;
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const W = 240;
-const H = 160;
-const PX = 16;
-const PY = 14;
-const IW = W - PX * 2;
-const IH = H - PY * 2;
-const N = DATA.length;
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
-const ease = (t: number) =>
-  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-// ── Geometry helpers ──────────────────────────────────────────────────────────
-function bars(progress = 1) {
-  const bw = IW / N;
-  return DATA.map((d, i) => {
-    const h = IH * d.v * progress;
-    return {
-      x: PX + i * bw + bw * 0.12,
-      y: PY + IH - h,
-      w: bw * 0.76,
-      h,
-      cx: PX + i * bw + bw * 0.5,
-      color: d.color,
-    };
-  });
-}
-
-function linePoints() {
-  const bw = IW / (N - 1);
-  return DATA.map((d, i) => ({
-    x: PX + i * bw,
-    y: PY + IH * (1 - d.v),
-    color: d.color,
-  }));
-}
-
-function pieSlices(grow = 1) {
-  const cx = W / 2;
-  const cy = H / 2 + 2;
-  const r = Math.min(IW, IH) * 0.42 * grow;
-  const tot = DATA.reduce((s, d) => s + d.v, 0);
-  let a = -Math.PI / 2;
-  return DATA.map((d) => {
-    const sw = (d.v / tot) * Math.PI * 2;
-    const s = a;
-    a += sw;
-    return { cx, cy, r, s, e: a, color: d.color };
-  });
-}
-
-function arcPath({
-  cx,
-  cy,
-  r,
-  s,
-  e,
-}: {
-  cx: number;
-  cy: number;
-  r: number;
-  s: number;
-  e: number;
-}) {
-  if (r < 0.5) return "";
-  const x1 = cx + r * Math.cos(s);
-  const y1 = cy + r * Math.sin(s);
-  const x2 = cx + r * Math.cos(e);
-  const y2 = cy + r * Math.sin(e);
-  return `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${e - s > Math.PI ? 1 : 0} 1 ${x2},${y2}Z`;
-}
-
-function spline(pts: { x: number; y: number }[]) {
-  if (!pts.length) return "";
-  let d = `M${pts[0].x},${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    const p = pts[i - 1];
-    const c = pts[i];
-    const mx = (p.x + c.x) / 2;
-    d += ` C${mx},${p.y} ${mx},${c.y} ${c.x},${c.y}`;
-  }
-  return d;
-}
-
-// ── Isometric cube ────────────────────────────────────────────────────────────
-function iso(
-  x: number,
-  y: number,
-  z: number,
-  cx: number,
-  cy: number,
-  s: number,
-) {
-  const sx = (x - z) * Math.cos(Math.PI / 6) * s;
-  const sy = (x + z) * Math.sin(Math.PI / 6) * s - y * s;
-  return [cx + sx, cy + sy];
-}
-
-function cubeGeometry(cx: number, cy: number, angle: number, scale: number) {
-  const a = angle;
-  const cos = Math.cos(a);
-  const sin = Math.sin(a);
-  const pts3d = [
-    [-1, -1, -1],
-    [1, -1, -1],
-    [1, 1, -1],
-    [-1, 1, -1],
-    [-1, -1, 1],
-    [1, -1, 1],
-    [1, 1, 1],
-    [-1, 1, 1],
-  ].map(([x, y, z]) => [x * cos - z * sin, y, x * sin + z * cos]);
-
-  const p = pts3d.map(([x, y, z]) =>
-    iso(x as number, y as number, z as number, cx, cy, scale),
-  );
-
-  const pt = (ix: number) => `${p[ix][0].toFixed(2)},${p[ix][1].toFixed(2)}`;
-  const face = (indices: number[]) =>
-    "M" + indices.map((i) => pt(i)).join(" L") + "Z";
-
-  return [
-    {
-      d: face([0, 1, 5, 4]),
-      fill: "#38bdf8",
-      opacity: 0.08,
-      stroke: "#38bdf8",
-      sOpacity: 0.5,
-    },
-    {
-      d: face([0, 3, 7, 4]),
-      fill: "#a78bfa",
-      opacity: 0.06,
-      stroke: "#a78bfa",
-      sOpacity: 0.4,
-    },
-    {
-      d: face([1, 2, 6, 5]),
-      fill: "#34d399",
-      opacity: 0.06,
-      stroke: "#34d399",
-      sOpacity: 0.4,
-    },
-    {
-      d: face([3, 2, 6, 7]),
-      fill: "#60a5fa",
-      opacity: 0.18,
-      stroke: "#60a5fa",
-      sOpacity: 0.7,
-    },
-    {
-      d: face([0, 1, 2, 3]),
-      fill: "#f472b6",
-      opacity: 0.08,
-      stroke: "#f472b6",
-      sOpacity: 0.45,
-    },
-    {
-      d: face([4, 5, 6, 7]),
-      fill: "#fbbf24",
-      opacity: 0.12,
-      stroke: "#fbbf24",
-      sOpacity: 0.6,
-    },
-  ];
-}
-
-// ── Phase timing ──────────────────────────────────────────────────────────────
-const DUR = [1.4, 0.9, 1.4, 0.9, 1.4, 0.9, 1.8, 0.9];
-const TOTAL = DUR.reduce((a, b) => a + b, 0);
-
-// ── SVG Components ────────────────────────────────────────────────────────────
-function Bars({ prog = 1, alpha = 1 }: { prog?: number; alpha?: number }) {
-  return (
-    <g opacity={alpha}>
-      {bars(prog).map((b, i) => (
-        <g key={i}>
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height={b.h}
-            rx="1.5"
-            fill={DATA[i].color}
-            opacity="0.18"
-          />
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height={b.h}
-            rx="1.5"
-            fill="none"
-            stroke={DATA[i].color}
-            strokeWidth="1"
-            opacity="0.7"
-          />
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height="2.5"
-            rx="1"
-            fill={DATA[i].color}
-            opacity="1"
-          />
-          <rect
-            x={b.x}
-            y={b.y - 1}
-            width={b.w}
-            height="4"
-            rx="2"
-            fill={DATA[i].color}
-            opacity="0.35"
-            filter="blur(2px)"
-          />
-        </g>
-      ))}
-    </g>
-  );
-}
-
-function Line({ alpha = 1 }: { alpha?: number }) {
-  const pts = linePoints();
-  const pd = spline(pts);
-  const bot = PY + IH;
-  const area = pd + ` L${pts[pts.length - 1].x},${bot} L${pts[0].x},${bot}Z`;
-
-  return (
-    <g opacity={alpha}>
-      <path d={area} fill="url(#lf)" />
-      <path
-        d={pd}
-        fill="none"
-        stroke="#60a5fa"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r="4" fill={p.color} opacity="0.15" />
-          <circle cx={p.x} cy={p.y} r="2.5" fill={p.color} />
-          <circle cx={p.x} cy={p.y} r="1" fill="#fff" opacity="0.9" />
-        </g>
-      ))}
-    </g>
-  );
-}
-
-function Pie({ grow = 1, alpha = 1 }: { grow?: number; alpha?: number }) {
-  const slices = pieSlices(grow);
-  const { cx, cy, r } = slices[0] || { cx: W / 2, cy: H / 2, r: 0 };
-
-  return (
-    <g opacity={alpha}>
-      {slices.map((s, i) => (
-        <g key={i}>
-          <path d={arcPath(s)} fill={s.color} opacity="0.15" />
-          <path
-            d={arcPath(s)}
-            fill="none"
-            stroke={s.color}
-            strokeWidth="1.2"
-            opacity="0.8"
-          />
-        </g>
-      ))}
-      {grow > 0.2 && (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r * 0.38}
-          fill="none"
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth="1"
-        />
-      )}
-      {slices.map((s, i) => {
-        const mx = (s.s + s.e) / 2;
-        return (
-          <line
-            key={i}
-            x1={cx}
-            y1={cy}
-            x2={cx + s.r * Math.cos(mx)}
-            y2={cy + s.r * Math.sin(mx)}
-            stroke={s.color}
-            strokeWidth="0.5"
-            opacity="0.3"
-          />
-        );
-      })}
-    </g>
-  );
-}
-
-function Cube({
-  alpha = 1,
-  angle = 0,
-  scale = 1,
-}: {
-  alpha?: number;
-  angle?: number;
-  scale?: number;
-}) {
-  const cx = W / 2;
-  const cy = H / 2 - 2;
-  const faces = cubeGeometry(cx, cy, angle, 28 * scale);
-
-  return (
-    <g opacity={alpha}>
-      {faces.map((f, i) => (
-        <g key={i}>
-          <path d={f.d} fill={f.fill} opacity={f.opacity} />
-          <path
-            d={f.d}
-            fill="none"
-            stroke={f.stroke}
-            strokeWidth="0.9"
-            opacity={f.sOpacity}
-            strokeLinejoin="round"
-          />
-        </g>
-      ))}
-      <circle
-        cx={cx}
-        cy={cy}
-        r="2.5"
-        fill="#60a5fa"
-        opacity={0.4 * alpha}
-        filter="blur(2px)"
-      />
-    </g>
-  );
-}
-
-// ── Transition components ─────────────────────────────────────────────────────
-function BarToLine({ t }: { t: number }) {
-  const bs = bars(1);
-  const lp = linePoints();
-  const pts = lp.map((p, i) => ({
-    x: lerp(bs[i].cx, p.x, t),
-    y: lerp(bs[i].y, p.y, t),
-    color: p.color,
-  }));
-  const bot = PY + IH;
-  const pd = spline(pts);
-  const area = pd + ` L${pts[pts.length - 1].x},${bot} L${pts[0].x},${bot}Z`;
-
-  return (
-    <g>
-      {bs.map((b, i) => (
-        <g key={i} opacity={lerp(1, 0, t)}>
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height={b.h}
-            rx="1.5"
-            fill={DATA[i].color}
-            opacity="0.18"
-          />
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height={b.h}
-            rx="1.5"
-            fill="none"
-            stroke={DATA[i].color}
-            strokeWidth="1"
-            opacity="0.7"
-          />
-          <rect
-            x={b.x}
-            y={b.y}
-            width={b.w}
-            height="2.5"
-            rx="1"
-            fill={DATA[i].color}
-          />
-        </g>
-      ))}
-      <g opacity={ease(t)}>
-        <path d={area} fill="url(#lf)" />
-        <path
-          d={pd}
-          fill="none"
-          stroke="#60a5fa"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {pts.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r="2.5" fill={p.color} />
-            <circle cx={p.x} cy={p.y} r="1" fill="#fff" opacity="0.9" />
-          </g>
-        ))}
-      </g>
-    </g>
-  );
-}
-
-function LineToPie({ t }: { t: number }) {
-  return (
-    <g>
-      <g opacity={1 - ease(t)}>
-        <Line alpha={1} />
-      </g>
-      <g opacity={ease(t)}>
-        <Pie grow={t} alpha={1} />
-      </g>
-    </g>
-  );
-}
-
-function PieToCube({ t, cubeAngle }: { t: number; cubeAngle: number }) {
-  const et = ease(t);
-  return (
-    <g>
-      <g opacity={1 - et}>
-        <Pie grow={lerp(1, 0, et)} alpha={1} />
-      </g>
-      <g opacity={et}>
-        <Cube angle={cubeAngle} scale={et} alpha={1} />
-      </g>
-    </g>
-  );
-}
-
-function CubeToBar({ t, cubeAngle }: { t: number; cubeAngle: number }) {
-  const et = ease(t);
-  return (
-    <g>
-      <g opacity={1 - et}>
-        <Cube angle={cubeAngle} scale={1} alpha={1} />
-      </g>
-      <g opacity={et}>
-        <Bars prog={et} alpha={1} />
-      </g>
-    </g>
-  );
-}
-
-// ── Main content renderer ─────────────────────────────────────────────────────
-function Content({
-  phase,
-  pt,
-  cubeAngle,
-}: {
-  phase: number;
-  pt: number;
-  cubeAngle: number;
-}) {
-  if (phase === 0) return <Bars prog={1} />;
-  if (phase === 1) return <BarToLine t={pt} />;
-  if (phase === 2) return <Line />;
-  if (phase === 3) return <LineToPie t={pt} />;
-  if (phase === 4) return <Pie grow={1} />;
-  if (phase === 5) return <PieToCube t={pt} cubeAngle={cubeAngle} />;
-  if (phase === 6) return <Cube angle={cubeAngle} scale={1} alpha={1} />;
-  if (phase === 7) return <CubeToBar t={pt} cubeAngle={cubeAngle} />;
-  return null;
-}
-
-// ── Exported component ────────────────────────────────────────────────────────
-interface ChartMorphProps {
-  width?: number;
-  height?: number;
-  className?: string;
-}
-
-export default function ChartMorph({
-  width = 240,
-  height = 160,
-  className = "",
-}: ChartMorphProps) {
-  const [t, setT] = useState(0);
-  const t0 = useRef<number | null>(null);
-  const raf = useRef<number | null>(null);
+export default function ChartMorph({ className = "" }: { className?: string }) {
+  const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const tick = (ts: number) => {
-      if (!t0.current) t0.current = ts;
-      setT(((ts - t0.current) / 1000) % TOTAL);
-      raf.current = requestAnimationFrame(tick);
+    const el = mountRef.current;
+    if (!el) return;
+
+    // ── Renderer ──────────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(el.clientWidth, el.clientHeight);
+    renderer.setClearColor(0xfaf9f7, 1);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    el.appendChild(renderer.domElement);
+
+    // ── Scene & Camera ────────────────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      40,
+      el.clientWidth / el.clientHeight,
+      0.1,
+      100,
+    );
+    camera.position.set(5, 4, 7);
+    camera.lookAt(0, 1, 0);
+
+    // ── Fog ───────────────────────────────────────────────────────────────────
+    scene.fog = new THREE.Fog(0xfaf9f7, 14, 28);
+
+    // ── Lights ────────────────────────────────────────────────────────────────
+    scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+    sun.position.set(7, 12, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 40;
+    sun.shadow.camera.left = -10;
+    sun.shadow.camera.right = 10;
+    sun.shadow.camera.top = 10;
+    sun.shadow.camera.bottom = -10;
+    sun.shadow.bias = -0.001;
+    scene.add(sun);
+
+    scene.add(
+      Object.assign(new THREE.DirectionalLight(0xfff5e0, 0.5), {
+        position: new THREE.Vector3(-5, 3, -5),
+      }),
+    );
+
+    // ── Ground ────────────────────────────────────────────────────────────────
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(16, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xf5f3f0,
+        roughness: 1,
+        metalness: 0,
+      }),
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Grid lines
+    const grid = new THREE.GridHelper(12, 24, 0xe2deda, 0xe2deda);
+    (grid.material as THREE.LineBasicMaterial).transparent = true;
+    (grid.material as THREE.LineBasicMaterial).opacity = 0.7;
+    grid.position.y = 0.001;
+    scene.add(grid);
+
+    // ── Bar columns ───────────────────────────────────────────────────────────
+    const barGroup = new THREE.Group();
+    scene.add(barGroup);
+    const totalW = (DATA.length - 1) * SPACING;
+
+    type BarMesh = THREE.Mesh & { _targetH: number };
+
+    const bars: BarMesh[] = DATA.map((h, i) => {
+      const targetH = h * 3.4;
+      const geo = new THREE.BoxGeometry(0.52, 1, 0.52);
+      // Offset geometry so it grows from bottom
+      geo.translate(0, 0.5, 0);
+      const mat = new THREE.MeshStandardMaterial({
+        color: BAR_COLORS[i],
+        roughness: 0.5,
+        metalness: 0.04,
+      });
+      const mesh = new THREE.Mesh(geo, mat) as BarMesh;
+      mesh._targetH = targetH;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.position.x = i * SPACING - totalW / 2;
+      mesh.scale.y = 0.001;
+      barGroup.add(mesh);
+      return mesh;
+    });
+
+    // ── Wireframe sphere ──────────────────────────────────────────────────────
+    const sphereGeo = new THREE.IcosahedronGeometry(1.3, 4);
+    const sphereWire = new THREE.WireframeGeometry(sphereGeo);
+    const sphereMat = new THREE.LineBasicMaterial({
+      color: 0x44403c,
+      transparent: true,
+      opacity: 0,
+    });
+    const sphere = new THREE.LineSegments(sphereWire, sphereMat);
+    sphere.position.set(0, 1.8, 0);
+    scene.add(sphere);
+
+    // Solid inner sphere
+    const innerSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.9, 32, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0xf0ede9,
+        roughness: 0.9,
+        metalness: 0,
+      }),
+    );
+    innerSphere.position.copy(sphere.position);
+    innerSphere.scale.setScalar(0);
+    scene.add(innerSphere);
+
+    // ── Line chart dots + tube ────────────────────────────────────────────────
+    const lineGroup = new THREE.Group();
+    scene.add(lineGroup);
+    lineGroup.visible = false;
+
+    const linePts = DATA.map(
+      (h, i) =>
+        new THREE.Vector3(i * SPACING - totalW / 2, h * 2.6 + 0.15, -0.8),
+    );
+
+    const dotMeshes = linePts.map((pt) => {
+      const d = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 14, 14),
+        new THREE.MeshStandardMaterial({
+          color: 0x1c1917,
+          roughness: 0.3,
+          metalness: 0.1,
+        }),
+      );
+      d.position.copy(pt);
+      d.castShadow = true;
+      d.scale.setScalar(0);
+      lineGroup.add(d);
+      return d;
+    });
+
+    const curve = new THREE.CatmullRomCurve3(linePts);
+    const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.035, 8, false);
+    const tubeMat = new THREE.MeshStandardMaterial({
+      color: 0x292524,
+      roughness: 0.4,
+      transparent: true,
+      opacity: 0,
+    });
+    const tube = new THREE.Mesh(tubeGeo, tubeMat);
+    lineGroup.add(tube);
+
+    // Vertical drop lines from dots to ground
+    const dropLines = linePts.map((pt) => {
+      const pts2 = [
+        new THREE.Vector3(pt.x, 0, pt.z),
+        new THREE.Vector3(pt.x, pt.y, pt.z),
+      ];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts2);
+      const line = new THREE.Line(
+        geo,
+        new THREE.LineBasicMaterial({
+          color: 0xc4bfbb,
+          transparent: true,
+          opacity: 0,
+        }),
+      );
+      lineGroup.add(line);
+      return line.material as THREE.LineBasicMaterial;
+    });
+
+    // ── Phase engine ──────────────────────────────────────────────────────────
+    // 0: bars grow  1: bars idle  2: bars→line  3: line idle  4: line→sphere  5: sphere spin  6: sphere→bars
+    const PHASES = [1.2, 1.8, 1.0, 1.8, 1.0, 2.2, 1.0];
+    let phase = 0;
+    let phaseT = 0;
+
+    const easeInOut = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const clock = new THREE.Clock();
+
+    const animate = () => {
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      phaseT += delta / PHASES[phase];
+      if (phaseT >= 1) {
+        phaseT = 0;
+        phase = (phase + 1) % PHASES.length;
+      }
+
+      const t = easeInOut(Math.min(phaseT, 1));
+
+      // Slow camera drift
+      camera.position.x = 5 + Math.sin(time * 0.09) * 1.5;
+      camera.position.z = 7 + Math.cos(time * 0.07) * 1.0;
+      camera.lookAt(0, 1.2, 0);
+
+      // ── Phase 0: Bars grow ────────────────────────────────────────────────
+      if (phase === 0) {
+        barGroup.visible = true;
+        lineGroup.visible = false;
+        sphere.visible = false;
+        innerSphere.visible = false;
+        bars.forEach((b) => {
+          b.scale.y = Math.max(0.001, t * b._targetH);
+        });
+        sphereMat.opacity = 0;
+      }
+
+      // ── Phase 1: Bars idle ────────────────────────────────────────────────
+      if (phase === 1) {
+        barGroup.visible = true;
+        lineGroup.visible = false;
+        sphere.visible = false;
+        innerSphere.visible = false;
+        bars.forEach((b, i) => {
+          const bob = 1 + Math.sin(time * 1.4 + i * 0.8) * 0.025;
+          b.scale.y = b._targetH * bob;
+        });
+      }
+
+      // ── Phase 2: Bars → Line ──────────────────────────────────────────────
+      if (phase === 2) {
+        barGroup.visible = true;
+        lineGroup.visible = true;
+        sphere.visible = false;
+        innerSphere.visible = false;
+        bars.forEach((b) => {
+          b.scale.y = Math.max(0.001, b._targetH * (1 - t));
+        });
+        dotMeshes.forEach((d) => {
+          d.scale.setScalar(t);
+        });
+        tubeMat.opacity = Math.max(0, (t - 0.3) / 0.7);
+        dropLines.forEach((l) => {
+          l.opacity = Math.max(0, (t - 0.5) / 0.5);
+        });
+      }
+
+      // ── Phase 3: Line idle ────────────────────────────────────────────────
+      if (phase === 3) {
+        barGroup.visible = false;
+        lineGroup.visible = true;
+        sphere.visible = false;
+        innerSphere.visible = false;
+        dotMeshes.forEach((d, i) => {
+          d.scale.setScalar(1);
+          d.position.y = linePts[i].y + Math.sin(time * 1.1 + i * 0.7) * 0.06;
+        });
+        tubeMat.opacity = 1;
+        dropLines.forEach((l) => {
+          l.opacity = 0.35;
+        });
+      }
+
+      // ── Phase 4: Line → Sphere ────────────────────────────────────────────
+      if (phase === 4) {
+        barGroup.visible = false;
+        lineGroup.visible = true;
+        sphere.visible = true;
+        innerSphere.visible = true;
+        dotMeshes.forEach((d) => {
+          d.scale.setScalar(Math.max(0, 1 - t * 2));
+        });
+        tubeMat.opacity = Math.max(0, 1 - t);
+        dropLines.forEach((l) => {
+          l.opacity = Math.max(0, 0.35 * (1 - t));
+        });
+        sphereMat.opacity = t * 0.9;
+        innerSphere.scale.setScalar(t * 0.85);
+      }
+
+      // ── Phase 5: Sphere spin ──────────────────────────────────────────────
+      if (phase === 5) {
+        barGroup.visible = false;
+        lineGroup.visible = false;
+        sphere.visible = true;
+        innerSphere.visible = true;
+        sphereMat.opacity = 0.88;
+        sphere.rotation.y = time * 0.65;
+        sphere.rotation.x = Math.sin(time * 0.25) * 0.4;
+        innerSphere.rotation.y = -time * 0.3;
+        const pulse = 1 + Math.sin(time * 1.5) * 0.05;
+        sphere.scale.setScalar(pulse);
+        innerSphere.scale.setScalar(0.85 * pulse);
+      }
+
+      // ── Phase 6: Sphere → Bars ────────────────────────────────────────────
+      if (phase === 6) {
+        barGroup.visible = true;
+        lineGroup.visible = false;
+        sphere.visible = true;
+        innerSphere.visible = true;
+        sphereMat.opacity = Math.max(0, (1 - t) * 0.88);
+        innerSphere.scale.setScalar(Math.max(0, 0.85 * (1 - t)));
+        bars.forEach((b) => {
+          b.scale.y = Math.max(0.001, t * b._targetH);
+        });
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
     };
-    raf.current = requestAnimationFrame(tick);
+
+    const rafId = requestAnimationFrame(animate);
+
+    // ── Resize ────────────────────────────────────────────────────────────────
+    const onResize = () => {
+      if (!el) return;
+      camera.aspect = el.clientWidth / el.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(el.clientWidth, el.clientHeight);
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", onResize);
+      renderer.dispose();
+      if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
   }, []);
 
-  let phase = 0;
-  let pt = 0;
-  let acc = 0;
-  for (let i = 0; i < DUR.length; i++) {
-    if (t < acc + DUR[i]) {
-      phase = i;
-      pt = (t - acc) / DUR[i];
-      break;
-    }
-    acc += DUR[i];
-  }
-
-  const cubeAngle = (t / TOTAL) * Math.PI * 4;
-
   return (
     <div
-      className={`
-        flex flex-col items-center justify-center gap-8 w-full
-        ${className}
-      `}
+      className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}
     >
-      {/* Heading & description */}
-      <div className="text-center">
+      {/* Heading */}
+      <div className="text-center px-4">
         <h1
-          className={`
-            font-serif font-bold tracking-tight
-            text-4xl md:text-5xl lg:text-6xl
-            bg-gradient-to-r from-slate-200 via-slate-400 to-sky-400
-            bg-clip-text text-transparent
-          `}
+          className="font-black text-4xl md:text-5xl lg:text-6xl text-neutral-900 leading-none"
+          style={{ letterSpacing: "-0.035em" }}
         >
-          AI-Powered Data Visualization
+          AI-Powered
+          <br />
+          <span className="text-neutral-400">Data Visualization</span>
         </h1>
-
-        <p className="mt-3 text-slate-500 text-lg md:text-xl">
-          Describe your data in plain English. Get beautiful charts instantly.
+        <p className="mt-3 text-neutral-500 text-base font-medium">
+          Describe your data in plain English.{" "}
+          <span className="text-neutral-800 font-semibold">
+            Get beautiful charts instantly.
+          </span>
         </p>
 
-        {/* Feature chips */}
-        <div className="mt-6 flex flex-wrap gap-2 justify-center">
+        <div className="mt-5 flex flex-wrap gap-1.5 justify-center">
           {[
-            { icon: "📊", label: "Bar & Line" },
-            { icon: "🥧", label: "Pie & Donut" },
-            { icon: "🌡️", label: "Heatmaps" },
-            { icon: "✦", label: "3D Charts" },
-            { icon: "📁", label: "Upload CSV" },
-          ].map(({ icon, label }) => (
+            ["▬", "Bar & Line"],
+            ["◕", "Pie & Donut"],
+            ["▦", "Heatmaps"],
+            ["◈", "3D Charts"],
+            ["⊞", "Upload CSV"],
+          ].map(([icon, label]) => (
             <span
               key={label}
-              className={`
-                inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm
-                bg-sky-500/6 border border-sky-500/14 text-sky-800/90
-              `}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold font-mono bg-white border border-neutral-200 text-neutral-500 shadow-sm"
             >
-              <span className="text-base">{icon}</span>
+              <span className="text-neutral-400 text-[10px]">{icon}</span>
               {label}
             </span>
           ))}
         </div>
       </div>
 
-      {/* Morphing SVG */}
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="block overflow-visible w-full max-w-[240px] md:max-w-[320px] mx-auto"
-      >
-        <defs>
-          <linearGradient id="lf" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+      {/* Three.js canvas */}
+      <div className="relative w-full max-w-[500px] mx-auto">
+        {/* Corner ticks */}
+        {[
+          "top-0 left-0 border-t-2 border-l-2",
+          "top-0 right-0 border-t-2 border-r-2",
+          "bottom-0 left-0 border-b-2 border-l-2",
+          "bottom-0 right-0 border-b-2 border-r-2",
+        ].map((cls, i) => (
+          <div
+            key={i}
+            className={`absolute w-3 h-3 border-neutral-400 z-10 ${cls}`}
+          />
+        ))}
 
-        <Content phase={phase} pt={pt} cubeAngle={cubeAngle} />
-      </svg>
+        <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-neutral-100">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="w-2 h-2 rounded-full bg-neutral-200" />
+            ))}
+            <span className="ml-auto font-mono text-[8px] text-neutral-300 uppercase tracking-widest">
+              3D Preview
+            </span>
+          </div>
+          {/* Mount */}
+          <div ref={mountRef} className="w-full" style={{ height: "300px" }} />
+        </div>
+      </div>
     </div>
   );
 }

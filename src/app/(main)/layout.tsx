@@ -2,6 +2,7 @@
 // import { Geist, Geist_Mono } from "next/font/google";
 // import "./globals.css";
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -9,7 +10,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className=" mx-20 bg-[#111212]    border-b border-x  border-white/20">{children}</body>
+      <body className=" mx-20 bg-[#111212]    border-b border-x  border-white/20">
+        
+        
+        {children}</body>
     </html>
   );
 }

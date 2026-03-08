@@ -352,3 +352,46 @@ body {
           0%   { background-position: 0 0; }
           100% { background-position: 50px 50px; }
         }
+
+
+
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-8px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.25; }
+        }
+
+        .anim-slidein   { animation: slideIn 0.22s ease both; }
+        .anim-fadeup    { animation: fadeUp 0.2s ease both; }
+        .anim-pulse-dot { animation: pulseDot 2.4s ease infinite; }
+
+        .anim-delay-1 { animation-delay: 0.04s; }
+        .anim-delay-2 { animation-delay: 0.08s; }
+        .anim-delay-3 { animation-delay: 0.12s; }
+        .anim-delay-4 { animation-delay: 0.16s; }
+        .anim-delay-5 { animation-delay: 0.20s; }
+
+        .new-btn-arrow {
+          opacity: 0;
+          transform: translateX(-4px);
+          transition: opacity 0.15s ease, transform 0.15s ease;
+          margin-left: auto;
+        }
+        .new-btn:hover .new-btn-arrow {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        .new-btn-icon {
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .new-btn:hover .new-btn-icon {
+          background: rgba(255,255,255,0.15);
+          color: #fff;
+        }

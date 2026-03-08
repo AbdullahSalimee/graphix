@@ -1,9 +1,7 @@
-// components/ChartTypeSelector.tsx
 "use client";
 
 import { useState, useRef, useEffect, MouseEvent } from "react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface ChartSubtype {
   label: string;
   prompt: string | null;
@@ -12,10 +10,11 @@ interface ChartSubtype {
 interface ChartGroup {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   color: string;
   description: string;
   subtypes: ChartSubtype[];
+  noAiChoice?: boolean;
 }
 
 interface SelectedChart {
@@ -29,16 +28,173 @@ interface ChartTypeSelectorProps {
   onSelect: (selection: SelectedChart | null) => void;
 }
 
-// ── Full Chart Groups Data ────────────────────────────────────────────────────
+// ── SVG Icons — all neutral stroke, no fill ──────────────────────────────────
+const Icons = {
+  line: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 17 9 11 13 15 21 7" />
+    </svg>
+  ),
+  bar: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="12" width="4" height="9" rx="1" />
+      <rect x="10" y="7" width="4" height="14" rx="1" />
+      <rect x="17" y="3" width="4" height="18" rx="1" />
+    </svg>
+  ),
+  pie: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+      <path d="M22 12A10 10 0 0 0 12 2v10z" />
+    </svg>
+  ),
+  statistical: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="3" x2="12" y2="21" />
+      <path d="M8 7h8M9 12h6M10 17h4" />
+    </svg>
+  ),
+  histogram: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="9" width="4" height="12" rx="1" />
+      <rect x="7" y="5" width="4" height="16" rx="1" />
+      <rect x="12" y="3" width="4" height="18" rx="1" />
+      <rect x="17" y="7" width="4" height="14" rx="1" />
+    </svg>
+  ),
+  filled: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 18 Q8 6 12 10 Q16 14 21 4" />
+      <path d="M3 18 Q8 14 12 16 Q16 18 21 12" />
+    </svg>
+  ),
+  contour: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <ellipse cx="12" cy="12" rx="9" ry="4" />
+      <ellipse cx="12" cy="12" rx="6" ry="2.5" />
+      <circle cx="12" cy="12" r="1.5" />
+    </svg>
+  ),
+  scientific: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 3H5l7 18 7-18h-4" />
+      <line x1="5" y1="9" x2="19" y2="9" />
+    </svg>
+  ),
+  financial: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 7 8 2 14 8 21 3" />
+      <polyline points="3 17 8 12 14 18 21 13" />
+    </svg>
+  ),
+  threeD: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  ),
+};
+
 const CHART_GROUPS: ChartGroup[] = [
   {
     id: "line-scatter",
     label: "Line & Scatter",
-    icon: "〜",
-    color: "#38bdf8",
+    icon: Icons.line,
+    color: "#3b82f6",
     description: "Trends, correlations, time series",
+    noAiChoice: true,
     subtypes: [
-      { label: "AI Choice", prompt: null },
       { label: "Line & Scatter Plot", prompt: "Line and Scatter Plot" },
       {
         label: "Data Labels Hover",
@@ -53,10 +209,6 @@ const CHART_GROUPS: ChartGroup[] = [
         prompt: "Scatter Plot with a Color Dimension",
       },
       { label: "Grouped Scatter", prompt: "Grouped Scatter Plot" },
-      {
-        label: "Grouped Scatter Custom Gap",
-        prompt: "Grouped Scatter Plot with Custom Scatter Gap",
-      },
       { label: "Basic Line Plot", prompt: "Basic Line Plot" },
       { label: "Named Lines", prompt: "Adding Names to Line and Scatter Plot" },
       { label: "Stylized Line & Scatter", prompt: "Line and Scatter Stylized" },
@@ -74,8 +226,8 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "bar",
     label: "Bar Charts",
-    icon: "▐",
-    color: "#34d399",
+    icon: Icons.bar,
+    color: "#10b981",
     description: "Comparisons, rankings, categories",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -96,7 +248,6 @@ const CHART_GROUPS: ChartGroup[] = [
         label: "Custom Bar Colors",
         prompt: "Customizing Individual Bar Colors",
       },
-      { label: "Custom Bar Base", prompt: "Customizing Individual Bar Base" },
       { label: "Colored & Styled Bar", prompt: "Colored and Styled Bar Chart" },
       { label: "Relative Barmode", prompt: "Bar Chart with Relative Barmode" },
     ],
@@ -104,11 +255,11 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "pie-bubble",
     label: "Pie & Bubble",
-    icon: "◉",
-    color: "#f472b6",
+    icon: Icons.pie,
+    color: "#ec4899",
     description: "Proportions, distributions, sizes",
+    noAiChoice: true,
     subtypes: [
-      { label: "AI Choice", prompt: null },
       { label: "Basic Pie Chart", prompt: "Basic Pie Chart" },
       { label: "Donut Chart", prompt: "Donut Chart" },
       { label: "Bubble Chart", prompt: "bubble chart" },
@@ -128,8 +279,8 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "statistical",
     label: "Statistical",
-    icon: "σ",
-    color: "#fbbf24",
+    icon: Icons.statistical,
+    color: "#f59e0b",
     description: "Distributions, errors, outliers",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -137,7 +288,6 @@ const CHART_GROUPS: ChartGroup[] = [
       { label: "Bar with Error Bars", prompt: "Bar Chart with Error Bars" },
       { label: "Horizontal Error Bars", prompt: "Horizontal Error Bars" },
       { label: "Asymmetric Error Bars", prompt: "Asymmetric Error Bars" },
-      { label: "Styled Error Bars", prompt: "Colored and Styled Error Bars" },
       { label: "Basic Box Plot", prompt: "Basic Box Plot" },
       {
         label: "Box + Underlying Data",
@@ -153,8 +303,8 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "histogram",
     label: "Histograms",
-    icon: "⬛",
-    color: "#a78bfa",
+    icon: Icons.histogram,
+    color: "#8b5cf6",
     description: "Frequency, distribution, density",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -177,11 +327,11 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "filled-error",
     label: "Filled & Error",
-    icon: "≋",
-    color: "#fb7185",
+    icon: Icons.filled,
+    color: "#ef4444",
     description: "Confidence bands, filled areas",
+    noAiChoice: true,
     subtypes: [
-      { label: "AI Choice", prompt: null },
       { label: "Filled Lines", prompt: "Filled Lines" },
       {
         label: "Continuous Error Filled",
@@ -197,8 +347,8 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "contour-heat",
     label: "Contour & Heat",
-    icon: "◈",
-    color: "#22d3ee",
+    icon: Icons.contour,
+    color: "#06b6d4",
     description: "Density, intensity, 2D patterns",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -217,7 +367,7 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "scientific",
     label: "Scientific",
-    icon: "⬡",
+    icon: Icons.scientific,
     color: "#4ade80",
     description: "Ternary, parallel coords, log scales",
     subtypes: [
@@ -240,8 +390,8 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "financial",
     label: "Financial",
-    icon: "₿",
-    color: "#f59e0b",
+    icon: Icons.financial,
+    color: "#f97316",
     description: "Candlestick, waterfall, funnel, time series",
     subtypes: [
       { label: "AI Choice", prompt: null },
@@ -250,7 +400,6 @@ const CHART_GROUPS: ChartGroup[] = [
         label: "Multi-Category Waterfall",
         prompt: "Multi Category Waterfall Chart",
       },
-      { label: "Styled Waterfall", prompt: "Style Waterfall Chart" },
       { label: "Simple Candlestick", prompt: "Simple Candlestick Chart" },
       {
         label: "Candlestick No Slider",
@@ -260,15 +409,7 @@ const CHART_GROUPS: ChartGroup[] = [
         label: "Candlestick + Annotations",
         prompt: "Customise Candlestick Chart with Shapes and Annotations",
       },
-      {
-        label: "Candlestick + Rangeselector",
-        prompt: "Candlestick Charts Add Rangeselector",
-      },
       { label: "Basic Funnel", prompt: "Basic Funnel Plot" },
-      {
-        label: "Funnel + Marker Style",
-        prompt: "Funnel Plot Setting Marker Size and Color",
-      },
       { label: "Stacked Funnel", prompt: "Stacked Funnel" },
       {
         label: "Time Series + Rangeslider",
@@ -280,14 +421,13 @@ const CHART_GROUPS: ChartGroup[] = [
   {
     id: "3d",
     label: "3D Charts",
-    icon: "◆",
-    color: "#e879f9",
+    icon: Icons.threeD,
+    color: "#a855f7",
     description: "Three-dimensional visualizations",
     subtypes: [
       { label: "AI Choice", prompt: null },
       { label: "3D Scatter", prompt: "3D Scatter Plot" },
       { label: "Basic Ribbon Plot", prompt: "Basic Ribbon Plot" },
-      { label: "3D Ribbon Plot", prompt: "Basic Ribbon Plot 3d" },
       {
         label: "Topographical Surface",
         prompt: "Topographical 3D Surface Plot",
@@ -295,7 +435,6 @@ const CHART_GROUPS: ChartGroup[] = [
       { label: "Multiple 3D Surfaces", prompt: "Multiple 3D Surface Plots" },
       { label: "3D Mesh Plot", prompt: "Simple 3D Mesh Plot" },
       { label: "3D Line Chart", prompt: "3D line chart" },
-      { label: "3D Mesh Tetrahedron", prompt: "3D Mesh Tetrahedron" },
       { label: "3D Line Plot", prompt: "3D Line Plot" },
       { label: "3D Line + Markers", prompt: "3D Line + Markers Plot" },
       { label: "3D Line Spiral", prompt: "3D Line Spiral Plot" },
@@ -304,14 +443,12 @@ const CHART_GROUPS: ChartGroup[] = [
   },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export default function ChartTypeSelector({
   onSelect,
 }: ChartTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<ChartGroup | null>(null);
   const [selected, setSelected] = useState<SelectedChart | null>(null);
-
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -325,30 +462,11 @@ export default function ChartTypeSelector({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleGroupClick = (group: ChartGroup) => {
-    setActiveGroup(activeGroup?.id === group.id ? null : group);
-  };
-
   const handleSubSelect = (group: ChartGroup, sub: ChartSubtype) => {
     const sel: SelectedChart =
       sub.prompt === null
         ? { groupLabel: group.label, subLabel: "AI Choice", prompt: null }
         : { groupLabel: group.label, subLabel: sub.label, prompt: sub.prompt };
-
-    setSelected(sel);
-    onSelect(sel);
-    setOpen(false);
-    setActiveGroup(null);
-  };
-
-  const handleGroupDirectSelect = (group: ChartGroup, e: MouseEvent) => {
-    e.stopPropagation();
-    const sel: SelectedChart = {
-      groupLabel: group.label,
-      subLabel: "AI Choice",
-      prompt: null,
-      group: group.id,
-    };
     setSelected(sel);
     onSelect(sel);
     setOpen(false);
@@ -361,30 +479,27 @@ export default function ChartTypeSelector({
     onSelect(null);
   };
 
+  const selectedGroup = CHART_GROUPS.find(
+    (g) => g.label === selected?.groupLabel,
+  );
+
   return (
     <div ref={ref} className="relative inline-block">
-      {/* Trigger Button */}
+      {/* Trigger */}
       <button
         onClick={() => {
-          setOpen((prev) => !prev);
+          setOpen((p) => !p);
           setActiveGroup(null);
         }}
-        className={`
-          flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-lg
-          transition-all duration-150 whitespace-nowrap flex-shrink-0
-          ${
-            selected
-              ? "bg-sky-500/10 border border-sky-500/35 text-sky-400"
-              : "bg-white/3 border border-white/7 text-slate-600 hover:text-slate-300 hover:bg-white/5"
-          }
-        `}
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
+          selected
+            ? "bg-neutral-100 border border-neutral-300 text-neutral-700"
+            : "bg-transparent border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
+        }`}
       >
         {selected ? (
           <>
-            <span className="text-base">
-              {CHART_GROUPS.find((g) => g.label === selected.groupLabel)
-                ?.icon ?? "⬡"}
-            </span>
+            <span className="text-neutral-400">{selectedGroup?.icon}</span>
             <span className="max-w-[90px] truncate">
               {selected.subLabel === "AI Choice"
                 ? selected.groupLabel
@@ -392,16 +507,42 @@ export default function ChartTypeSelector({
             </span>
             <span
               onClick={clearSelection}
-              className="ml-0.5 opacity-60 hover:opacity-90 cursor-pointer text-sm"
+              className="ml-0.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
             >
               ✕
             </span>
           </>
         ) : (
           <>
-            <span className="text-lg">⬡</span>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-neutral-400"
+            >
+              <rect x="3" y="12" width="4" height="9" rx="1" />
+              <rect x="10" y="7" width="4" height="14" rx="1" />
+              <rect x="17" y="3" width="4" height="18" rx="1" />
+            </svg>
             <span>Chart Type</span>
-            <span className="text-xs opacity-50 ml-0.5">▾</span>
+            <svg
+              width="9"
+              height="9"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-neutral-300"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </>
         )}
       </button>
@@ -409,170 +550,145 @@ export default function ChartTypeSelector({
       {/* Dropdown */}
       {open && (
         <div
-          className={`
-            absolute bottom-full left-0 z-[9999] w-[620px] max-w-[calc(100vw-2rem)]
-            bg-gradient-to-br from-[#070d1a] to-[#050b14] border border-sky-500/15
-            rounded-xl shadow-[0_-20px_60px_rgba(0,0,0,0.7),0_0_0_1px_rgba(56,189,248,0.05)]
-            overflow-hidden animate-[dropUp_0.18s_cubic-bezier(0.16,1,0.3,1)_both]
-          `}
+          className="absolute bottom-full left-0 z-[9999] w-[600px] max-w-[calc(100vw-2rem)] bg-white border border-neutral-200 rounded-2xl shadow-xl overflow-hidden"
+          style={{ animation: "dropUp 0.15s cubic-bezier(0.16,1,0.3,1) both" }}
         >
-          {/* Keyframes */}
-          <style jsx global>{`
+          <style>{`
             @keyframes dropUp {
-              from {
-                opacity: 0;
-                transform: translateY(8px) scale(0.98);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-              }
+              from { opacity: 0; transform: translateY(6px) scale(0.98); }
+              to   { opacity: 1; transform: translateY(0) scale(1); }
             }
             @keyframes slideIn {
-              from {
-                opacity: 0;
-                transform: translateX(-6px);
-              }
-              to {
-                opacity: 1;
-                transform: translateX(0);
-              }
+              from { opacity: 0; transform: translateX(-4px); }
+              to   { opacity: 1; transform: translateX(0); }
             }
           `}</style>
 
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-            <span className="text-xs text-slate-600 font-mono tracking-wider uppercase">
+          <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+            <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
               Select Chart Type
             </span>
-            <span className="text-xs text-slate-800">
+            <span className="text-xs text-neutral-300">
               {CHART_GROUPS.length} categories ·{" "}
-              {CHART_GROUPS.reduce((sum, g) => sum + g.subtypes.length - 1, 0)}{" "}
+              {CHART_GROUPS.reduce(
+                (s, g) =>
+                  s + g.subtypes.filter((st) => st.prompt !== null).length,
+                0,
+              )}{" "}
               types
             </span>
           </div>
 
-          <div className="flex h-[320px]">
-            {/* Left column - Groups */}
-            <div className="w-[200px] flex-shrink-0 border-r border-white/4 overflow-y-auto py-2">
+          <div className="flex h-[300px]">
+            {/* Left — groups */}
+            <div className="w-[190px] flex-shrink-0 border-r border-neutral-100 overflow-y-auto py-1.5">
               {CHART_GROUPS.map((group) => (
-                <div
+                <button
                   key={group.id}
-                  onClick={() => handleGroupClick(group)}
-                  className={`
-                    flex items-center justify-between px-4 py-2.5 cursor-pointer transition-all duration-150
-                    border-l-2
-                    ${
-                      activeGroup?.id === group.id
-                        ? "bg-sky-500/7 border-l-[var(--group-color)]"
-                        : "hover:bg-white/3 border-l-transparent"
-                    }
-                  `}
-                  style={
-                    { "--group-color": group.color } as React.CSSProperties
+                  onClick={() =>
+                    setActiveGroup(activeGroup?.id === group.id ? null : group)
                   }
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 transition-all duration-100 border-l-2 text-left ${
+                    activeGroup?.id === group.id
+                      ? "bg-neutral-50 border-l-neutral-400"
+                      : "border-l-transparent hover:bg-neutral-50"
+                  }`}
                 >
-                  <div className="flex items-center gap-3.5">
+                  <div className="flex items-center gap-3">
                     <span
-                      className="text-xl w-[18px] text-center"
-                      style={{
-                        color: group.color,
-                        filter: `drop-shadow(0 0 4px ${group.color}55)`,
-                      }}
+                      className={`flex-shrink-0 ${activeGroup?.id === group.id ? "text-neutral-600" : "text-neutral-300"}`}
                     >
                       {group.icon}
                     </span>
                     <div>
                       <div
-                        className={`text-xs font-medium ${
-                          activeGroup?.id === group.id
-                            ? "text-slate-200"
-                            : "text-slate-500"
-                        }`}
+                        className={`text-xs font-medium ${activeGroup?.id === group.id ? "text-neutral-800" : "text-neutral-500"}`}
                       >
                         {group.label}
                       </div>
-                      <div className="text-[0.62rem] text-slate-700 mt-0.5">
-                        {group.subtypes.length - 1} types
+                      <div className="text-[10px] text-neutral-300 mt-0.5">
+                        {group.subtypes.filter((s) => s.prompt !== null).length}{" "}
+                        types
                       </div>
                     </div>
                   </div>
-                  <span
-                    className="text-xs transition-transform duration-150"
-                    style={{
-                      color:
-                        activeGroup?.id === group.id ? group.color : "#1e3a5f",
-                      transform:
-                        activeGroup?.id === group.id ? "rotate(90deg)" : "none",
-                    }}
+                  <svg
+                    className={`transition-transform duration-150 flex-shrink-0 ${activeGroup?.id === group.id ? "rotate-90" : ""}`}
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#d1d5db"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    ▶
-                  </span>
-                </div>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
               ))}
             </div>
 
-            {/* Right column - Subtypes or placeholder */}
-            <div className="flex-1 overflow-y-auto p-2">
+            {/* Right — subtypes */}
+            <div className="flex-1 overflow-y-auto p-2.5">
               {!activeGroup ? (
-                <div className="h-full flex flex-col items-center justify-center gap-3 opacity-40">
-                  <div className="text-5xl">⬡</div>
-                  <div className="text-slate-500 text-xs text-center leading-relaxed">
+                <div className="h-full flex flex-col items-center justify-center gap-2 text-neutral-300">
+                  <span className="text-neutral-200">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="12" width="4" height="9" rx="1" />
+                      <rect x="10" y="7" width="4" height="14" rx="1" />
+                      <rect x="17" y="3" width="4" height="18" rx="1" />
+                    </svg>
+                  </span>
+                  <span className="text-xs text-center leading-relaxed">
                     Select a category
                     <br />
-                    to see chart subtypes
-                  </div>
+                    to see chart types
+                  </span>
                 </div>
               ) : (
-                <div className="animate-[slideIn_0.15s_ease_both]">
-                  {/* Group header */}
-                  <div className="px-2 py-3 mb-1 border-b border-white/4">
-                    <div
-                      className="text-xs font-mono tracking-wide mb-1"
-                      style={{ color: activeGroup.color }}
-                    >
-                      {activeGroup.icon} {activeGroup.label.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {activeGroup.description}
+                <div style={{ animation: "slideIn 0.12s ease both" }}>
+                  <div className="px-1 pb-2.5 mb-1 border-b border-neutral-100 flex items-center gap-2">
+                    <span className="text-neutral-400">{activeGroup.icon}</span>
+                    <div>
+                      <div className="text-xs font-semibold text-neutral-700">
+                        {activeGroup.label}
+                      </div>
+                      <div className="text-[11px] text-neutral-400">
+                        {activeGroup.description}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Subtypes grid */}
-                  <div className="grid grid-cols-2 gap-0.5">
+                  <div className="grid grid-cols-2 gap-1">
                     {activeGroup.subtypes.map((sub, i) => (
                       <button
                         key={i}
                         onClick={() => handleSubSelect(activeGroup, sub)}
-                        className={`
-                          text-left px-3 py-2 rounded-lg transition-all duration-100 text-xs
-                          ${
-                            sub.prompt === null
-                              ? "col-span-2 bg-[rgba(var(--group-rgb),0.06)] border border-[rgba(var(--group-rgb),0.2)] text-[var(--group-color)] font-medium"
-                              : "bg-white/2 border border-transparent hover:bg-sky-500/8 hover:text-slate-200"
-                          }
-                        `}
-                        style={
-                          {
-                            "--group-rgb": hexToRgb(activeGroup.color),
-                            "--group-color": activeGroup.color,
-                          } as React.CSSProperties
-                        }
+                        className={`text-left px-3 py-2 rounded-lg transition-all duration-100 text-xs border ${
+                          sub.prompt === null
+                            ? "col-span-2 border-neutral-200 bg-neutral-50 text-neutral-600 font-medium hover:bg-neutral-100"
+                            : "border-transparent text-neutral-500 hover:bg-neutral-50 hover:border-neutral-200 hover:text-neutral-800"
+                        }`}
                       >
                         {sub.prompt === null ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-base">✦</span>
+                            <span className="text-neutral-400">✦</span>
                             Let AI choose the best {activeGroup.label} type
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span
-                              className="w-1 h-1 rounded-full flex-shrink-0"
-                              style={{
-                                backgroundColor: activeGroup.color,
-                                opacity: 0.6,
-                              }}
-                            />
+                            <span className="w-1 h-1 rounded-full bg-neutral-300 flex-shrink-0" />
                             {sub.label}
                           </div>
                         )}
@@ -585,16 +701,16 @@ export default function ChartTypeSelector({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-white/4 flex items-center justify-between text-xs">
-            <span className="text-slate-800">
-              Click category → pick type → AI will generate that exact chart
+          <div className="px-4 py-2.5 border-t border-neutral-100 flex items-center justify-between">
+            <span className="text-[11px] text-neutral-300">
+              Select category → pick type → AI generates it
             </span>
             <button
               onClick={() => {
                 setOpen(false);
                 setActiveGroup(null);
               }}
-              className="text-slate-700 hover:text-slate-400 transition-colors"
+              className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
             >
               Close ✕
             </button>
@@ -603,12 +719,4 @@ export default function ChartTypeSelector({
       )}
     </div>
   );
-}
-
-// ── Helper ────────────────────────────────────────────────────────────────────
-function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r},${g},${b}`;
 }

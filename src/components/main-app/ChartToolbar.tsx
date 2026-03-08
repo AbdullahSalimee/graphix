@@ -1,4 +1,3 @@
-// components/ChartToolbar.tsx
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -43,12 +42,118 @@ const PALETTES = [
 ] as const;
 
 const CONVERT_TYPES = [
-  { id: "bar", label: "Bar", icon: "▐" },
-  { id: "line", label: "Line", icon: "〜" },
-  { id: "pie", label: "Pie", icon: "◉" },
-  { id: "scatter", label: "Scatter", icon: "⁙" },
-  { id: "area", label: "Area", icon: "△" },
-  { id: "histogram", label: "Histogram", icon: "⬛" },
+  {
+    id: "bar",
+    label: "Bar",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <rect x="3" y="12" width="4" height="9" rx="1" />
+        <rect x="10" y="7" width="4" height="14" rx="1" />
+        <rect x="17" y="3" width="4" height="18" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    id: "line",
+    label: "Line",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <polyline points="3 17 9 11 13 15 21 7" />
+      </svg>
+    ),
+  },
+  {
+    id: "pie",
+    label: "Pie",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+        <path d="M22 12A10 10 0 0 0 12 2v10z" />
+      </svg>
+    ),
+  },
+  {
+    id: "scatter",
+    label: "Scatter",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <circle cx="7" cy="17" r="2" />
+        <circle cx="17" cy="7" r="2" />
+        <circle cx="7" cy="7" r="2" />
+        <circle cx="17" cy="17" r="2" />
+      </svg>
+    ),
+  },
+  {
+    id: "area",
+    label: "Area",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <polyline points="3 18 9 10 13 14 21 6" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </svg>
+    ),
+  },
+  {
+    id: "histogram",
+    label: "Histo",
+    icon: (
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <rect x="2" y="9" width="4" height="12" rx="1" />
+        <rect x="7" y="5" width="4" height="16" rx="1" />
+        <rect x="12" y="3" width="4" height="18" rx="1" />
+        <rect x="17" y="7" width="4" height="14" rx="1" />
+      </svg>
+    ),
+  },
 ] as const;
 
 const EXPORT_FORMATS = ["PNG", "SVG", "JPEG"] as const;
@@ -58,9 +163,11 @@ type ConvertType = (typeof CONVERT_TYPES)[number];
 
 interface ChartToolbarProps {
   divRef: React.RefObject<PlotlyHTMLElement | null>;
+  cardRef: React.RefObject<HTMLDivElement | null>;
   message: any;
 }
 
+// ── Portal popup — flies out to the LEFT of the toolbar ─────────────────────
 function PortalPopup({
   anchorRef,
   open,
@@ -75,7 +182,7 @@ function PortalPopup({
   useEffect(() => {
     if (!open || !anchorRef.current) return;
     const r = anchorRef.current.getBoundingClientRect();
-    setPos({ top: r.top - 8, left: r.left + r.width / 2 });
+    setPos({ top: r.top + r.height / 2, left: r.left - 10 });
   }, [open, anchorRef]);
 
   if (!open || !pos) return null;
@@ -83,11 +190,11 @@ function PortalPopup({
   return createPortal(
     <div
       onMouseDown={(e) => e.stopPropagation()}
-      className="fixed z-[99999] min-w-[200px] pointer-events-auto bg-[#080e1c]/98 border border-sky-500/22 rounded-xl p-2.5 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.7),0_0_0_1px_rgba(56,189,248,0.05)]"
+      className="fixed z-[99999] min-w-[200px] pointer-events-auto bg-white border border-neutral-200 rounded-xl p-3 shadow-lg"
       style={{
         top: `${pos.top}px`,
         left: `${pos.left}px`,
-        transform: "translate(-50%, -100%)",
+        transform: "translate(-100%, -50%)",
       }}
     >
       {children}
@@ -96,6 +203,7 @@ function PortalPopup({
   );
 }
 
+// ── Tooltip — flies to the LEFT ──────────────────────────────────────────────
 function Tip({
   children,
   label,
@@ -113,7 +221,7 @@ function Tip({
       onMouseEnter={() => {
         if (!ref.current) return;
         const r = ref.current.getBoundingClientRect();
-        setPos({ top: r.top - 6, left: r.left + r.width / 2 });
+        setPos({ top: r.top + r.height / 2, left: r.left - 8 });
       }}
       onMouseLeave={() => setPos(null)}
     >
@@ -121,11 +229,11 @@ function Tip({
       {pos &&
         createPortal(
           <div
-            className="fixed pointer-events-none z-[99999] px-2.5 py-1 text-xs rounded bg-[#080e1a]/97 border border-sky-500/18 text-slate-400 whitespace-nowrap tracking-wide"
+            className="fixed pointer-events-none z-[99999] px-2 py-1 text-xs rounded-md bg-neutral-800 text-white whitespace-nowrap"
             style={{
               top: `${pos.top}px`,
               left: `${pos.left}px`,
-              transform: "translate(-50%, -100%)",
+              transform: "translate(-100%, -50%)",
             }}
           >
             {label}
@@ -137,28 +245,63 @@ function Tip({
 }
 
 function Divider() {
-  return <div className="w-px h-[22px] bg-white/7 flex-shrink-0 mx-0.5" />;
+  return <div className="w-6 h-px bg-white/10 flex-shrink-0 my-0.5" />;
 }
 
 function PopLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-slate-600 text-[0.65rem] tracking-wider uppercase mb-2 px-0.5">
+    <div className="text-neutral-400 text-[0.65rem] tracking-wider uppercase mb-2 px-0.5">
       {children}
     </div>
   );
 }
 
-export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
+// ── Toolbar icon button ──────────────────────────────────────────────────────
+function TBtn({
+  active,
+  onClick,
+  children,
+  label,
+  disabled,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Tip label={label}>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 disabled:opacity-40 ${
+          active
+            ? "bg-white text-neutral-900 shadow-sm border border-white/20"
+            : "text-white/40 hover:text-white hover:bg-white/10 border border-transparent"
+        }`}
+      >
+        {children}
+      </button>
+    </Tip>
+  );
+}
+
+export default function ChartToolbar({
+  divRef,
+  cardRef,
+  message,
+}: ChartToolbarProps) {
   const [activePalette, setActivePalette] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [gridOn, setGridOn] = useState(true);
   const [legendOn, setLegendOn] = useState(true);
-  const [bgDark, setBgDark] = useState(true);
+  const [bgDark, setBgDark] = useState(false); // card starts white (light)
+  const [labelOn, setLabelOn] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [activeConvert, setActiveConvert] = useState<string | null>(null);
-  const [labelOn, setLabelOn] = useState(false);
 
   const convertBtnRef = useRef<HTMLDivElement>(null);
   const paletteBtnRef = useRef<HTMLDivElement>(null);
@@ -181,7 +324,7 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
     return () => document.removeEventListener("click", handleClick);
   }, [closeAll]);
 
-  // ── Chart mutations ──────────────────────────────────────────────────────
+  // ── Chart mutations ────────────────────────────────────────────────────────
   const applyPalette = (palette: Palette) => {
     if (!divRef.current || !("Plotly" in window)) return;
     setActivePalette(palette.id);
@@ -216,25 +359,82 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
   };
 
   const toggleBg = () => {
-    if (!divRef.current || !("Plotly" in window)) return;
+    if (!cardRef.current) return;
     const n = !bgDark;
     setBgDark(n);
-    window.Plotly.relayout(divRef.current, {
-      paper_bgcolor: n ? "rgba(0,0,0,0)" : "rgba(255,255,255,0.04)",
-      plot_bgcolor: n ? "rgba(0,0,0,0)" : "rgba(255,255,255,0.03)",
-    } as any);
+    if (n) {
+      // switching TO dark
+      cardRef.current.style.background = "#111212";
+      cardRef.current.style.borderColor = "rgba(255,255,255,0.08)";
+      if (divRef.current && "Plotly" in window) {
+        window.Plotly.relayout(divRef.current, {
+          "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "xaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "yaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "font.color": "rgba(255,255,255,0.7)",
+        } as any);
+      }
+    } else {
+      // switching back TO light
+      cardRef.current.style.background = "#ffffff";
+      cardRef.current.style.borderColor = "#e5e7eb";
+      if (divRef.current && "Plotly" in window) {
+        window.Plotly.relayout(divRef.current, {
+          "xaxis.tickfont": { color: "#666" },
+          "yaxis.tickfont": { color: "#666" },
+          "xaxis.gridcolor": "rgba(0,0,0,0.08)",
+          "yaxis.gridcolor": "rgba(0,0,0,0.08)",
+          "font.color": "#333",
+        } as any);
+      }
+    }
   };
 
   const toggleLabels = () => {
     if (!divRef.current || !("Plotly" in window)) return;
     const n = !labelOn;
     setLabelOn(n);
-    (divRef.current.data ?? []).forEach((_: any, i: number) => {
-      const update: any = {
-        textposition: [n ? "outside" : "none"],
-        textinfo: [n ? "label+percent" : "label"],
-      };
-      window.Plotly.restyle(divRef.current!, update, [i]);
+    (divRef.current.data ?? []).forEach((trace: any, i: number) => {
+      const isPie = trace.type === "pie" || trace.type === "donut";
+      if (isPie) {
+        window.Plotly.restyle(
+          divRef.current!,
+          {
+            textinfo: n ? "label+percent" : "none",
+          } as any,
+          [i],
+        );
+      } else {
+        if (n) {
+          // turn ON — show Y values above bars/points
+          const vals = (trace.y ?? []).map((v: any) =>
+            v !== null && v !== undefined ? String(v) : "",
+          );
+          window.Plotly.restyle(
+            divRef.current!,
+            {
+              text: vals,
+              texttemplate: "%{y}",
+              textposition: "outside",
+              textfont: { size: 10, color: "#555" },
+              cliponaxis: false,
+            } as any,
+            [i],
+          );
+        } else {
+          // turn OFF — clear everything
+          window.Plotly.restyle(
+            divRef.current!,
+            {
+              text: [null],
+              texttemplate: "",
+              textposition: "none",
+            } as any,
+            [i],
+          );
+        }
+      }
     });
   };
 
@@ -290,41 +490,50 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
     } as any);
   };
 
-  const currentPalette = activePalette
-    ? (PALETTES.find((p) => p.id === activePalette) ?? PALETTES[0])
-    : PALETTES[0];
+  const currentPalette =
+    PALETTES.find((p) => p.id === activePalette) ?? PALETTES[0];
 
   return (
-    <div className="w-full bg-gradient-to-r from-[#080e1a]/97 to-[#0a1220]/97 border-t border-sky-500/8 rounded-b-xl px-3 py-2 flex items-center gap-1.5 overflow-x-auto overflow-y-visible scrollbar-hide">
-      {/* Convert */}
-      <div ref={convertBtnRef} className="flex-shrink-0">
-        <Tip label="Convert chart type">
-          <button
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${showConvert ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-            onClick={() => {
-              closeAll();
-              setShowConvert((v) => !v);
-            }}
+    // ── Vertical pill, right side of chart ──────────────────────────────────
+    <div className="absolute -right-11 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-0.5 bg-[#111212] border border-white/8 rounded-xl px-1 py-1.5 shadow-sm">
+      {/* Convert chart type */}
+      <div ref={convertBtnRef}>
+        <TBtn
+          active={showConvert}
+          label="Convert chart type"
+          onClick={() => {
+            closeAll();
+            setShowConvert((v) => !v);
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <span className="text-base">⇄</span>
-            <span>Convert</span>
-            {activeConvert && (
-              <span className="text-sky-400 text-[0.65rem] opacity-80">
-                •{activeConvert}
-              </span>
-            )}
-          </button>
-        </Tip>
-        <PortalPopup anchorRef={convertBtnRef} open={showConvert}>
+            <path d="M7 16V4m0 0L3 8m4-4 4 4" />
+            <path d="M17 8v12m0 0 4-4m-4 4-4-4" />
+          </svg>
+        </TBtn>
+        <PortalPopup anchorRef={convertBtnRef as any} open={showConvert}>
           <PopLabel>Switch Chart Type</PopLabel>
           <div className="grid grid-cols-3 gap-1.5">
             {CONVERT_TYPES.map((type) => (
               <button
                 key={type.id}
                 onClick={() => convertChart(type)}
-                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 text-xs rounded-lg transition-all duration-150 ${activeConvert === type.id ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-400 hover:bg-white/6"}`}
+                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 text-xs rounded-lg transition-all border ${
+                  activeConvert === type.id
+                    ? "bg-neutral-900 text-white border-neutral-900"
+                    : "text-neutral-500 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300"
+                }`}
               >
-                <span className="text-lg">{type.icon}</span>
+                {type.icon}
                 <span>{type.label}</span>
               </button>
             ))}
@@ -332,55 +541,60 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
         </PortalPopup>
       </div>
 
-      <Divider />
-
-      {/* Colors */}
-      <div ref={paletteBtnRef} className="flex-shrink-0">
-        <Tip label="Change color palette">
+      {/* Color palette */}
+      <div ref={paletteBtnRef}>
+        <Tip label="Color palette">
           <button
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${showPalette ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
             onClick={() => {
               closeAll();
               setShowPalette((v) => !v);
             }}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${
+              showPalette
+                ? "bg-white/15 border-white/20"
+                : "border-transparent hover:bg-white/10"
+            }`}
           >
-            <span className="flex gap-0.5 items-center">
+            <div className="grid grid-cols-2 gap-[2.5px]">
               {currentPalette.colors.slice(0, 4).map((c, i) => (
                 <span
                   key={i}
-                  className="w-1.5 h-1.5 rounded-full"
+                  className="w-[7px] h-[7px] rounded-sm"
                   style={{ backgroundColor: c }}
                 />
               ))}
-            </span>
-            <span>Colors</span>
+            </div>
           </button>
         </Tip>
-        <PortalPopup anchorRef={paletteBtnRef} open={showPalette}>
+        <PortalPopup anchorRef={paletteBtnRef as any} open={showPalette}>
           <PopLabel>Color Palette</PopLabel>
           <div className="flex flex-col gap-1.5">
             {PALETTES.map((palette) => (
               <button
                 key={palette.id}
                 onClick={() => applyPalette(palette)}
-                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg transition-all duration-150 ${activePalette === palette.id ? "bg-sky-500/10 border border-sky-500/30" : "bg-white/2 border border-white/6 hover:bg-white/5"}`}
+                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg transition-all border ${
+                  activePalette === palette.id
+                    ? "bg-neutral-50 border-neutral-300"
+                    : "bg-white border-neutral-100 hover:bg-neutral-50"
+                }`}
               >
                 <div className="flex gap-0.5">
                   {palette.colors.map((c, i) => (
                     <span
                       key={i}
-                      className="w-3.5 h-3.5 rounded border border-white/5"
+                      className="w-3.5 h-3.5 rounded"
                       style={{ backgroundColor: c }}
                     />
                   ))}
                 </div>
                 <span
-                  className={`text-xs ${activePalette === palette.id ? "text-sky-400" : "text-slate-500"}`}
+                  className={`text-xs font-medium ${activePalette === palette.id ? "text-neutral-900" : "text-neutral-500"}`}
                 >
                   {palette.label}
                 </span>
                 {activePalette === palette.id && (
-                  <span className="ml-auto text-sky-400 text-xs">✓</span>
+                  <span className="ml-auto text-neutral-900 text-xs">✓</span>
                 )}
               </button>
             ))}
@@ -391,192 +605,164 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
       <Divider />
 
       {/* Grid */}
-      <Tip label={gridOn ? "Hide grid" : "Show grid"}>
-        <button
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${gridOn ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-          onClick={toggleGrid}
+      <TBtn
+        active={gridOn}
+        label={gridOn ? "Hide grid" : "Show grid"}
+        onClick={toggleGrid}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-          </svg>
-          <span>Grid</span>
-        </button>
-      </Tip>
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+      </TBtn>
 
       {/* Legend */}
-      <Tip label={legendOn ? "Hide legend" : "Show legend"}>
-        <button
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${legendOn ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-          onClick={toggleLegend}
+      <TBtn
+        active={legendOn}
+        label={legendOn ? "Hide legend" : "Show legend"}
+        onClick={toggleLegend}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="3" y1="6" x2="9" y2="6" />
-            <circle cx="6" cy="6" r="2" fill="currentColor" />
-            <line x1="3" y1="12" x2="9" y2="12" />
-            <circle cx="6" cy="12" r="2" fill="currentColor" />
-            <line x1="3" y1="18" x2="9" y2="18" />
-            <circle cx="6" cy="18" r="2" fill="currentColor" />
-            <line x1="12" y1="6" x2="21" y2="6" />
-            <line x1="12" y1="12" x2="21" y2="12" />
-            <line x1="12" y1="18" x2="21" y2="18" />
-          </svg>
-          <span>Legend</span>
-        </button>
-      </Tip>
+          <line x1="3" y1="6" x2="9" y2="6" />
+          <circle cx="6" cy="6" r="2" fill="currentColor" />
+          <line x1="3" y1="12" x2="9" y2="12" />
+          <circle cx="6" cy="12" r="2" fill="currentColor" />
+          <line x1="3" y1="18" x2="9" y2="18" />
+          <circle cx="6" cy="18" r="2" fill="currentColor" />
+          <line x1="12" y1="6" x2="21" y2="6" />
+          <line x1="12" y1="12" x2="21" y2="12" />
+          <line x1="12" y1="18" x2="21" y2="18" />
+        </svg>
+      </TBtn>
 
       {/* Labels */}
-      <Tip label={labelOn ? "Hide data labels" : "Show data labels"}>
-        <button
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${labelOn ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-          onClick={toggleLabels}
+      <TBtn
+        active={labelOn}
+        label={labelOn ? "Hide labels" : "Show labels"}
+        onClick={toggleLabels}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-            <line x1="7" y1="7" x2="7.01" y2="7" />
-          </svg>
-          <span>Labels</span>
-        </button>
-      </Tip>
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+          <line x1="7" y1="7" x2="7.01" y2="7" />
+        </svg>
+      </TBtn>
 
-      {/* Background */}
-      <Tip label={bgDark ? "Light background" : "Dark background"}>
-        <button
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${!bgDark ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-          onClick={toggleBg}
+      {/* Background toggle */}
+      <TBtn
+        active={bgDark}
+        label={bgDark ? "Switch to light bg" : "Switch to dark bg"}
+        onClick={toggleBg}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="12" cy="12" r="5" />
-            <line x1="12" y1="1" x2="12" y2="3" />
-            <line x1="12" y1="21" x2="12" y2="23" />
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-            <line x1="1" y1="12" x2="3" y2="12" />
-            <line x1="21" y1="12" x2="23" y2="12" />
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-          </svg>
-          <span>{bgDark ? "Light" : "Dark"}</span>
-        </button>
-      </Tip>
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+      </TBtn>
 
       <Divider />
 
-      {/* Reset */}
-      <Tip label="Reset zoom & pan">
-        <button
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"
-          onClick={resetZoom}
+      {/* Reset zoom */}
+      <TBtn active={false} label="Reset zoom & pan" onClick={resetZoom}>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-          <span>Reset</span>
-        </button>
-      </Tip>
-
-      <Divider />
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+      </TBtn>
 
       {/* Export */}
-      <div ref={exportBtnRef} className="flex-shrink-0">
-        <Tip label="Export chart">
-          <button
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap disabled:opacity-60 ${showExport ? "bg-sky-500/13 border border-sky-500/35 text-sky-400" : "bg-white/3 border border-white/7 text-slate-500 hover:text-slate-300"}`}
-            onClick={() => {
-              closeAll();
-              setShowExport((v) => !v);
-            }}
-            disabled={downloading}
-          >
-            {downloading ? (
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                className="animate-spin"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            ) : (
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            )}
-            <span>{downloading ? "Exporting…" : "Export"}</span>
+      <div ref={exportBtnRef}>
+        <TBtn
+          active={showExport}
+          label="Export chart"
+          onClick={() => {
+            closeAll();
+            setShowExport((v) => !v);
+          }}
+          disabled={downloading}
+        >
+          {downloading ? (
             <svg
-              width="9"
-              height="9"
+              width="13"
+              height="13"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
+              className="animate-spin"
             >
-              <polyline points="6 9 12 15 18 9" />
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
             </svg>
-          </button>
-        </Tip>
-        <PortalPopup anchorRef={exportBtnRef} open={showExport}>
+          ) : (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          )}
+        </TBtn>
+        <PortalPopup anchorRef={exportBtnRef as any} open={showExport}>
           <PopLabel>Export As</PopLabel>
           <div className="flex flex-col gap-1">
             {EXPORT_FORMATS.map((fmt) => (
               <button
                 key={fmt}
                 onClick={() => download(fmt)}
-                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 justify-start bg-white/3 border border-white/7 text-slate-400 hover:bg-white/6"
+                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs font-medium rounded-lg border border-neutral-100 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-200 transition-all"
               >
                 <svg
-                  width="12"
-                  height="12"
+                  width="11"
+                  height="11"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -592,8 +778,6 @@ export default function ChartToolbar({ divRef, message }: ChartToolbarProps) {
           </div>
         </PortalPopup>
       </div>
-
-      
     </div>
   );
 }

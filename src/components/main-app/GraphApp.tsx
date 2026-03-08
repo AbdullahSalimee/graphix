@@ -1,4 +1,3 @@
-// app/page.tsx  or  components/GraphApp.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -9,7 +8,6 @@ import StarField from "./StarField";
 import WaveHero from "./WaveHero";
 import { createConversation } from "./conversations";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface Message {
   id: string;
   from: "user" | "ai";
@@ -27,7 +25,6 @@ interface Conversation {
 
 const INITIAL_CONV = createConversation();
 
-// ── Main App ──────────────────────────────────────────────────────────────────
 export default function GraphApp() {
   const [conversations, setConversations] = useState<Conversation[]>([
     INITIAL_CONV,
@@ -38,7 +35,6 @@ export default function GraphApp() {
 
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Auto-open sidebar on desktop only
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth >= 640) {
       setSidebarOpen(true);
@@ -46,6 +42,7 @@ export default function GraphApp() {
   }, []);
 
   const activeConv = conversations.find((c) => c.id === activeId);
+  const hasMessages = (activeConv?.messages?.length ?? 0) > 0;
 
   const updateMessages = useCallback(
     (convId: string, updater: Message[] | ((prev: Message[]) => Message[])) => {
@@ -54,13 +51,11 @@ export default function GraphApp() {
           if (c.id !== convId) return c;
           const messages =
             typeof updater === "function" ? updater(c.messages) : updater;
-
           const firstUser = messages.find((m) => m.from === "user");
           const newTitle = firstUser
             ? firstUser.content.slice(0, 30) +
               (firstUser.content.length > 30 ? "…" : "")
             : c.title;
-
           return { ...c, messages, title: newTitle };
         }),
       );
@@ -72,7 +67,6 @@ export default function GraphApp() {
     const hasEmpty = conversations.some(
       (c) => c.title === "New conversation" && c.messages.length === 0,
     );
-
     if (hasEmpty) {
       const empty = conversations.find(
         (c) => c.title === "New conversation" && c.messages.length === 0,
@@ -83,8 +77,6 @@ export default function GraphApp() {
       setConversations((prev) => [c, ...prev]);
       setActiveId(c.id);
     }
-
-    // Close sidebar on mobile after new chat
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setSidebarOpen(false);
     }
@@ -97,7 +89,6 @@ export default function GraphApp() {
     }
   };
 
-  // Auto-scroll chat to bottom when messages change
   useEffect(() => {
     if (chatRef.current) {
       setTimeout(() => {
@@ -125,7 +116,6 @@ export default function GraphApp() {
       hasFile: !!fileContent,
       fileName,
     };
-
     const aiMsg: Message = {
       id: crypto.randomUUID(),
       from: "ai",
@@ -142,14 +132,11 @@ export default function GraphApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: input, fileContent }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Server error ${res.status}`);
       }
-
       const config = await res.json();
-
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
           m.id === aiMsg.id ? { ...m, content: config, status: "success" } : m,
@@ -172,21 +159,15 @@ export default function GraphApp() {
     }
   };
 
-  const hasMessages = (activeConv?.messages?.length ?? 0) > 0;
-
   return (
-    // graph-app-root prevents CSS bleed to landing page
-    <div className="graph-app-root fixed inset-0 bg-[#030810] overflow-hidden ">
-      {/* Plotly.js (loaded via CDN) */}
+    <div className="graph-app-root fixed inset-0 bg-[#030810] overflow-hidden">
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
         async
       />
-
       <StarField />
 
       <div className="app-shell flex h-dvh relative z-10 font-sans">
-        {/* Mobile backdrop */}
         {sidebarOpen && (
           <div
             className="sidebar-backdrop fixed inset-0 z-[9] bg-black/55 backdrop-blur-sm sm:hidden"
@@ -194,7 +175,6 @@ export default function GraphApp() {
           />
         )}
 
-        {/* Sidebar */}
         {sidebarOpen && (
           <Sidebar
             conversations={conversations}
@@ -205,38 +185,43 @@ export default function GraphApp() {
           />
         )}
 
-        {/* Main content area */}
         <div className="main flex-1 flex flex-col min-w-0 relative">
-          {/* Topbar (mobile menu + title) */}
-          <div className="topbar flex items-center gap-3 px-4 py-1 bg-white backdrop-blur-xl border-b border-[#111212]/20 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          {/* Topbar */}
+          <div className="topbar flex items-center gap-3 px-4 py-2 bg-white backdrop-blur-xl border-b border-[#111212]/20 ">
             {!sidebarOpen && (
               <button
-                className="icon-btn p-2 rounded-lg text-slate-600 hover:text-slate-300 transition-colors"
+                className="icon-btn p-2 rounded-lg text-[#111212] hover:text-slate-300 transition-colors"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open sidebar"
               >
                 <MenuIcon />
               </button>
             )}
-            <span className="topbar-title text-slate-500 text-sm font-medium truncate flex-1">
+            <span className="topbar-title text-black text-sm font-medium truncate flex-1">
               {activeConv?.title || "Graph AI"}
             </span>
           </div>
 
-          {/* Chat messages area */}
+          {/* Chat / Hero area */}
           <div
             ref={chatRef}
-            className="chat-area flex-1 overflow-y-auto overscroll-contain py-5 px-4 md:px-6 scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent"
+            className="chat-area flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent"
           >
             {!hasMessages ? (
-              <WaveHero />
+              // ── EMPTY STATE: centered hero WITH its own input ──
+              <WaveHero onSend={handleSend} isLoading={isLoading} />
             ) : (
-              <ChatArea messages={activeConv?.messages ?? []} />
+              // ── HAS MESSAGES: normal chat + sticky bottom InputBar ──
+              <div className="py-5 px-4 md:px-6">
+                <ChatArea messages={activeConv?.messages ?? []} />
+              </div>
             )}
           </div>
 
-          {/* Input bar (sticky bottom) */}
-          <InputBar onSend={handleSend} isLoading={isLoading} />
+          {/* InputBar only shown after first message */}
+          {hasMessages && (
+            <InputBar onSend={handleSend} isLoading={isLoading} />
+          )}
         </div>
       </div>
     </div>

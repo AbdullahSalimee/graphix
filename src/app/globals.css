@@ -69,7 +69,7 @@ body {
 /* Make scrollbars thin + match dark theme everywhere */
 * {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #1e3a5f transparent; /* Firefox thumb + track */
+  scrollbar-color: #ffffff transparent; /* Firefox thumb + track */
 }
 
 /* Webkit browsers (Chrome, Safari, Edge) */

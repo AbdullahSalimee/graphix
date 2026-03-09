@@ -127,11 +127,11 @@ export default function ChatArea({ messages }: ChatAreaProps) {
         >
           {msg.from === "user" ? (
             <div className="flex justify-end">
-              <div className="max-w-[75%] bg-cyan-300 border border-white rounded-2xl rounded-tr-sm px-4 py-2.5">
+              <div className="max-w-[85%] sm:max-w-[75%] bg-cyan-300 border border-white rounded-2xl rounded-tr-sm px-3 py-2 sm:px-4 sm:py-2.5">
                 {msg.hasFile && (
                   <div className="mb-1.5 flex items-center gap-1.5 text-neutral-400 text-xs">
                     <span>📎</span>
-                    <span className="font-mono">
+                    <span className="font-mono truncate max-w-[180px]">
                       {msg.fileName || "Attached file"}
                     </span>
                   </div>
@@ -157,6 +157,7 @@ function ChartBlock({ message }: ChartBlockProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const rendered = useRef(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [toolbarOpen, setToolbarOpen] = useState(false);
 
   useEffect(() => {
     if (message.status !== "success" || rendered.current || !divRef.current)
@@ -307,7 +308,6 @@ function ChartBlock({ message }: ChartBlockProps) {
 
   return (
     <>
-      {/* Editor modal */}
       {editorOpen && (
         <ChartEditor
           message={message}
@@ -321,14 +321,32 @@ function ChartBlock({ message }: ChartBlockProps) {
         className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-visible w-full"
       >
         {/* Card header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2 h-2 rounded-full bg-neutral-300" />
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-2 h-2 rounded-full bg-neutral-300 flex-shrink-0" />
             <span className="text-neutral-500 text-xs font-medium tracking-wide truncate">
               {chartTitle}
             </span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* On mobile: show only PNG, on desktop show all 3 */}
+            <button
+              onClick={() => {
+                if (!divRef.current || !("Plotly" in window)) return;
+                const name = chartTitle
+                  .replace(/[^a-z0-9]/gi, "_")
+                  .toLowerCase();
+                window.Plotly.downloadImage(divRef.current, {
+                  format: "png",
+                  width: 1400,
+                  height: 800,
+                  filename: name,
+                });
+              }}
+              className="text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all bg-neutral-900 text-white sm:hidden"
+            >
+              PNG
+            </button>
             {(["SVG", "CSV", "PNG"] as const).map((fmt, i) => (
               <button
                 key={fmt}
@@ -344,28 +362,267 @@ function ChartBlock({ message }: ChartBlockProps) {
                     filename: name,
                   });
                 }}
-                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all ${i === 2 ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"}`}
+                className={`hidden sm:block text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all ${i === 2 ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"}`}
               >
                 {fmt}
               </button>
             ))}
+            {/* Mobile toolbar toggle */}
+            <button
+              onClick={() => setToolbarOpen((v) => !v)}
+              className="sm:hidden w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-900 text-white ml-1"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Plotly */}
+        {/* Plotly chart */}
         <div
           ref={divRef}
-          className="w-full h-[320px] md:h-[380px] lg:h-[440px] px-2"
+          className="w-full h-[260px] sm:h-[320px] md:h-[380px] lg:h-[440px] px-1 sm:px-2"
         />
 
-        {/* Toolbar — NOW includes the open-editor arrow button */}
-        <ChartToolbar
-          divRef={divRef}
-          cardRef={cardRef}
-          message={message}
-          onOpenEditor={() => setEditorOpen(true)}
-        />
+        {/* Mobile inline toolbar (shown below chart when toggled) */}
+        {toolbarOpen && (
+          <div className="sm:hidden border-t border-neutral-100 px-3 py-2.5 bg-neutral-50 rounded-b-2xl">
+            <MobileToolbarInline
+              divRef={divRef}
+              cardRef={cardRef}
+              message={message}
+              onOpenEditor={() => {
+                setToolbarOpen(false);
+                setTimeout(() => setEditorOpen(true), 0);
+              }}
+              onClose={() => setToolbarOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Desktop toolbar (floating on right) */}
+        <div className="hidden sm:block">
+          <ChartToolbar
+            divRef={divRef}
+            cardRef={cardRef}
+            message={message}
+            onOpenEditor={() => setEditorOpen(true)}
+          />
+        </div>
       </div>
     </>
+  );
+}
+
+// Inline mobile toolbar that appears below the chart
+function MobileToolbarInline({
+  divRef,
+  cardRef,
+  message,
+  onOpenEditor,
+  onClose,
+}: {
+  divRef: React.RefObject<PlotlyHTMLElement | null>;
+  cardRef: React.RefObject<HTMLDivElement | null>;
+  message: any;
+  onOpenEditor: () => void;
+  onClose: () => void;
+}) {
+  const [gridOn, setGridOn] = useState(true);
+  const [legendOn, setLegendOn] = useState(true);
+  const [bgDark, setBgDark] = useState(false);
+  const [labelOn, setLabelOn] = useState(false);
+
+  const toggleGrid = () => {
+    if (!divRef.current || !("Plotly" in window)) return;
+    const n = !gridOn;
+    setGridOn(n);
+    window.Plotly.relayout(divRef.current, {
+      "xaxis.showgrid": n,
+      "yaxis.showgrid": n,
+      "xaxis.zeroline": n,
+      "yaxis.zeroline": n,
+    } as any);
+  };
+  const toggleLegend = () => {
+    if (!divRef.current || !("Plotly" in window)) return;
+    const n = !legendOn;
+    setLegendOn(n);
+    window.Plotly.relayout(divRef.current, { showlegend: n } as any);
+  };
+  const toggleBg = () => {
+    if (!cardRef.current) return;
+    const n = !bgDark;
+    setBgDark(n);
+    if (n) {
+      cardRef.current.style.background = "#111212";
+      cardRef.current.style.borderColor = "rgba(255,255,255,0.08)";
+      if (divRef.current && "Plotly" in window) {
+        window.Plotly.relayout(divRef.current, {
+          "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "xaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "yaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "font.color": "rgba(255,255,255,0.7)",
+        } as any);
+      }
+    } else {
+      cardRef.current.style.background = "#ffffff";
+      cardRef.current.style.borderColor = "#e5e7eb";
+      if (divRef.current && "Plotly" in window) {
+        window.Plotly.relayout(divRef.current, {
+          "xaxis.tickfont": { color: "#666" },
+          "yaxis.tickfont": { color: "#666" },
+          "xaxis.gridcolor": "rgba(0,0,0,0.08)",
+          "yaxis.gridcolor": "rgba(0,0,0,0.08)",
+          "font.color": "#333",
+        } as any);
+      }
+    }
+  };
+  const resetZoom = () => {
+    if (!divRef.current || !("Plotly" in window)) return;
+    window.Plotly.relayout(divRef.current, {
+      "xaxis.autorange": true,
+      "yaxis.autorange": true,
+    } as any);
+  };
+
+  const actions = [
+    {
+      label: "Edit",
+      icon: (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
+        </svg>
+      ),
+      onClick: onOpenEditor,
+      active: false,
+      accent: true,
+    },
+    {
+      label: gridOn ? "Grid ✓" : "Grid",
+      icon: (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+      ),
+      onClick: toggleGrid,
+      active: gridOn,
+    },
+    {
+      label: legendOn ? "Legend ✓" : "Legend",
+      icon: (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <line x1="3" y1="6" x2="9" y2="6" />
+          <circle cx="6" cy="6" r="2" fill="currentColor" />
+          <line x1="3" y1="12" x2="9" y2="12" />
+          <circle cx="6" cy="12" r="2" fill="currentColor" />
+          <line x1="12" y1="6" x2="21" y2="6" />
+          <line x1="12" y1="12" x2="21" y2="12" />
+        </svg>
+      ),
+      onClick: toggleLegend,
+      active: legendOn,
+    },
+    {
+      label: bgDark ? "Dark ✓" : "Dark",
+      icon: (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+        </svg>
+      ),
+      onClick: toggleBg,
+      active: bgDark,
+    },
+    {
+      label: "Reset",
+      icon: (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+      ),
+      onClick: resetZoom,
+      active: false,
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+      {actions.map((a) => (
+        <button
+          key={a.label}
+          onClick={a.onClick}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
+            a.accent
+              ? "bg-cyan-500 text-white"
+              : a.active
+                ? "bg-neutral-900 text-white"
+                : "bg-white border border-neutral-200 text-neutral-600"
+          }`}
+        >
+          {a.icon}
+          {a.label}
+        </button>
+      ))}
+    </div>
   );
 }

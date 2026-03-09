@@ -187,17 +187,17 @@ export default function GraphApp() {
 
         <div className="main flex-1 flex flex-col min-w-0 relative">
           {/* Topbar */}
-          <div className="topbar flex items-center gap-3 px-4 py-2 bg-white backdrop-blur-xl  border-b border-[#111212]/20 ">
+          <div className="topbar flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-white backdrop-blur-xl border-b border-[#111212]/20">
             {!sidebarOpen && (
               <button
-                className="icon-btn p-2 rounded-lg text-[#111212] hover:text-slate-300 transition-colors"
+                className="icon-btn p-2 rounded-lg text-[#111212] hover:text-slate-300 transition-colors flex-shrink-0"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open sidebar"
               >
                 <MenuIcon />
               </button>
             )}
-            <span className="topbar-title text-black text-sm font-medium truncate flex-1">
+            <span className="topbar-title text-black text-sm font-medium truncate flex-1 min-w-0">
               {activeConv?.title || "Graph AI"}
             </span>
           </div>
@@ -208,11 +208,9 @@ export default function GraphApp() {
             className="chat-area flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent"
           >
             {!hasMessages ? (
-              // ── EMPTY STATE: centered hero WITH its own input ──
               <WaveHero onSend={handleSend} isLoading={isLoading} />
             ) : (
-              // ── HAS MESSAGES: normal chat + sticky bottom InputBar ──
-              <div className="py-5 px-4 md:px-6">
+              <div className="py-3 sm:py-5 px-2 sm:px-4 md:px-6">
                 <ChatArea messages={activeConv?.messages ?? []} />
               </div>
             )}

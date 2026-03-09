@@ -59,30 +59,28 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
   const canSend = !!input.trim() && !isLoading;
 
   return (
-    <div className="flex flex-col items-center justify-center h-full  px-4 gap-8">
-      {/* Logo + Title — Grok style */}
-      <div className="flex flex-col items-center gap-4">
-       <img src="/logo.png" alt=""  className="h-14 animate-pulse"/>
-
+    <div className="flex flex-col items-center justify-center h-full px-3 sm:px-4 gap-6 sm:gap-8 py-8">
+      {/* Logo + Title */}
+      <div className="flex flex-col items-center gap-3 sm:gap-4">
+        <img src="/logo.png" alt="" className="h-10 sm:h-14 animate-pulse" />
         <div className="text-center">
-          <h1 className="text-2xl md:text-7xl  tracking-tighter font-bold text-white   py-1 rounded-lg leading-none">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl tracking-tighter font-bold text-white py-1 rounded-lg leading-none">
             Graphix
           </h1>
-         
         </div>
       </div>
 
-      {/* Centered input — Grok style */}
+      {/* Centered input */}
       <div className="w-full max-w-[620px]">
         <div
-          className={`flex items-center gap-2 bg-white border border-white rounded-2xl px-3 py-3 shadow-sm transition-all duration-150 ${
+          className={`flex items-center gap-1.5 sm:gap-2 bg-white border border-white rounded-xl sm:rounded-2xl px-2.5 sm:px-3 py-2.5 sm:py-3 shadow-sm transition-all duration-150 ${
             focused ? "border-neutral-400 shadow-md" : "border-neutral-200"
           }`}
         >
           {/* Attach */}
           <label
             htmlFor="hero-file-upload"
-            className="cursor-pointer flex items-center justify-center w-8 h-8 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all flex-shrink-0"
+            className="cursor-pointer flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all flex-shrink-0"
             title="Attach CSV or JSON"
           >
             <input
@@ -119,7 +117,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
 
           {/* File pill */}
           {fileName && (
-            <div className="flex items-center gap-1 text-cyan-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[90px] flex-shrink-0">
+            <div className="flex items-center gap-1 text-cyan-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[90px] flex-shrink-0">
               <span className="truncate">{fileName}</span>
               <button
                 onClick={() => {
@@ -146,7 +144,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
 
           {/* Input */}
           <input
-            className="flex-1  border-none outline-none text-neutral-800 text-sm min-w-0 placeholder:text-neutral-400"
+            className="flex-1 border-none outline-none text-neutral-800 text-xs sm:text-sm min-w-0 placeholder:text-neutral-400 bg-transparent"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onFocus={() => setFocused(true)}
@@ -159,8 +157,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
             }}
             placeholder={
               chartType
-                ? `Describe your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
-                : 'e.g. "Monthly sales for Q1–Q4 2024"'
+                ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
+                : 'e.g. "Monthly sales Q1–Q4 2024"'
             }
             disabled={isLoading}
           />
@@ -169,7 +167,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           <button
             onClick={send}
             disabled={!canSend}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
               canSend
                 ? "bg-cyan-500 text-white"
                 : "bg-cyan-100 text-neutral-300 cursor-default"
@@ -206,8 +204,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           </button>
         </div>
 
-        {/* Suggestion chips */}
-        <div className="flex flex-wrap gap-2 justify-center mt-4">
+        {/* Suggestion chips — scrollable on mobile */}
+        <div className="flex gap-2 mt-3 sm:mt-4 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:justify-center">
           {[
             "Monthly revenue Q1–Q4",
             "User growth by region",
@@ -217,7 +215,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
             <button
               key={s}
               onClick={() => setInput(s)}
-              className="text-xs px-3 py-1.5 rounded-full bg-white border border-cyan-500 text-cyan-500 hover:border-cyan-300 hover:text-cyan-700 transition-all"
+              className="text-xs px-3 py-1.5 rounded-full bg-white border border-cyan-500 text-cyan-500 hover:border-cyan-300 hover:text-cyan-700 transition-all whitespace-nowrap flex-shrink-0"
             >
               {s}
             </button>

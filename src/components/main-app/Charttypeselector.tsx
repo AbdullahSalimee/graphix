@@ -28,7 +28,6 @@ interface ChartTypeSelectorProps {
   onSelect: (selection: SelectedChart | null) => void;
 }
 
-// ── SVG Icons — all neutral stroke, no fill ──────────────────────────────────
 const Icons = {
   line: (
     <svg
@@ -449,7 +448,15 @@ export default function ChartTypeSelector({
   const [open, setOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<ChartGroup | null>(null);
   const [selected, setSelected] = useState<SelectedChart | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     const handler = (e: globalThis.MouseEvent) => {
@@ -461,6 +468,18 @@ export default function ChartTypeSelector({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Lock body scroll on mobile when open
+  useEffect(() => {
+    if (isMobile && open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobile, open]);
 
   const handleSubSelect = (group: ChartGroup, sub: ChartSubtype) => {
     const sel: SelectedChart =
@@ -485,13 +504,30 @@ export default function ChartTypeSelector({
 
   return (
     <div ref={ref} className="relative inline-block">
+      <style>{`
+        @keyframes dropUp {
+          from { opacity: 0; transform: translateY(6px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(100%); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-4px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       {/* Trigger */}
       <button
         onClick={() => {
           setOpen((p) => !p);
           setActiveGroup(null);
         }}
-        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
+        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
           selected
             ? "bg-cyan-100 border border-cyan-300 text-cyan-700"
             : "bg-transparent border border-cyan-200 text-black hover:border-cyan-300 hover:text-neutral-700"
@@ -500,7 +536,7 @@ export default function ChartTypeSelector({
         {selected ? (
           <>
             <span className="text-cyan-400">{selectedGroup?.icon}</span>
-            <span className="max-w-[90px] truncate">
+            <span className="max-w-[60px] sm:max-w-[90px] truncate text-[11px] sm:text-xs">
               {selected.subLabel === "AI Choice"
                 ? selected.groupLabel
                 : selected.subLabel}
@@ -529,7 +565,8 @@ export default function ChartTypeSelector({
               <rect x="10" y="7" width="4" height="14" rx="1" />
               <rect x="17" y="3" width="4" height="18" rx="1" />
             </svg>
-            <span>Chart Type</span>
+            <span className="hidden xs:inline">Chart Type</span>
+            <span className="xs:hidden">Type</span>
             <svg
               width="9"
               height="9"
@@ -547,26 +584,151 @@ export default function ChartTypeSelector({
         )}
       </button>
 
-      {/* Dropdown */}
-      {open && (
+      {/* MOBILE: Full-screen bottom sheet */}
+      {open && isMobile && (
+        <>
+          <div
+            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setOpen(false);
+              setActiveGroup(null);
+            }}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-2xl shadow-2xl"
+            style={{
+              animation: "slideUp 0.25s cubic-bezier(0.16,1,0.3,1) both",
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-neutral-200" />
+            </div>
+
+            {/* Header */}
+            <div className="px-4 py-2.5 border-b border-neutral-100 flex items-center justify-between flex-shrink-0">
+              <span className="text-sm font-bold text-neutral-800">
+                Chart Type
+              </span>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setActiveGroup(null);
+                }}
+                className="text-neutral-400 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {activeGroup ? (
+              /* Subtypes view */
+              <div className="flex flex-col flex-1 min-h-0">
+                {/* Back + group header */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-neutral-100 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveGroup(null)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-100 text-neutral-500"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    >
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  <span className="text-cyan-400">{activeGroup.icon}</span>
+                  <div>
+                    <div className="text-sm font-semibold text-neutral-800">
+                      {activeGroup.label}
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      {activeGroup.description}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto px-3 py-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {activeGroup.subtypes.map((sub, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSubSelect(activeGroup, sub)}
+                        className={`text-left px-3 py-2.5 rounded-xl text-xs border transition-all ${
+                          sub.prompt === null
+                            ? "col-span-2 border-cyan-200 bg-cyan-50 text-cyan-700 font-semibold"
+                            : "border-neutral-200 text-neutral-600 bg-neutral-50 active:bg-neutral-100"
+                        }`}
+                      >
+                        {sub.prompt === null ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-cyan-400">✦</span>Let AI
+                            choose the best
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-300 flex-shrink-0" />
+                            {sub.label}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Groups view */
+              <div className="flex-1 overflow-y-auto px-3 py-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {CHART_GROUPS.map((group) => (
+                    <button
+                      key={group.id}
+                      onClick={() => setActiveGroup(group)}
+                      className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-neutral-200 bg-neutral-50 active:bg-neutral-100 text-left transition-all"
+                    >
+                      <span className="text-cyan-400 flex-shrink-0">
+                        {group.icon}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-neutral-700 truncate">
+                          {group.label}
+                        </div>
+                        <div className="text-[10px] text-neutral-400">
+                          {
+                            group.subtypes.filter((s) => s.prompt !== null)
+                              .length
+                          }{" "}
+                          types
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Safe area padding */}
+            <div style={{ height: "max(0px, env(safe-area-inset-bottom))" }} />
+          </div>
+        </>
+      )}
+
+      {/* DESKTOP: Original popup dropdown */}
+      {open && !isMobile && (
         <div
           className="absolute bottom-full left-0 z-[9999] w-[600px] max-w-[calc(100vw-2rem)] bg-white border border-white rounded-2xl shadow-2xl overflow-hidden"
           style={{ animation: "dropUp 0.15s cubic-bezier(0.16,1,0.3,1) both" }}
         >
-          <style>{`
-            @keyframes dropUp {
-              from { opacity: 0; transform: translateY(6px) scale(0.98); }
-              to   { opacity: 1; transform: translateY(0) scale(1); }
-            }
-            @keyframes slideIn {
-              from { opacity: 0; transform: translateX(-4px); }
-              to   { opacity: 1; transform: translateX(0); }
-            }
-          `}</style>
-
           {/* Header */}
           <div className="px-4 py-3 border-b border-neutral-300 flex items-center justify-between">
-            <span className="text-xs font-semibold  uppercase tracking-wider">
+            <span className="text-xs font-semibold uppercase tracking-wider">
               Select Chart Type
             </span>
             <span className="text-xs text-neutral-400">
@@ -669,7 +831,6 @@ export default function ChartTypeSelector({
                       </div>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-1">
                     {activeGroup.subtypes.map((sub, i) => (
                       <button
@@ -683,8 +844,8 @@ export default function ChartTypeSelector({
                       >
                         {sub.prompt === null ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-cyan-400">✦</span>
-                            Let AI choose the best {activeGroup.label} type
+                            <span className="text-cyan-400">✦</span>Let AI
+                            choose the best {activeGroup.label} type
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">

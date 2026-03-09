@@ -19,20 +19,6 @@ interface ChartEditorProps {
   onClose: () => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONVERSION COMPATIBILITY RULES
-//
-// Groups:
-//   ALL_2D  — every 2D chart type. All freely convert to each other.
-//             Pie/donut are included but handled with data aggregation.
-//   ALL_3D  — every 3D chart type. All freely convert to each other.
-//   CROSS   — 2D scatter/line/bubble can also go to 3D scatter/line, and vice
-//             versa (they share x/y point data, just gains/loses a z axis).
-//
-// Only truly incompatible case: surface3d ↔ most 2D (surface needs a z-matrix,
-// not a point list). We allow it but the render falls back gracefully.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const ALL_2D = [
   "bar",
   "hbar",
@@ -53,10 +39,7 @@ const ALL_2D = [
   "funnel",
   "waterfall",
 ];
-
 const ALL_3D = ["scatter3d", "line3d", "mesh3d", "surface3d"];
-
-// 2D types whose point-based data (x/y arrays) maps well into 3D
 const CROSS_2D_TO_3D = [
   "scatter",
   "line",
@@ -67,34 +50,21 @@ const CROSS_2D_TO_3D = [
   "stacked",
   "histogram",
 ];
-// 3D types whose data can reasonably flatten back to 2D
 const CROSS_3D_TO_2D = ["scatter3d", "line3d"];
 
 function canConvert(from: string, to: string): boolean {
   if (from === to) return true;
-  const from2d = ALL_2D.includes(from);
-  const from3d = ALL_3D.includes(from);
-  const to2d = ALL_2D.includes(to);
-  const to3d = ALL_3D.includes(to);
-
-  // All 2D ↔ all 2D  ✅
+  const from2d = ALL_2D.includes(from),
+    from3d = ALL_3D.includes(from);
+  const to2d = ALL_2D.includes(to),
+    to3d = ALL_3D.includes(to);
   if (from2d && to2d) return true;
-
-  // All 3D ↔ all 3D  ✅
   if (from3d && to3d) return true;
-
-  // Selected 2D → 3D  ✅
   if (CROSS_2D_TO_3D.includes(from) && to3d) return true;
-
-  // Selected 3D → 2D  ✅
   if (CROSS_3D_TO_2D.includes(from) && to2d) return true;
-
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DETECT chart type id from a Plotly trace
-// ─────────────────────────────────────────────────────────────────────────────
 function detectChartTypeId(traces: any[]): ChartTypeId {
   if (!traces || traces.length === 0) return "bar";
   const t0 = traces[0];
@@ -102,8 +72,6 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   const mode = (t0.mode || "").toLowerCase();
   const fill = t0.fill || "";
   const orient = t0.orientation || "v";
-  const barmode = ""; // checked at layout level
-
   if (type === "scatter3d" || (type === "scatter" && t0.z)) return "scatter3d";
   if (type === "mesh3d") return "mesh3d";
   if (type === "surface") return "surface3d";
@@ -115,7 +83,7 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
     return "bubble";
   if (type === "scatter") return "scatter";
   if (type === "bar" && orient === "h") return "hbar";
-  if (type === "bar") return "bar"; // barmode handled below
+  if (type === "bar") return "bar";
   if (type === "pie" && t0.hole && t0.hole > 0) return "donut";
   if (type === "pie") return "pie";
   if (type === "histogram") return "histogram";
@@ -126,10 +94,6 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   if (type === "waterfall") return "waterfall";
   return "bar";
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DATA
-// ─────────────────────────────────────────────────────────────────────────────
 
 const PALETTES = [
   {
@@ -331,12 +295,7 @@ const BG_PRESETS = [
   { id: "green", label: "Forest", hex: "#052e16" },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CHART TYPE DEFINITIONS  (now includes 3D types)
-// ─────────────────────────────────────────────────────────────────────────────
-
 const CHART_TYPES = [
-  // ── 2D Cartesian ──────────────────────────────────────────────────────────
   {
     id: "bar",
     label: "Column",
@@ -598,21 +557,6 @@ const CHART_TYPES = [
           fill="currentColor"
           opacity=".25"
         />
-        <polyline
-          points="2,26 10,15 18,20 26,16"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points="2,26 10,7 18,12 26,8"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity=".6"
-        />
       </svg>
     ),
   },
@@ -628,8 +572,6 @@ const CHART_TYPES = [
         <circle cx="11" cy="14" r="2.5" fill="currentColor" opacity=".8" />
         <circle cx="17" cy="18" r="2.5" fill="currentColor" opacity=".6" />
         <circle cx="22" cy="8" r="2.5" fill="currentColor" />
-        <circle cx="8" cy="9" r="2" fill="currentColor" opacity=".5" />
-        <circle cx="25" cy="16" r="2" fill="currentColor" opacity=".7" />
       </svg>
     ),
   },
@@ -648,7 +590,6 @@ const CHART_TYPES = [
       </svg>
     ),
   },
-  // ── Pie family ────────────────────────────────────────────────────────────
   {
     id: "pie",
     label: "Pie",
@@ -693,7 +634,6 @@ const CHART_TYPES = [
       </svg>
     ),
   },
-  // ── Statistical ───────────────────────────────────────────────────────────
   {
     id: "histogram",
     label: "Histogram",
@@ -794,33 +734,6 @@ const CHART_TYPES = [
           fill="currentColor"
           opacity=".3"
         />
-        <rect
-          x="2"
-          y="20"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".75"
-        />
-        <rect
-          x="11"
-          y="20"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".25"
-        />
-        <rect
-          x="20"
-          y="20"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".1"
-        />
       </svg>
     ),
   },
@@ -867,42 +780,6 @@ const CHART_TYPES = [
           strokeWidth="1.8"
           strokeLinecap="round"
         />
-        <line
-          x1="18"
-          y1="5"
-          x2="18"
-          y2="9"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-        <rect
-          x="14"
-          y="9"
-          width="8"
-          height="10"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          fill="none"
-        />
-        <line
-          x1="14"
-          y1="14"
-          x2="22"
-          y2="14"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <line
-          x1="18"
-          y1="19"
-          x2="18"
-          y2="24"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
       </svg>
     ),
   },
@@ -918,18 +795,9 @@ const CHART_TYPES = [
           fill="currentColor"
           opacity=".55"
         />
-        <line
-          x1="14"
-          y1="3"
-          x2="14"
-          y2="25"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
       </svg>
     ),
   },
-  // ── Financial ─────────────────────────────────────────────────────────────
   {
     id: "funnel",
     label: "Funnel",
@@ -1006,7 +874,6 @@ const CHART_TYPES = [
       </svg>
     ),
   },
-  // ── 3D ────────────────────────────────────────────────────────────────────
   {
     id: "scatter3d",
     label: "3D Scatter",
@@ -1025,7 +892,6 @@ const CHART_TYPES = [
         <circle cx="8" cy="12" r="2.5" fill="currentColor" />
         <circle cx="19" cy="9" r="2" fill="currentColor" opacity=".7" />
         <circle cx="14" cy="19" r="3" fill="currentColor" opacity=".85" />
-        <circle cx="21" cy="18" r="1.5" fill="currentColor" opacity=".5" />
       </svg>
     ),
   },
@@ -1092,24 +958,6 @@ const CHART_TYPES = [
           stroke="currentColor"
           strokeWidth="1.5"
         />
-        <line
-          x1="14"
-          y1="3"
-          x2="14"
-          y2="20"
-          stroke="currentColor"
-          strokeWidth="1"
-          opacity=".4"
-        />
-        <line
-          x1="9"
-          y1="11"
-          x2="19"
-          y2="11"
-          stroke="currentColor"
-          strokeWidth="1"
-          opacity=".4"
-        />
       </svg>
     ),
   },
@@ -1134,11 +982,6 @@ const CHART_TYPES = [
           strokeLinecap="round"
           fill="none"
           opacity=".55"
-        />
-        <path
-          d="M3 20 Q7 10 14 12 Q21 14 25 6 L25 12 Q21 18 14 17 Q7 16 3 24 Z"
-          fill="currentColor"
-          opacity=".12"
         />
       </svg>
     ),
@@ -1175,9 +1018,7 @@ const CHART_GROUPS = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MINI COMPONENTS
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Mini UI Components (unchanged) ──────────────────────────────────────────
 
 function Sec({
   title,
@@ -1202,7 +1043,6 @@ function Sec({
           background: "none",
           border: "none",
           cursor: "pointer",
-          transition: "background 0.1s",
         }}
         onMouseEnter={(e) =>
           ((e.currentTarget as HTMLElement).style.background = "#fafafa")
@@ -1445,72 +1285,7 @@ function NumInput({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INCOMPATIBLE CONVERSION BANNER
-// Only shown for surface3d ↔ non-cross-2D types etc.
-// ─────────────────────────────────────────────────────────────────────────────
-function IncompatBanner({
-  from,
-  to,
-  onDismiss,
-}: {
-  from: string;
-  to: string;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      style={{
-        margin: "8px 16px",
-        padding: "8px 12px",
-        background: "#fef3c7",
-        border: "1px solid #fcd34d",
-        borderRadius: 8,
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 8,
-      }}
-    >
-      <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
-      <div style={{ flex: 1 }}>
-        <p
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: "#92400e",
-            margin: "0 0 2px",
-          }}
-        >
-          Incompatible Conversion
-        </p>
-        <p style={{ fontSize: 10, color: "#b45309", margin: 0 }}>
-          <strong>{from}</strong> → <strong>{to}</strong> is not supported. 3D
-          surface charts require a Z-matrix and cannot be directly converted to
-          most 2D types. Try converting to a 3D Scatter or 3D Line first.
-        </p>
-      </div>
-      <button
-        onClick={onDismiss}
-        style={{
-          border: "none",
-          background: "none",
-          cursor: "pointer",
-          color: "#d97706",
-          fontSize: 14,
-          padding: 0,
-          lineHeight: 1,
-          flexShrink: 0,
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN EDITOR
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Main Editor ──────────────────────────────────────────────────────────────
 
 export default function ChartEditor({
   message,
@@ -1519,14 +1294,28 @@ export default function ChartEditor({
 }: ChartEditorProps) {
   const plotRef = useRef<PlotlyHTMLElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false); // mobile: panel drawer open
   const [incompatWarning, setIncompatWarning] = useState<{
     from: string;
     to: string;
   } | null>(null);
 
-  // ── Determine live source data ─────────────────────────────────────────────
-  // Prefer the LIVE state from the main chart div (captures toolbar changes).
-  // Fall back to original message content if Plotly hasn't rendered yet.
+  useEffect(() => {
+    const check = () => setIsMobileLayout(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Lock body scroll on mobile when editor is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   const getLiveData = useCallback((): { data: any[]; layout: any } => {
     const liveDiv = divRef?.current;
     if (liveDiv && liveDiv.data && liveDiv.data.length > 0) {
@@ -1541,7 +1330,6 @@ export default function ChartEditor({
     };
   }, [divRef, message]);
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<
     "graph" | "style" | "axes" | "annotate" | "export"
   >("graph");
@@ -1585,11 +1373,8 @@ export default function ChartEditor({
   const [exportW, setExportW] = useState(1200);
   const [exportH, setExportH] = useState(700);
 
-  // ── Seed state from LIVE chart (captures toolbar changes) ─────────────────
   useEffect(() => {
     const { data: liveData, layout: liveLayout } = getLiveData();
-
-    // Title & labels — prefer live layout
     setTitle(
       typeof liveLayout.title === "string"
         ? liveLayout.title
@@ -1597,12 +1382,8 @@ export default function ChartEditor({
     );
     setXLabel(liveLayout.xaxis?.title?.text || liveLayout.xaxis?.title || "");
     setYLabel(liveLayout.yaxis?.title?.text || liveLayout.yaxis?.title || "");
-
-    // Detect chart type from live traces
     const detectedId = detectChartTypeId(liveData);
     setChartTypeId(detectedId);
-
-    // Detect barmode for bar subtypes
     const barmode =
       liveLayout.barmode || (liveData[0] as any)?.barmode || "group";
     if (detectedId === "bar" && barmode === "stack") setChartTypeId("stacked");
@@ -1610,8 +1391,6 @@ export default function ChartEditor({
       setChartTypeId("stacked100");
     if (detectedId === "bar" && barmode === "group" && liveData.length > 1)
       setChartTypeId("grouped");
-
-    // Detect palette from first trace color
     if (liveData.length > 0) {
       const firstColor = (liveData[0] as any)?.marker?.color;
       const firstLineColor = (liveData[0] as any)?.line?.color;
@@ -1620,18 +1399,12 @@ export default function ChartEditor({
       const found = PALETTES.findIndex((p) => p.colors.includes(c));
       if (found >= 0) setPaletteIdx(found);
     }
-
-    // Legend
     setShowLegend(liveLayout.showlegend !== false);
-
-    // Grid
     setShowGrid(liveLayout.xaxis?.showgrid !== false);
     setShowZero(liveLayout.xaxis?.zeroline !== false);
-
     setMounted(true);
   }, [getLiveData]);
 
-  // ── Handle chart type change with compatibility guard ─────────────────────
   const handleChartTypeChange = useCallback(
     (newId: ChartTypeId) => {
       if (!canConvert(chartTypeId, newId)) {
@@ -1644,12 +1417,10 @@ export default function ChartEditor({
     [chartTypeId],
   );
 
-  // ── Build pie-compatible data from non-pie traces ─────────────────────────
   const buildPieData = useCallback((rawData: any[], pal: string[]) => {
-    // Aggregate all y values summed per trace name for pie sectors
     if (rawData.length === 0) return [];
-    const labels: string[] = [];
-    const values: number[] = [];
+    const labels: string[] = [],
+      values: number[] = [];
     rawData.forEach((trace, i) => {
       const name = trace.name || `Series ${i + 1}`;
       const vals: number[] = trace.y || trace.values || trace.r || [];
@@ -1671,13 +1442,11 @@ export default function ChartEditor({
     ];
   }, []);
 
-  // ── Render chart ──────────────────────────────────────────────────────────
   const applyChart = useCallback(() => {
     if (!plotRef.current || typeof window === "undefined" || !window.Plotly)
       return;
     const Plotly = window.Plotly;
     const { data: liveData, layout: liveLayout } = getLiveData();
-
     const ct = CHART_TYPES.find((c) => c.id === chartTypeId) || CHART_TYPES[0];
     const pal = PALETTES[paletteIdx].colors;
     const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
@@ -1686,50 +1455,39 @@ export default function ChartEditor({
     const lineClr = isLightBg ? "#e5e7eb" : "rgba(255,255,255,0.1)";
     const is3D = ct.group === "3d";
     const isPieType = ct.group === "pie";
-
     let data: any[];
 
-    // ── Pie / Donut — needs special data aggregation ─────────────────────────
     if (isPieType) {
       const existing0 = liveData[0];
-      // If source is already pie/donut, reuse directly
       if (existing0?.type === "pie") {
-        data = liveData.map((t: any, i: number) => ({
+        data = liveData.map((t: any) => ({
           ...t,
           type: "pie",
           hole: (ct as any).hole || 0,
           marker: { ...t.marker, colors: pal },
         }));
       } else {
-        // Convert from cartesian: aggregate y values per series into sectors
         data = buildPieData(liveData, pal);
         if ((ct as any).hole) data[0].hole = (ct as any).hole;
       }
-    }
-
-    // ── 3D charts ─────────────────────────────────────────────────────────────
-    else if (is3D) {
+    } else if (is3D) {
       data = liveData.map((trace: any, i: number) => {
         const clr = pal[i % pal.length];
         const base: any = { ...trace };
-
         if (ct.plotlyType === "mesh3d") {
           base.type = "mesh3d";
           base.color = clr;
           base.opacity = opacity / 100;
-          // ensure i/j/k exist for mesh
           if (!base.i) {
-            const n = (base.x || []).length;
             base.i = [];
             base.j = [];
             base.k = [];
           }
         } else if (ct.plotlyType === "surface") {
           base.type = "surface";
-          base.colorscale = ct.id === "surface3d" ? "Viridis" : base.colorscale;
+          base.colorscale = "Viridis";
           base.opacity = opacity / 100;
         } else {
-          // scatter3d / line3d
           base.type = "scatter3d";
           base.mode = (ct as any).mode3d || "markers";
           base.marker = {
@@ -1743,17 +1501,12 @@ export default function ChartEditor({
         }
         return base;
       });
-    }
-
-    // ── Standard 2D / statistical / financial ────────────────────────────────
-    else {
+    } else {
       data = liveData.map((trace: any, i: number) => {
         const clr = pal[i % pal.length];
         const base: any = { ...trace };
-
         base.type = ct.plotlyType;
         base.name = trace.name || `Series ${i + 1}`;
-
         base.marker = {
           ...(trace.marker || {}),
           color: clr,
@@ -1769,7 +1522,6 @@ export default function ChartEditor({
           width: lineWidth,
           shape: smooth ? "spline" : "linear",
         };
-
         if ((ct as any).mode) {
           base.mode =
             (ct as any).mode +
@@ -1779,7 +1531,6 @@ export default function ChartEditor({
         } else {
           delete base.mode;
         }
-
         if ((ct as any).fill) {
           base.fill = (ct as any).fill;
           const fillAlpha = Math.round(fillOpacity * 2.55)
@@ -1789,12 +1540,10 @@ export default function ChartEditor({
         } else {
           delete base.fill;
         }
-
         if ((ct as any).hole) base.hole = (ct as any).hole;
         else delete base.hole;
         if ((ct as any).orientation) base.orientation = (ct as any).orientation;
         else delete base.orientation;
-
         if (showLabels && ct.plotlyType !== "heatmap") {
           base.texttemplate = "%{y}";
           base.textposition = "outside";
@@ -1808,12 +1557,10 @@ export default function ChartEditor({
           base.texttemplate = undefined;
           base.text = undefined;
         }
-
         return base;
       });
     }
 
-    // ── Layout ────────────────────────────────────────────────────────────────
     const legendConfig: Record<string, any> = {
       bottom: {
         orientation: "h",
@@ -1858,24 +1605,20 @@ export default function ChartEditor({
       barmode: (ct as any).barmode || liveLayout?.barmode || "group",
     };
 
-    // 3D scene config
     if (is3D) {
       layout.scene = {
         ...(liveLayout?.scene || {}),
         xaxis: {
-          ...(liveLayout?.scene?.xaxis || {}),
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
           backgroundcolor: "rgba(0,0,0,0)",
         },
         yaxis: {
-          ...(liveLayout?.scene?.yaxis || {}),
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
           backgroundcolor: "rgba(0,0,0,0)",
         },
         zaxis: {
-          ...(liveLayout?.scene?.zaxis || {}),
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
           backgroundcolor: "rgba(0,0,0,0)",
@@ -1883,8 +1626,6 @@ export default function ChartEditor({
         bgcolor: "rgba(0,0,0,0)",
       };
     }
-
-    // 2D axes
     if (!is3D && !isPieType) {
       layout.xaxis = {
         ...(liveLayout?.xaxis || {}),
@@ -1981,7 +1722,6 @@ export default function ChartEditor({
   const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
   if (!mounted) return null;
 
-  // ── Tabs ──────────────────────────────────────────────────────────────────
   const TABS = [
     {
       id: "graph",
@@ -2077,7 +1817,766 @@ export default function ChartEditor({
     },
   ] as const;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // Shared panel content renderer
+  const PanelContent = () => (
+    <div
+      style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}
+    >
+      {tab === "graph" && (
+        <>
+          {incompatWarning && (
+            <div
+              style={{
+                margin: "8px 16px",
+                padding: "8px 12px",
+                background: "#fef3c7",
+                border: "1px solid #fcd34d",
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#92400e",
+                    margin: "0 0 2px",
+                  }}
+                >
+                  Incompatible Conversion
+                </p>
+                <p style={{ fontSize: 10, color: "#b45309", margin: 0 }}>
+                  Try converting to 3D Scatter first.
+                </p>
+              </div>
+              <button
+                onClick={() => setIncompatWarning(null)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  color: "#d97706",
+                  fontSize: 14,
+                  padding: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {CHART_GROUPS.map((group) => (
+            <Sec
+              key={group.id}
+              title={`${group.label}${group.types.some((t) => t.id === chartTypeId) ? " · Active" : ""}`}
+              open={group.types.some((t) => t.id === chartTypeId)}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3,1fr)",
+                  gap: 7,
+                }}
+              >
+                {group.types.map((ct) => {
+                  const compatible = canConvert(chartTypeId, ct.id);
+                  const isActive = chartTypeId === ct.id;
+                  return (
+                    <button
+                      key={ct.id}
+                      onClick={() => handleChartTypeChange(ct.id)}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "10px 4px 8px",
+                        borderRadius: 10,
+                        border: isActive
+                          ? "2px solid #06b6d4"
+                          : compatible
+                            ? "1.5px solid #e5e7eb"
+                            : "1.5px solid #fcd34d",
+                        background: isActive
+                          ? "rgba(6,182,212,0.06)"
+                          : compatible
+                            ? "#fafafa"
+                            : "#fffbeb",
+                        cursor: compatible ? "pointer" : "not-allowed",
+                        color: isActive
+                          ? "#06b6d4"
+                          : compatible
+                            ? "#6b7280"
+                            : "#d97706",
+                        opacity: compatible ? 1 : 0.5,
+                        position: "relative",
+                      }}
+                    >
+                      {ct.icon}
+                      <span
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 600,
+                          textAlign: "center",
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {ct.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Sec>
+          ))}
+          <Sec title="Data Labels">
+            <Toggle
+              label="Show values on chart"
+              value={showLabels}
+              onChange={setShowLabels}
+            />
+            <Toggle
+              label="Show markers on lines"
+              value={showMarkers}
+              onChange={setShowMarkers}
+            />
+          </Sec>
+          <Sec title="Legend" open={false}>
+            <Toggle
+              label="Show legend"
+              value={showLegend}
+              onChange={setShowLegend}
+            />
+            {showLegend && (
+              <div>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#9ca3af",
+                    margin: "4px 0 6px",
+                  }}
+                >
+                  Position
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4,1fr)",
+                    gap: 4,
+                  }}
+                >
+                  {(["top", "bottom", "left", "right"] as const).map((pos) => (
+                    <button
+                      key={pos}
+                      onClick={() => setLegendPos(pos)}
+                      style={{
+                        padding: "5px 2px",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        borderRadius: 7,
+                        border:
+                          legendPos === pos
+                            ? "1.5px solid #06b6d4"
+                            : "1.5px solid #e5e7eb",
+                        background:
+                          legendPos === pos
+                            ? "rgba(6,182,212,0.07)"
+                            : "#fafafa",
+                        color: legendPos === pos ? "#06b6d4" : "#9ca3af",
+                        cursor: "pointer",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Sec>
+          <Sec title="Watermark" open={false}>
+            <Toggle
+              label="Show Graphix branding"
+              value={showWatermark}
+              onChange={setShowWatermark}
+            />
+          </Sec>
+        </>
+      )}
+      {tab === "style" && (
+        <>
+          <Sec title="Color Palette">
+            {PALETTES.map((p, i) => (
+              <button
+                key={p.id}
+                onClick={() => setPaletteIdx(i)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "7px 8px",
+                  borderRadius: 8,
+                  border:
+                    paletteIdx === i
+                      ? "1.5px solid #06b6d4"
+                      : "1.5px solid transparent",
+                  background:
+                    paletteIdx === i ? "rgba(6,182,212,0.05)" : "transparent",
+                  cursor: "pointer",
+                  marginBottom: 2,
+                }}
+              >
+                <div style={{ display: "flex", gap: 3 }}>
+                  {p.colors.slice(0, 6).map((c, j) => (
+                    <span
+                      key={j}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 3,
+                        background: c,
+                        display: "block",
+                      }}
+                    />
+                  ))}
+                </div>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: paletteIdx === i ? "#06b6d4" : "#374151",
+                    flex: 1,
+                    textAlign: "left",
+                  }}
+                >
+                  {p.label}
+                </span>
+                {paletteIdx === i && (
+                  <span
+                    style={{ color: "#06b6d4", fontSize: 12, fontWeight: 700 }}
+                  >
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
+          </Sec>
+          <Sec title="Background">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: 6,
+                marginBottom: 12,
+              }}
+            >
+              {BG_PRESETS.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => setBgHex(b.hex)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "8px 4px 7px",
+                    borderRadius: 9,
+                    border:
+                      bgHex === b.hex
+                        ? "2px solid #06b6d4"
+                        : "1.5px solid #e5e7eb",
+                    background:
+                      bgHex === b.hex ? "rgba(6,182,212,0.05)" : "#fafafa",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 6,
+                      background: b.hex,
+                      border: "1px solid #d1d5db",
+                      display: "block",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 600,
+                      color: bgHex === b.hex ? "#06b6d4" : "#9ca3af",
+                    }}
+                  >
+                    {b.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <LRow label="Custom">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="color"
+                  value={customBg}
+                  onChange={(e) => {
+                    setCustomBg(e.target.value);
+                    setBgHex(e.target.value);
+                  }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    border: "1.5px solid #e5e7eb",
+                    borderRadius: 7,
+                    cursor: "pointer",
+                    padding: 2,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#9ca3af",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {customBg.toUpperCase()}
+                </span>
+              </div>
+            </LRow>
+          </Sec>
+          <Sec title="Typography">
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
+                Font family
+              </p>
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "7px 10px",
+                  fontSize: 11,
+                  border: "1.5px solid #e5e7eb",
+                  borderRadius: 8,
+                  background: "#f9fafb",
+                  color: "#111827",
+                  outline: "none",
+                }}
+              >
+                {FONTS.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Slider
+              label="Base font size"
+              value={fontSize}
+              min={8}
+              max={18}
+              unit="px"
+              onChange={setFontSize}
+            />
+            <Slider
+              label="Title font size"
+              value={titleSize}
+              min={12}
+              max={36}
+              unit="px"
+              onChange={setTitleSize}
+            />
+          </Sec>
+          <Sec title="Marks & Lines" open={false}>
+            <Slider
+              label="Opacity"
+              value={opacity}
+              min={20}
+              max={100}
+              unit="%"
+              onChange={setOpacity}
+            />
+            <Slider
+              label="Line width"
+              value={lineWidth}
+              min={1}
+              max={8}
+              onChange={setLineWidth}
+            />
+            <Slider
+              label="Marker size"
+              value={markerSize}
+              min={3}
+              max={20}
+              onChange={setMarkerSize}
+            />
+            <Slider
+              label="Bar gap"
+              value={barGap}
+              min={0}
+              max={60}
+              unit="%"
+              onChange={setBarGap}
+            />
+            <Slider
+              label="Fill opacity"
+              value={fillOpacity}
+              min={5}
+              max={80}
+              unit="%"
+              onChange={setFillOpacity}
+            />
+            <Slider
+              label="Border width"
+              value={borderWidth}
+              min={0}
+              max={5}
+              onChange={setBorderWidth}
+            />
+            <Toggle
+              label="Smooth curves (spline)"
+              value={smooth}
+              onChange={setSmooth}
+            />
+          </Sec>
+          <Sec title="Card" open={false}>
+            <Slider
+              label="Border radius"
+              value={borderRadius}
+              min={0}
+              max={28}
+              unit="px"
+              onChange={setBorderRadius}
+            />
+          </Sec>
+        </>
+      )}
+      {tab === "axes" && (
+        <>
+          <Sec title="Axis Labels">
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
+                X-Axis label
+              </p>
+              <TxtInput
+                value={xLabel}
+                onChange={setXLabel}
+                placeholder="e.g. Month"
+              />
+            </div>
+            <div>
+              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
+                Y-Axis label
+              </p>
+              <TxtInput
+                value={yLabel}
+                onChange={setYLabel}
+                placeholder="e.g. Revenue ($)"
+              />
+            </div>
+          </Sec>
+          <Sec title="Grid & Lines">
+            <Toggle
+              label="Show grid lines"
+              value={showGrid}
+              onChange={setShowGrid}
+            />
+            <Toggle
+              label="Show zero line"
+              value={showZero}
+              onChange={setShowZero}
+            />
+            <Toggle
+              label="Show tick labels"
+              value={showTicks}
+              onChange={setShowTicks}
+            />
+          </Sec>
+          <Sec title="Scale">
+            <Toggle
+              label="Log scale — X axis"
+              value={logX}
+              onChange={setLogX}
+            />
+            <Toggle
+              label="Log scale — Y axis"
+              value={logY}
+              onChange={setLogY}
+            />
+            <Toggle
+              label="Reverse X axis"
+              value={reverseX}
+              onChange={setReverseX}
+            />
+            <Toggle
+              label="Reverse Y axis"
+              value={reverseY}
+              onChange={setReverseY}
+            />
+          </Sec>
+          <Sec title="X-Axis Rotation" open={false}>
+            <Slider
+              label="Tick angle"
+              value={xAngle}
+              min={-90}
+              max={90}
+              unit="°"
+              onChange={setXAngle}
+            />
+          </Sec>
+        </>
+      )}
+      {tab === "annotate" && (
+        <>
+          <Sec title="Title & Subtitle">
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
+                Chart title
+              </p>
+              <TxtInput
+                value={title}
+                onChange={setTitle}
+                placeholder="Add a title…"
+              />
+            </div>
+            <div>
+              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
+                Subtitle
+              </p>
+              <TxtInput
+                value={subtitle}
+                onChange={setSubtitle}
+                placeholder="Optional subtitle…"
+              />
+            </div>
+          </Sec>
+          <Sec title="Annotation Labels">
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <input
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newNote.trim()) {
+                    setAnnotations((a) => [...a, newNote.trim()]);
+                    setNewNote("");
+                  }
+                }}
+                placeholder="e.g. Peak Q3 · Enter to add"
+                style={{
+                  flex: 1,
+                  padding: "7px 10px",
+                  fontSize: 11,
+                  border: "1.5px solid #e5e7eb",
+                  borderRadius: 8,
+                  background: "#f9fafb",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (newNote.trim()) {
+                    setAnnotations((a) => [...a, newNote.trim()]);
+                    setNewNote("");
+                  }
+                }}
+                style={{
+                  padding: "7px 13px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 8,
+                  background: "#06b6d4",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                +
+              </button>
+            </div>
+            {annotations.map((a, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "7px 10px",
+                  borderRadius: 8,
+                  background: "#f9fafb",
+                  border: "1px solid #e5e7eb",
+                  marginBottom: 5,
+                }}
+              >
+                <span style={{ fontSize: 11, color: "#374151" }}>{a}</span>
+                <button
+                  onClick={() =>
+                    setAnnotations((an) => an.filter((_, j) => j !== i))
+                  }
+                  style={{
+                    border: "none",
+                    background: "none",
+                    color: "#d1d5db",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    padding: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </Sec>
+        </>
+      )}
+      {tab === "export" && (
+        <>
+          <Sec title="Dimensions">
+            <LRow label="Width px">
+              <NumInput value={exportW} onChange={setExportW} />
+            </LRow>
+            <LRow label="Height px">
+              <NumInput value={exportH} onChange={setExportH} />
+            </LRow>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2,1fr)",
+                gap: 5,
+                marginTop: 8,
+              }}
+            >
+              {[
+                { l: "Square", w: 800, h: 800 },
+                { l: "Landscape", w: 1200, h: 700 },
+                { l: "Portrait", w: 700, h: 1000 },
+                { l: "4K UHD", w: 3840, h: 2160 },
+                { l: "Twitter", w: 1200, h: 675 },
+                { l: "Instagram", w: 1080, h: 1080 },
+                { l: "Slide 16:9", w: 1920, h: 1080 },
+                { l: "Slide 4:3", w: 1024, h: 768 },
+              ].map((p) => {
+                const active = exportW === p.w && exportH === p.h;
+                return (
+                  <button
+                    key={p.l}
+                    onClick={() => {
+                      setExportW(p.w);
+                      setExportH(p.h);
+                    }}
+                    style={{
+                      padding: "7px 6px",
+                      borderRadius: 8,
+                      border: active
+                        ? "1.5px solid #06b6d4"
+                        : "1.5px solid #e5e7eb",
+                      background: active ? "rgba(6,182,212,0.06)" : "#fafafa",
+                      color: active ? "#06b6d4" : "#6b7280",
+                      cursor: "pointer",
+                      fontSize: 10,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {p.l}
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 9,
+                        color: "#9ca3af",
+                        fontFamily: "monospace",
+                        marginTop: 2,
+                      }}
+                    >
+                      {p.w}×{p.h}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Sec>
+          <Sec title="Download">
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {(
+                [
+                  {
+                    fmt: "png",
+                    label: "PNG",
+                    desc: "Best for web & docs",
+                    primary: true,
+                  },
+                  {
+                    fmt: "svg",
+                    label: "SVG",
+                    desc: "Vector, infinite scale",
+                    primary: false,
+                  },
+                  {
+                    fmt: "jpeg",
+                    label: "JPEG",
+                    desc: "Compressed, smaller",
+                    primary: false,
+                  },
+                ] as const
+              ).map(({ fmt, label, desc, primary }) => (
+                <button
+                  key={fmt}
+                  onClick={() => handleExport(fmt)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "11px 14px",
+                    borderRadius: 10,
+                    border: primary ? "none" : "1.5px solid #e5e7eb",
+                    background: primary
+                      ? "linear-gradient(135deg,#06b6d4,#0891b2)"
+                      : "#fafafa",
+                    color: primary ? "#fff" : "#374151",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>
+                      Download {label}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.65, marginTop: 1 }}>
+                      {desc}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 9,
+                      fontFamily: "monospace",
+                      opacity: 0.5,
+                    }}
+                  >
+                    {exportW}×{exportH}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Sec>
+        </>
+      )}
+    </div>
+  );
+
   return createPortal(
     <div
       style={{
@@ -2095,9 +2594,9 @@ export default function ChartEditor({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          padding: "0 20px",
-          height: 54,
+          gap: 8,
+          padding: "0 12px",
+          height: 52,
           background: "#fff",
           borderBottom: "1px solid #e5e7eb",
           flexShrink: 0,
@@ -2119,12 +2618,6 @@ export default function ChartEditor({
             color: "#6b7280",
             flexShrink: 0,
           }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "none";
-          }}
         >
           <svg
             width="14"
@@ -2143,7 +2636,7 @@ export default function ChartEditor({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 6,
             flex: 1,
             minWidth: 0,
           }}
@@ -2160,152 +2653,203 @@ export default function ChartEditor({
               fontWeight: 700,
               color: "#111827",
               minWidth: 0,
-              maxWidth: 280,
+              maxWidth: isMobileLayout ? 120 : 280,
             }}
           />
-          <span style={{ color: "#e5e7eb", fontSize: 16 }}>|</span>
-          <input
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Add subtitle…"
-            style={{
-              background: "none",
-              border: "none",
-              outline: "none",
-              fontSize: 13,
-              color: "#9ca3af",
-              minWidth: 0,
-              maxWidth: 220,
-            }}
-          />
+          {!isMobileLayout && (
+            <>
+              <span style={{ color: "#e5e7eb", fontSize: 16 }}>|</span>
+              <input
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="Add subtitle…"
+                style={{
+                  background: "none",
+                  border: "none",
+                  outline: "none",
+                  fontSize: 13,
+                  color: "#9ca3af",
+                  minWidth: 0,
+                  maxWidth: 220,
+                }}
+              />
+            </>
+          )}
         </div>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 6,
             flexShrink: 0,
           }}
         >
-          {(["PNG", "SVG", "JPEG"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => handleExport(f.toLowerCase())}
-              style={{
-                padding: "6px 13px",
-                fontSize: 11,
-                fontWeight: 600,
-                borderRadius: 7,
-                border: "1.5px solid #e5e7eb",
-                background: "#fff",
-                color: "#6b7280",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "#06b6d4";
-                (e.currentTarget as HTMLElement).style.color = "#06b6d4";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb";
-                (e.currentTarget as HTMLElement).style.color = "#6b7280";
-              }}
-            >
-              {f}
-            </button>
-          ))}
-          <button
-            onClick={onClose}
-            style={{
-              padding: "7px 18px",
-              fontSize: 12,
-              fontWeight: 700,
-              borderRadius: 8,
-              border: "none",
-              background: "linear-gradient(135deg,#06b6d4,#0891b2)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 2px 8px rgba(6,182,212,0.35)",
-            }}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export & Publish
-          </button>
+          {/* On mobile: just show one export button + panel toggle */}
+          {isMobileLayout ? (
+            <>
+              <button
+                onClick={() => handleExport("png")}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  borderRadius: 7,
+                  border: "1.5px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                }}
+              >
+                PNG
+              </button>
+              <button
+                onClick={() => setPanelOpen((v) => !v)}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: "none",
+                  background: panelOpen
+                    ? "#06b6d4"
+                    : "linear-gradient(135deg,#06b6d4,#0891b2)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+                Edit
+              </button>
+            </>
+          ) : (
+            <>
+              {(["PNG", "SVG", "JPEG"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => handleExport(f.toLowerCase())}
+                  style={{
+                    padding: "6px 13px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 7,
+                    border: "1.5px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#6b7280",
+                    cursor: "pointer",
+                  }}
+                >
+                  {f}
+                </button>
+              ))}
+              <button
+                onClick={onClose}
+                style={{
+                  padding: "7px 18px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: "none",
+                  background: "linear-gradient(135deg,#06b6d4,#0891b2)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 2px 8px rgba(6,182,212,0.35)",
+                }}
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export & Publish
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* ─── BODY ─── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        {/* ─── CHART CANVAS ─── */}
+      {isMobileLayout ? (
+        // MOBILE LAYOUT: chart fills screen, panel is bottom sheet
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 36,
-            minWidth: 0,
+            minHeight: 0,
             position: "relative",
-            overflow: "hidden",
           }}
         >
+          {/* Chart canvas */}
           <div
             style={{
-              position: "absolute",
-              inset: 0,
-              pointerEvents: "none",
-              backgroundImage:
-                "radial-gradient(circle,#d1d5db 1.2px,transparent 1.2px)",
-              backgroundSize: "22px 22px",
-              opacity: 0.4,
-            }}
-          />
-          <div
-            style={{
-              background: bgHex,
-              borderRadius,
-              boxShadow: isLightBg
-                ? "0 8px 48px rgba(0,0,0,0.13),0 1px 4px rgba(0,0,0,0.05)"
-                : "0 0 0 1px rgba(255,255,255,0.07),0 28px 70px rgba(0,0,0,0.75)",
-              width: "min(100%,880px)",
-              overflow: "hidden",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              minHeight: 0,
               position: "relative",
-              zIndex: 1,
+              overflow: "hidden",
             }}
           >
-            {(title || subtitle || showWatermark) && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  padding: "18px 22px 10px",
-                  borderBottom: title
-                    ? `1px solid ${isLightBg ? "#f3f4f6" : "rgba(255,255,255,0.05)"}`
-                    : "none",
-                }}
-              >
-                <div>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                backgroundImage:
+                  "radial-gradient(circle,#d1d5db 1.2px,transparent 1.2px)",
+                backgroundSize: "22px 22px",
+                opacity: 0.4,
+              }}
+            />
+            <div
+              style={{
+                background: bgHex,
+                borderRadius,
+                boxShadow: isLightBg
+                  ? "0 8px 48px rgba(0,0,0,0.13)"
+                  : "0 28px 70px rgba(0,0,0,0.75)",
+                width: "100%",
+                overflow: "hidden",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              {(title || subtitle) && (
+                <div style={{ padding: "14px 16px 8px" }}>
                   {title && (
                     <h3
                       style={{
                         margin: 0,
-                        fontSize: titleSize,
+                        fontSize: Math.min(titleSize, 20),
                         fontWeight: 700,
                         color: isLightBg ? "#111827" : "#fff",
                         fontFamily,
@@ -2319,7 +2863,7 @@ export default function ChartEditor({
                     <p
                       style={{
                         margin: "4px 0 0",
-                        fontSize: 12,
+                        fontSize: 11,
                         color: isLightBg ? "#9ca3af" : "rgba(255,255,255,0.4)",
                         fontFamily,
                       }}
@@ -2328,1054 +2872,303 @@ export default function ChartEditor({
                     </p>
                   )}
                 </div>
-                {showWatermark && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: isLightBg ? "#d1d5db" : "rgba(255,255,255,0.15)",
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                      marginTop: 2,
-                    }}
-                  >
-                    ✦ Graphix
-                  </span>
-                )}
-              </div>
-            )}
-            {annotations.length > 0 && (
+              )}
+              <div ref={plotRef} style={{ width: "100%", minHeight: 260 }} />
+            </div>
+          </div>
+
+          {/* Bottom sheet panel */}
+          {panelOpen && (
+            <>
               <div
                 style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 5,
-                  padding: "8px 22px 0",
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.3)",
+                  zIndex: 100,
                 }}
-              >
-                {annotations.map((a, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      fontSize: 10,
-                      padding: "2px 9px",
-                      borderRadius: 20,
-                      background: "rgba(6,182,212,0.1)",
-                      color: "#06b6d4",
-                      border: "1px solid rgba(6,182,212,0.25)",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {a}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div ref={plotRef} style={{ width: "100%", minHeight: 380 }} />
-          </div>
-          <p
-            style={{
-              marginTop: 14,
-              fontSize: 10,
-              color: "#b0b8c4",
-              fontFamily: "monospace",
-            }}
-          >
-            Drag to zoom · Double-click to reset · Scroll to pan
-          </p>
-        </div>
-
-        {/* ─── RIGHT PANEL ─── */}
-        <div
-          style={{
-            width: 308,
-            background: "#fff",
-            borderLeft: "1px solid #e5e7eb",
-            display: "flex",
-            flexDirection: "column",
-            flexShrink: 0,
-            overflow: "hidden",
-          }}
-        >
-          {/* Tab bar */}
-          <div
-            style={{
-              display: "flex",
-              borderBottom: "1px solid #e5e7eb",
-              flexShrink: 0,
-            }}
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id as any)}
+                onClick={() => setPanelOpen(false)}
+              />
+              <div
                 style={{
-                  flex: 1,
+                  position: "fixed",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 101,
+                  background: "#fff",
+                  borderRadius: "20px 20px 0 0",
+                  boxShadow: "0 -8px 40px rgba(0,0,0,0.2)",
                   display: "flex",
                   flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                  padding: "10px 0 9px",
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  borderBottom:
-                    tab === t.id
-                      ? "2.5px solid #06b6d4"
-                      : "2.5px solid transparent",
-                  color: tab === t.id ? "#06b6d4" : "#9ca3af",
-                  transition: "color 0.12s",
+                  maxHeight: "75vh",
+                  animation: "slideUp 0.25s cubic-bezier(0.16,1,0.3,1) both",
                 }}
               >
-                {t.icon}
-                <span
+                <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+                {/* Handle */}
+                <div
                   style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
+                    display: "flex",
+                    justifyContent: "center",
+                    padding: "12px 0 4px",
                   }}
                 >
-                  {t.label}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Scrollable content */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {/* ═══ GRAPH TAB ═══ */}
-            {tab === "graph" && (
-              <>
-                {incompatWarning && (
-                  <IncompatBanner
-                    from={
-                      CHART_TYPES.find((c) => c.id === incompatWarning.from)
-                        ?.label || incompatWarning.from
-                    }
-                    to={
-                      CHART_TYPES.find((c) => c.id === incompatWarning.to)
-                        ?.label || incompatWarning.to
-                    }
-                    onDismiss={() => setIncompatWarning(null)}
-                  />
-                )}
-
-                {CHART_GROUPS.map((group) => (
-                  <Sec
-                    key={group.id}
-                    title={`${group.label} ${group.types.some((t) => t.id === chartTypeId) ? "· Active" : ""}`}
-                    open={group.types.some((t) => t.id === chartTypeId)}
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3,1fr)",
-                        gap: 7,
-                      }}
-                    >
-                      {group.types.map((ct) => {
-                        const compatible = canConvert(chartTypeId, ct.id);
-                        const isActive = chartTypeId === ct.id;
-                        return (
-                          <button
-                            key={ct.id}
-                            onClick={() => handleChartTypeChange(ct.id)}
-                            title={
-                              compatible
-                                ? `Convert to ${ct.label}`
-                                : `surface3d → 2D not supported directly. Convert to 3D Scatter first.`
-                            }
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "10px 4px 8px",
-                              borderRadius: 10,
-                              border: isActive
-                                ? "2px solid #06b6d4"
-                                : compatible
-                                  ? "1.5px solid #e5e7eb"
-                                  : "1.5px solid #fcd34d",
-                              background: isActive
-                                ? "rgba(6,182,212,0.06)"
-                                : compatible
-                                  ? "#fafafa"
-                                  : "#fffbeb",
-                              cursor: compatible ? "pointer" : "not-allowed",
-                              transition: "all 0.12s",
-                              color: isActive
-                                ? "#06b6d4"
-                                : compatible
-                                  ? "#6b7280"
-                                  : "#d97706",
-                              opacity: compatible ? 1 : 0.5,
-                              position: "relative",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isActive && compatible) {
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.borderColor = "#d1d5db";
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.background = "#f3f4f6";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isActive && compatible) {
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.borderColor = "#e5e7eb";
-                                (
-                                  e.currentTarget as HTMLElement
-                                ).style.background = "#fafafa";
-                              }
-                            }}
-                          >
-                            {ct.icon}
-                            <span
-                              style={{
-                                fontSize: 9.5,
-                                fontWeight: 600,
-                                textAlign: "center",
-                                lineHeight: 1.25,
-                                letterSpacing: "0.01em",
-                              }}
-                            >
-                              {ct.label}
-                            </span>
-                            {!compatible && (
-                              <span
-                                style={{
-                                  position: "absolute",
-                                  top: 3,
-                                  right: 3,
-                                  fontSize: 9,
-                                }}
-                              >
-                                ⚠️
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Sec>
-                ))}
-
-                <Sec title="Data Labels">
-                  <Toggle
-                    label="Show values on chart"
-                    value={showLabels}
-                    onChange={setShowLabels}
-                  />
-                  <Toggle
-                    label="Show markers on lines"
-                    value={showMarkers}
-                    onChange={setShowMarkers}
-                  />
-                </Sec>
-
-                <Sec title="Legend" open={false}>
-                  <Toggle
-                    label="Show legend"
-                    value={showLegend}
-                    onChange={setShowLegend}
-                  />
-                  {showLegend && (
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 11,
-                          color: "#9ca3af",
-                          margin: "4px 0 6px",
-                        }}
-                      >
-                        Position
-                      </p>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(4,1fr)",
-                          gap: 4,
-                        }}
-                      >
-                        {(["top", "bottom", "left", "right"] as const).map(
-                          (pos) => (
-                            <button
-                              key={pos}
-                              onClick={() => setLegendPos(pos)}
-                              style={{
-                                padding: "5px 2px",
-                                fontSize: 10,
-                                fontWeight: 600,
-                                borderRadius: 7,
-                                border:
-                                  legendPos === pos
-                                    ? "1.5px solid #06b6d4"
-                                    : "1.5px solid #e5e7eb",
-                                background:
-                                  legendPos === pos
-                                    ? "rgba(6,182,212,0.07)"
-                                    : "#fafafa",
-                                color:
-                                  legendPos === pos ? "#06b6d4" : "#9ca3af",
-                                cursor: "pointer",
-                                textTransform: "capitalize",
-                              }}
-                            >
-                              {pos}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Sec>
-
-                <Sec title="Watermark" open={false}>
-                  <Toggle
-                    label="Show Graphix branding"
-                    value={showWatermark}
-                    onChange={setShowWatermark}
-                  />
-                </Sec>
-              </>
-            )}
-
-            {/* ═══ STYLE TAB ═══ */}
-            {tab === "style" && (
-              <>
-                <Sec title="Color Palette">
-                  {PALETTES.map((p, i) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setPaletteIdx(i)}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "7px 8px",
-                        borderRadius: 8,
-                        border:
-                          paletteIdx === i
-                            ? "1.5px solid #06b6d4"
-                            : "1.5px solid transparent",
-                        background:
-                          paletteIdx === i
-                            ? "rgba(6,182,212,0.05)"
-                            : "transparent",
-                        cursor: "pointer",
-                        marginBottom: 2,
-                        transition: "all 0.1s",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (paletteIdx !== i)
-                          (e.currentTarget as HTMLElement).style.background =
-                            "#f9fafb";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (paletteIdx !== i)
-                          (e.currentTarget as HTMLElement).style.background =
-                            "transparent";
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                        {p.colors.slice(0, 6).map((c, j) => (
-                          <span
-                            key={j}
-                            style={{
-                              width: 14,
-                              height: 14,
-                              borderRadius: 3,
-                              background: c,
-                              display: "block",
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: paletteIdx === i ? "#06b6d4" : "#374151",
-                          flex: 1,
-                          textAlign: "left",
-                        }}
-                      >
-                        {p.label}
-                      </span>
-                      {paletteIdx === i && (
-                        <span
-                          style={{
-                            color: "#06b6d4",
-                            fontSize: 12,
-                            fontWeight: 700,
-                          }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </Sec>
-
-                <Sec title="Background">
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(4,1fr)",
-                      gap: 6,
-                      marginBottom: 12,
+                      width: 40,
+                      height: 4,
+                      borderRadius: 2,
+                      background: "#e5e7eb",
                     }}
-                  >
-                    {BG_PRESETS.map((b) => (
-                      <button
-                        key={b.id}
-                        onClick={() => setBgHex(b.hex)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "8px 4px 7px",
-                          borderRadius: 9,
-                          border:
-                            bgHex === b.hex
-                              ? "2px solid #06b6d4"
-                              : "1.5px solid #e5e7eb",
-                          background:
-                            bgHex === b.hex
-                              ? "rgba(6,182,212,0.05)"
-                              : "#fafafa",
-                          cursor: "pointer",
-                          transition: "all 0.1s",
-                          color: bgHex === b.hex ? "#06b6d4" : "#9ca3af",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 6,
-                            background: b.hex,
-                            border: "1px solid #d1d5db",
-                            display: "block",
-                          }}
-                        />
-                        <span style={{ fontSize: 9.5, fontWeight: 600 }}>
-                          {b.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <LRow label="Custom">
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <input
-                        type="color"
-                        value={customBg}
-                        onChange={(e) => {
-                          setCustomBg(e.target.value);
-                          setBgHex(e.target.value);
-                        }}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          border: "1.5px solid #e5e7eb",
-                          borderRadius: 7,
-                          cursor: "pointer",
-                          padding: 2,
-                          background: "none",
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "#9ca3af",
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {customBg.toUpperCase()}
-                      </span>
-                    </div>
-                  </LRow>
-                </Sec>
-
-                <Sec title="Typography">
-                  <div style={{ marginBottom: 10 }}>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "0 0 5px",
-                      }}
-                    >
-                      Font family
-                    </p>
-                    <select
-                      value={fontFamily}
-                      onChange={(e) => setFontFamily(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "7px 10px",
-                        fontSize: 11,
-                        border: "1.5px solid #e5e7eb",
-                        borderRadius: 8,
-                        background: "#f9fafb",
-                        color: "#111827",
-                        outline: "none",
-                      }}
-                    >
-                      {FONTS.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Slider
-                    label="Base font size"
-                    value={fontSize}
-                    min={8}
-                    max={18}
-                    unit="px"
-                    onChange={setFontSize}
                   />
-                  <Slider
-                    label="Title font size"
-                    value={titleSize}
-                    min={12}
-                    max={36}
-                    unit="px"
-                    onChange={setTitleSize}
-                  />
-                </Sec>
-
-                <Sec title="Marks & Lines" open={false}>
-                  <Slider
-                    label="Opacity"
-                    value={opacity}
-                    min={20}
-                    max={100}
-                    unit="%"
-                    onChange={setOpacity}
-                  />
-                  <Slider
-                    label="Line width"
-                    value={lineWidth}
-                    min={1}
-                    max={8}
-                    onChange={setLineWidth}
-                  />
-                  <Slider
-                    label="Marker size"
-                    value={markerSize}
-                    min={3}
-                    max={20}
-                    onChange={setMarkerSize}
-                  />
-                  <Slider
-                    label="Bar gap"
-                    value={barGap}
-                    min={0}
-                    max={60}
-                    unit="%"
-                    onChange={setBarGap}
-                  />
-                  <Slider
-                    label="Fill opacity"
-                    value={fillOpacity}
-                    min={5}
-                    max={80}
-                    unit="%"
-                    onChange={setFillOpacity}
-                  />
-                  <Slider
-                    label="Border width"
-                    value={borderWidth}
-                    min={0}
-                    max={5}
-                    onChange={setBorderWidth}
-                  />
-                  <Toggle
-                    label="Smooth curves (spline)"
-                    value={smooth}
-                    onChange={setSmooth}
-                  />
-                  <div>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "4px 0 6px",
-                      }}
-                    >
-                      Marker symbol
-                    </p>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(5,1fr)",
-                        gap: 4,
-                      }}
-                    >
-                      {[
-                        "circle",
-                        "square",
-                        "diamond",
-                        "triangle-up",
-                        "cross",
-                        "x",
-                        "star",
-                        "hexagram",
-                        "pentagon",
-                        "asterisk",
-                      ].map((sym) => (
-                        <button
-                          key={sym}
-                          onClick={() => setMarkerSymbol(sym)}
-                          style={{
-                            padding: "5px 2px",
-                            fontSize: 9,
-                            borderRadius: 6,
-                            border:
-                              markerSymbol === sym
-                                ? "1.5px solid #06b6d4"
-                                : "1.5px solid #e5e7eb",
-                            background:
-                              markerSymbol === sym
-                                ? "rgba(6,182,212,0.08)"
-                                : "#fafafa",
-                            color: markerSymbol === sym ? "#06b6d4" : "#9ca3af",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {sym
-                            .replace("-up", "")
-                            .replace("gram", "")
-                            .slice(0, 4)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </Sec>
-
-                <Sec title="Card" open={false}>
-                  <Slider
-                    label="Border radius"
-                    value={borderRadius}
-                    min={0}
-                    max={28}
-                    unit="px"
-                    onChange={setBorderRadius}
-                  />
-                </Sec>
-              </>
-            )}
-
-            {/* ═══ AXES TAB ═══ */}
-            {tab === "axes" && (
-              <>
-                <Sec title="Axis Labels">
-                  <div style={{ marginBottom: 10 }}>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "0 0 5px",
-                      }}
-                    >
-                      X-Axis label
-                    </p>
-                    <TxtInput
-                      value={xLabel}
-                      onChange={setXLabel}
-                      placeholder="e.g. Month"
-                    />
-                  </div>
-                  <div>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "0 0 5px",
-                      }}
-                    >
-                      Y-Axis label
-                    </p>
-                    <TxtInput
-                      value={yLabel}
-                      onChange={setYLabel}
-                      placeholder="e.g. Revenue ($)"
-                    />
-                  </div>
-                </Sec>
-                <Sec title="Grid & Lines">
-                  <Toggle
-                    label="Show grid lines"
-                    value={showGrid}
-                    onChange={setShowGrid}
-                  />
-                  <Toggle
-                    label="Show zero line"
-                    value={showZero}
-                    onChange={setShowZero}
-                  />
-                  <Toggle
-                    label="Show tick labels"
-                    value={showTicks}
-                    onChange={setShowTicks}
-                  />
-                </Sec>
-                <Sec title="Scale">
-                  <Toggle
-                    label="Log scale — X axis"
-                    value={logX}
-                    onChange={setLogX}
-                  />
-                  <Toggle
-                    label="Log scale — Y axis"
-                    value={logY}
-                    onChange={setLogY}
-                  />
-                  <Toggle
-                    label="Reverse X axis"
-                    value={reverseX}
-                    onChange={setReverseX}
-                  />
-                  <Toggle
-                    label="Reverse Y axis"
-                    value={reverseY}
-                    onChange={setReverseY}
-                  />
-                </Sec>
-                <Sec title="X-Axis Rotation" open={false}>
-                  <Slider
-                    label="Tick angle"
-                    value={xAngle}
-                    min={-90}
-                    max={90}
-                    unit="°"
-                    onChange={setXAngle}
-                  />
-                </Sec>
-              </>
-            )}
-
-            {/* ═══ ANNOTATE TAB ═══ */}
-            {tab === "annotate" && (
-              <>
-                <Sec title="Title & Subtitle">
-                  <div style={{ marginBottom: 10 }}>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "0 0 5px",
-                      }}
-                    >
-                      Chart title
-                    </p>
-                    <TxtInput
-                      value={title}
-                      onChange={setTitle}
-                      placeholder="Add a title…"
-                    />
-                  </div>
-                  <div>
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "#9ca3af",
-                        margin: "0 0 5px",
-                      }}
-                    >
-                      Subtitle / description
-                    </p>
-                    <TxtInput
-                      value={subtitle}
-                      onChange={setSubtitle}
-                      placeholder="Optional subtitle…"
-                    />
-                  </div>
-                </Sec>
-                <Sec title="Annotation Labels">
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                    <input
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newNote.trim()) {
-                          setAnnotations((a) => [...a, newNote.trim()]);
-                          setNewNote("");
-                        }
-                      }}
-                      placeholder="e.g. Peak Q3 · Enter to add"
+                </div>
+                {/* Tab bar */}
+                <div
+                  style={{
+                    display: "flex",
+                    borderBottom: "1px solid #e5e7eb",
+                    flexShrink: 0,
+                  }}
+                >
+                  {TABS.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTab(t.id as any)}
                       style={{
                         flex: 1,
-                        padding: "7px 10px",
-                        fontSize: 11,
-                        border: "1.5px solid #e5e7eb",
-                        borderRadius: 8,
-                        background: "#f9fafb",
-                        outline: "none",
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        if (newNote.trim()) {
-                          setAnnotations((a) => [...a, newNote.trim()]);
-                          setNewNote("");
-                        }
-                      }}
-                      style={{
-                        padding: "7px 13px",
-                        fontSize: 12,
-                        fontWeight: 700,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 3,
+                        padding: "10px 0 9px",
                         border: "none",
-                        borderRadius: 8,
-                        background: "#06b6d4",
-                        color: "#fff",
+                        background: "none",
                         cursor: "pointer",
+                        borderBottom:
+                          tab === t.id
+                            ? "2.5px solid #06b6d4"
+                            : "2.5px solid transparent",
+                        color: tab === t.id ? "#06b6d4" : "#9ca3af",
                       }}
                     >
-                      +
+                      {t.icon}
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {t.label}
+                      </span>
                     </button>
+                  ))}
+                </div>
+                <PanelContent />
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        // DESKTOP LAYOUT: original two-column split
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {/* Chart canvas */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 36,
+              minWidth: 0,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                backgroundImage:
+                  "radial-gradient(circle,#d1d5db 1.2px,transparent 1.2px)",
+                backgroundSize: "22px 22px",
+                opacity: 0.4,
+              }}
+            />
+            <div
+              style={{
+                background: bgHex,
+                borderRadius,
+                boxShadow: isLightBg
+                  ? "0 8px 48px rgba(0,0,0,0.13),0 1px 4px rgba(0,0,0,0.05)"
+                  : "0 0 0 1px rgba(255,255,255,0.07),0 28px 70px rgba(0,0,0,0.75)",
+                width: "min(100%,880px)",
+                overflow: "hidden",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              {(title || subtitle || showWatermark) && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    padding: "18px 22px 10px",
+                    borderBottom: title
+                      ? `1px solid ${isLightBg ? "#f3f4f6" : "rgba(255,255,255,0.05)"}`
+                      : "none",
+                  }}
+                >
+                  <div>
+                    {title && (
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: titleSize,
+                          fontWeight: 700,
+                          color: isLightBg ? "#111827" : "#fff",
+                          fontFamily,
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {title}
+                      </h3>
+                    )}
+                    {subtitle && (
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontSize: 12,
+                          color: isLightBg
+                            ? "#9ca3af"
+                            : "rgba(255,255,255,0.4)",
+                          fontFamily,
+                        }}
+                      >
+                        {subtitle}
+                      </p>
+                    )}
                   </div>
-                  {annotations.length === 0 ? (
-                    <p
+                  {showWatermark && (
+                    <span
                       style={{
-                        fontSize: 11,
-                        color: "#d1d5db",
-                        textAlign: "center",
-                        padding: "12px 0",
+                        fontSize: 10,
+                        color: isLightBg ? "#d1d5db" : "rgba(255,255,255,0.15)",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        marginTop: 2,
                       }}
                     >
-                      No labels yet
-                    </p>
-                  ) : (
-                    annotations.map((a, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "7px 10px",
-                          borderRadius: 8,
-                          background: "#f9fafb",
-                          border: "1px solid #e5e7eb",
-                          marginBottom: 5,
-                        }}
-                      >
-                        <span style={{ fontSize: 11, color: "#374151" }}>
-                          {a}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setAnnotations((an) => an.filter((_, j) => j !== i))
-                          }
-                          style={{
-                            border: "none",
-                            background: "none",
-                            color: "#d1d5db",
-                            cursor: "pointer",
-                            fontSize: 14,
-                            padding: 0,
-                            lineHeight: 1,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))
+                      ✦ Graphix
+                    </span>
                   )}
-                </Sec>
-              </>
-            )}
+                </div>
+              )}
+              {annotations.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 5,
+                    padding: "8px 22px 0",
+                  }}
+                >
+                  {annotations.map((a, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 9px",
+                        borderRadius: 20,
+                        background: "rgba(6,182,212,0.1)",
+                        color: "#06b6d4",
+                        border: "1px solid rgba(6,182,212,0.25)",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div ref={plotRef} style={{ width: "100%", minHeight: 380 }} />
+            </div>
+            <p
+              style={{
+                marginTop: 14,
+                fontSize: 10,
+                color: "#b0b8c4",
+                fontFamily: "monospace",
+              }}
+            >
+              Drag to zoom · Double-click to reset · Scroll to pan
+            </p>
+          </div>
 
-            {/* ═══ EXPORT TAB ═══ */}
-            {tab === "export" && (
-              <>
-                <Sec title="Dimensions">
-                  <LRow label="Width px">
-                    <NumInput value={exportW} onChange={setExportW} />
-                  </LRow>
-                  <LRow label="Height px">
-                    <NumInput value={exportH} onChange={setExportH} />
-                  </LRow>
-                  <p
+          {/* Right panel */}
+          <div
+            style={{
+              width: 308,
+              background: "#fff",
+              borderLeft: "1px solid #e5e7eb",
+              display: "flex",
+              flexDirection: "column",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id as any)}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "10px 0 9px",
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    borderBottom:
+                      tab === t.id
+                        ? "2.5px solid #06b6d4"
+                        : "2.5px solid transparent",
+                    color: tab === t.id ? "#06b6d4" : "#9ca3af",
+                    transition: "color 0.12s",
+                  }}
+                >
+                  {t.icon}
+                  <span
                     style={{
-                      fontSize: 10,
-                      color: "#9ca3af",
-                      margin: "2px 0 10px",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
                     }}
                   >
-                    Presets
-                  </p>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(2,1fr)",
-                      gap: 5,
-                    }}
-                  >
-                    {[
-                      { l: "Square", w: 800, h: 800 },
-                      { l: "Landscape", w: 1200, h: 700 },
-                      { l: "Portrait", w: 700, h: 1000 },
-                      { l: "4K UHD", w: 3840, h: 2160 },
-                      { l: "Twitter", w: 1200, h: 675 },
-                      { l: "Instagram", w: 1080, h: 1080 },
-                      { l: "Slide 16:9", w: 1920, h: 1080 },
-                      { l: "Slide 4:3", w: 1024, h: 768 },
-                    ].map((p) => {
-                      const active = exportW === p.w && exportH === p.h;
-                      return (
-                        <button
-                          key={p.l}
-                          onClick={() => {
-                            setExportW(p.w);
-                            setExportH(p.h);
-                          }}
-                          style={{
-                            padding: "7px 6px",
-                            borderRadius: 8,
-                            border: active
-                              ? "1.5px solid #06b6d4"
-                              : "1.5px solid #e5e7eb",
-                            background: active
-                              ? "rgba(6,182,212,0.06)"
-                              : "#fafafa",
-                            color: active ? "#06b6d4" : "#6b7280",
-                            cursor: "pointer",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            transition: "all 0.1s",
-                          }}
-                        >
-                          {p.l}
-                          <span
-                            style={{
-                              display: "block",
-                              fontSize: 9,
-                              color: "#9ca3af",
-                              fontFamily: "monospace",
-                              marginTop: 2,
-                            }}
-                          >
-                            {p.w}×{p.h}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Sec>
-                <Sec title="Download">
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 7 }}
-                  >
-                    {(
-                      [
-                        {
-                          fmt: "png",
-                          label: "PNG",
-                          desc: "Best for web & docs",
-                          primary: true,
-                        },
-                        {
-                          fmt: "svg",
-                          label: "SVG",
-                          desc: "Vector, infinite scale",
-                          primary: false,
-                        },
-                        {
-                          fmt: "jpeg",
-                          label: "JPEG",
-                          desc: "Compressed, smaller",
-                          primary: false,
-                        },
-                      ] as const
-                    ).map(({ fmt, label, desc, primary }) => (
-                      <button
-                        key={fmt}
-                        onClick={() => handleExport(fmt)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          padding: "11px 14px",
-                          borderRadius: 10,
-                          border: primary ? "none" : "1.5px solid #e5e7eb",
-                          background: primary
-                            ? "linear-gradient(135deg,#06b6d4,#0891b2)"
-                            : "#fafafa",
-                          color: primary ? "#fff" : "#374151",
-                          cursor: "pointer",
-                          textAlign: "left",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!primary)
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "#06b6d4";
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!primary)
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "#e5e7eb";
-                        }}
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        >
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 700 }}>
-                            Download {label}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 10,
-                              opacity: 0.65,
-                              marginTop: 1,
-                            }}
-                          >
-                            {desc}
-                          </div>
-                        </div>
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            fontSize: 9,
-                            fontFamily: "monospace",
-                            opacity: 0.5,
-                          }}
-                        >
-                          {exportW}×{exportH}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </Sec>
-              </>
-            )}
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <PanelContent />
           </div>
         </div>
-      </div>
+      )}
     </div>,
     document.body,
   );

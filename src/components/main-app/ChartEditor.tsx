@@ -20,6 +20,114 @@ interface ChartEditorProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CONVERSION COMPATIBILITY RULES
+//
+// Groups:
+//   ALL_2D  — every 2D chart type. All freely convert to each other.
+//             Pie/donut are included but handled with data aggregation.
+//   ALL_3D  — every 3D chart type. All freely convert to each other.
+//   CROSS   — 2D scatter/line/bubble can also go to 3D scatter/line, and vice
+//             versa (they share x/y point data, just gains/loses a z axis).
+//
+// Only truly incompatible case: surface3d ↔ most 2D (surface needs a z-matrix,
+// not a point list). We allow it but the render falls back gracefully.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALL_2D = [
+  "bar",
+  "hbar",
+  "stacked",
+  "stacked100",
+  "grouped",
+  "line",
+  "area",
+  "stackedarea",
+  "scatter",
+  "bubble",
+  "pie",
+  "donut",
+  "histogram",
+  "heatmap",
+  "box",
+  "violin",
+  "funnel",
+  "waterfall",
+];
+
+const ALL_3D = ["scatter3d", "line3d", "mesh3d", "surface3d"];
+
+// 2D types whose point-based data (x/y arrays) maps well into 3D
+const CROSS_2D_TO_3D = [
+  "scatter",
+  "line",
+  "area",
+  "bubble",
+  "bar",
+  "grouped",
+  "stacked",
+  "histogram",
+];
+// 3D types whose data can reasonably flatten back to 2D
+const CROSS_3D_TO_2D = ["scatter3d", "line3d"];
+
+function canConvert(from: string, to: string): boolean {
+  if (from === to) return true;
+  const from2d = ALL_2D.includes(from);
+  const from3d = ALL_3D.includes(from);
+  const to2d = ALL_2D.includes(to);
+  const to3d = ALL_3D.includes(to);
+
+  // All 2D ↔ all 2D  ✅
+  if (from2d && to2d) return true;
+
+  // All 3D ↔ all 3D  ✅
+  if (from3d && to3d) return true;
+
+  // Selected 2D → 3D  ✅
+  if (CROSS_2D_TO_3D.includes(from) && to3d) return true;
+
+  // Selected 3D → 2D  ✅
+  if (CROSS_3D_TO_2D.includes(from) && to2d) return true;
+
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DETECT chart type id from a Plotly trace
+// ─────────────────────────────────────────────────────────────────────────────
+function detectChartTypeId(traces: any[]): ChartTypeId {
+  if (!traces || traces.length === 0) return "bar";
+  const t0 = traces[0];
+  const type = (t0.type || "bar").toLowerCase();
+  const mode = (t0.mode || "").toLowerCase();
+  const fill = t0.fill || "";
+  const orient = t0.orientation || "v";
+  const barmode = ""; // checked at layout level
+
+  if (type === "scatter3d" || (type === "scatter" && t0.z)) return "scatter3d";
+  if (type === "mesh3d") return "mesh3d";
+  if (type === "surface") return "surface3d";
+  if (type === "scatter" && mode.includes("lines") && fill === "tonexty")
+    return "stackedarea";
+  if (type === "scatter" && mode.includes("lines") && fill) return "area";
+  if (type === "scatter" && mode.includes("lines")) return "line";
+  if (type === "scatter" && mode.includes("markers") && t0.marker?.sizeref)
+    return "bubble";
+  if (type === "scatter") return "scatter";
+  if (type === "bar" && orient === "h") return "hbar";
+  if (type === "bar") return "bar"; // barmode handled below
+  if (type === "pie" && t0.hole && t0.hole > 0) return "donut";
+  if (type === "pie") return "pie";
+  if (type === "histogram") return "histogram";
+  if (type === "box") return "box";
+  if (type === "violin") return "violin";
+  if (type === "heatmap") return "heatmap";
+  if (type === "funnel") return "funnel";
+  if (type === "waterfall") return "waterfall";
+  return "bar";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DATA
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -223,13 +331,18 @@ const BG_PRESETS = [
   { id: "green", label: "Forest", hex: "#052e16" },
 ];
 
-// 18 chart types with proper SVG icons
+// ─────────────────────────────────────────────────────────────────────────────
+// CHART TYPE DEFINITIONS  (now includes 3D types)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const CHART_TYPES = [
+  // ── 2D Cartesian ──────────────────────────────────────────────────────────
   {
     id: "bar",
     label: "Column",
     plotlyType: "bar",
     orientation: "v",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect
@@ -259,6 +372,7 @@ const CHART_TYPES = [
     label: "Bar",
     plotlyType: "bar",
     orientation: "h",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect
@@ -288,6 +402,7 @@ const CHART_TYPES = [
     label: "Stacked",
     plotlyType: "bar",
     barmode: "stack",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect x="2" y="18" width="6" height="8" rx="1" fill="currentColor" />
@@ -328,6 +443,7 @@ const CHART_TYPES = [
     label: "100% Stack",
     plotlyType: "bar",
     barmode: "relative",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect
@@ -395,6 +511,7 @@ const CHART_TYPES = [
     label: "Grouped",
     plotlyType: "bar",
     barmode: "group",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect x="2" y="12" width="5" height="14" rx="1" fill="currentColor" />
@@ -425,6 +542,7 @@ const CHART_TYPES = [
     label: "Line",
     plotlyType: "scatter",
     mode: "lines",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <polyline
@@ -443,6 +561,7 @@ const CHART_TYPES = [
     plotlyType: "scatter",
     mode: "lines",
     fill: "tozeroy",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <path
@@ -466,6 +585,7 @@ const CHART_TYPES = [
     plotlyType: "scatter",
     mode: "lines",
     fill: "tonexty",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <path
@@ -501,6 +621,7 @@ const CHART_TYPES = [
     label: "Scatter",
     plotlyType: "scatter",
     mode: "markers",
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <circle cx="5" cy="22" r="2.5" fill="currentColor" />
@@ -518,6 +639,7 @@ const CHART_TYPES = [
     plotlyType: "scatter",
     mode: "markers",
     bubble: true,
+    group: "2d",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <circle cx="7" cy="20" r="5" fill="currentColor" opacity=".45" />
@@ -526,10 +648,12 @@ const CHART_TYPES = [
       </svg>
     ),
   },
+  // ── Pie family ────────────────────────────────────────────────────────────
   {
     id: "pie",
     label: "Pie",
     plotlyType: "pie",
+    group: "pie",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <path d="M14 14 L14 2 A12 12 0 0 1 26 14 Z" fill="currentColor" />
@@ -551,6 +675,7 @@ const CHART_TYPES = [
     label: "Donut",
     plotlyType: "pie",
     hole: 0.45,
+    group: "pie",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <path d="M14 14 L14 3 A11 11 0 0 1 25 14 Z" fill="currentColor" />
@@ -568,10 +693,12 @@ const CHART_TYPES = [
       </svg>
     ),
   },
+  // ── Statistical ───────────────────────────────────────────────────────────
   {
     id: "histogram",
     label: "Histogram",
     plotlyType: "histogram",
+    group: "stat",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect
@@ -618,6 +745,7 @@ const CHART_TYPES = [
     id: "heatmap",
     label: "Heatmap",
     plotlyType: "heatmap",
+    group: "stat",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect
@@ -700,6 +828,7 @@ const CHART_TYPES = [
     id: "box",
     label: "Box Plot",
     plotlyType: "box",
+    group: "stat",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <line
@@ -781,6 +910,7 @@ const CHART_TYPES = [
     id: "violin",
     label: "Violin",
     plotlyType: "violin",
+    group: "stat",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <path
@@ -799,10 +929,12 @@ const CHART_TYPES = [
       </svg>
     ),
   },
+  // ── Financial ─────────────────────────────────────────────────────────────
   {
     id: "funnel",
     label: "Funnel",
     plotlyType: "funnel",
+    group: "financial",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect x="1" y="2" width="26" height="5" rx="1.5" fill="currentColor" />
@@ -840,6 +972,7 @@ const CHART_TYPES = [
     id: "waterfall",
     label: "Waterfall",
     plotlyType: "waterfall",
+    group: "financial",
     icon: (
       <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
         <rect x="1" y="15" width="6" height="11" rx="1" fill="currentColor" />
@@ -870,32 +1003,142 @@ const CHART_TYPES = [
           fill="currentColor"
           opacity=".8"
         />
-        <line
-          x1="7"
-          y1="15"
-          x2="8"
-          y2="15"
+      </svg>
+    ),
+  },
+  // ── 3D ────────────────────────────────────────────────────────────────────
+  {
+    id: "scatter3d",
+    label: "3D Scatter",
+    plotlyType: "scatter3d",
+    mode3d: "markers",
+    group: "3d",
+    icon: (
+      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
+        <path
+          d="M14 3 L4 9 L4 21 L14 27 L24 21 L24 9 Z"
           stroke="currentColor"
           strokeWidth="1.5"
-          strokeDasharray="2,2"
+          fill="none"
+          opacity=".4"
+        />
+        <circle cx="8" cy="12" r="2.5" fill="currentColor" />
+        <circle cx="19" cy="9" r="2" fill="currentColor" opacity=".7" />
+        <circle cx="14" cy="19" r="3" fill="currentColor" opacity=".85" />
+        <circle cx="21" cy="18" r="1.5" fill="currentColor" opacity=".5" />
+      </svg>
+    ),
+  },
+  {
+    id: "line3d",
+    label: "3D Line",
+    plotlyType: "scatter3d",
+    mode3d: "lines+markers",
+    group: "3d",
+    icon: (
+      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
+        <path
+          d="M14 3 L4 9 L4 21 L14 27 L24 21 L24 9 Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+          opacity=".4"
+        />
+        <polyline
+          points="5,20 10,13 16,17 23,8"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "mesh3d",
+    label: "3D Mesh",
+    plotlyType: "mesh3d",
+    group: "3d",
+    icon: (
+      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
+        <polygon
+          points="14,3 24,20 4,20"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="currentColor"
+          opacity=".15"
         />
         <line
-          x1="13"
-          y1="9"
+          x1="14"
+          y1="3"
+          x2="4"
+          y2="20"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <line
+          x1="14"
+          y1="3"
+          x2="24"
+          y2="20"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <line
+          x1="4"
+          y1="20"
+          x2="24"
+          y2="20"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <line
+          x1="14"
+          y1="3"
           x2="14"
-          y2="21"
+          y2="20"
           stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="2,2"
+          strokeWidth="1"
+          opacity=".4"
         />
         <line
-          x1="19"
-          y1="12"
-          x2="20"
-          y2="12"
+          x1="9"
+          y1="11"
+          x2="19"
+          y2="11"
+          stroke="currentColor"
+          strokeWidth="1"
+          opacity=".4"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "surface3d",
+    label: "3D Surface",
+    plotlyType: "surface",
+    group: "3d",
+    icon: (
+      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
+        <path
+          d="M3 20 Q7 10 14 12 Q21 14 25 6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M3 24 Q7 16 14 17 Q21 18 25 12"
           stroke="currentColor"
           strokeWidth="1.5"
-          strokeDasharray="2,2"
+          strokeLinecap="round"
+          fill="none"
+          opacity=".55"
+        />
+        <path
+          d="M3 20 Q7 10 14 12 Q21 14 25 6 L25 12 Q21 18 14 17 Q7 16 3 24 Z"
+          fill="currentColor"
+          opacity=".12"
         />
       </svg>
     ),
@@ -904,11 +1147,37 @@ const CHART_TYPES = [
 
 type ChartTypeId = (typeof CHART_TYPES)[number]["id"];
 
+const CHART_GROUPS = [
+  {
+    id: "2d",
+    label: "2D Charts",
+    types: CHART_TYPES.filter((c) => c.group === "2d"),
+  },
+  {
+    id: "pie",
+    label: "Pie / Donut",
+    types: CHART_TYPES.filter((c) => c.group === "pie"),
+  },
+  {
+    id: "stat",
+    label: "Statistical",
+    types: CHART_TYPES.filter((c) => c.group === "stat"),
+  },
+  {
+    id: "financial",
+    label: "Financial",
+    types: CHART_TYPES.filter((c) => c.group === "financial"),
+  },
+  {
+    id: "3d",
+    label: "3D Charts",
+    types: CHART_TYPES.filter((c) => c.group === "3d"),
+  },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MINI COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
-
-const S: React.CSSProperties = {}; // just used as type shorthand
 
 function Sec({
   title,
@@ -1142,7 +1411,7 @@ function TxtInput({
         color: "#111827",
         boxSizing: "border-box",
         boxShadow: focused ? "0 0 0 3px rgba(6,182,212,0.1)" : "none",
-        transition: "border-color 0.15s, box-shadow 0.15s",
+        transition: "border-color 0.15s,box-shadow 0.15s",
       }}
     />
   );
@@ -1177,12 +1446,100 @@ function NumInput({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// INCOMPATIBLE CONVERSION BANNER
+// Only shown for surface3d ↔ non-cross-2D types etc.
+// ─────────────────────────────────────────────────────────────────────────────
+function IncompatBanner({
+  from,
+  to,
+  onDismiss,
+}: {
+  from: string;
+  to: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      style={{
+        margin: "8px 16px",
+        padding: "8px 12px",
+        background: "#fef3c7",
+        border: "1px solid #fcd34d",
+        borderRadius: 8,
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+      }}
+    >
+      <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
+      <div style={{ flex: 1 }}>
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#92400e",
+            margin: "0 0 2px",
+          }}
+        >
+          Incompatible Conversion
+        </p>
+        <p style={{ fontSize: 10, color: "#b45309", margin: 0 }}>
+          <strong>{from}</strong> → <strong>{to}</strong> is not supported. 3D
+          surface charts require a Z-matrix and cannot be directly converted to
+          most 2D types. Try converting to a 3D Scatter or 3D Line first.
+        </p>
+      </div>
+      <button
+        onClick={onDismiss}
+        style={{
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          color: "#d97706",
+          fontSize: 14,
+          padding: 0,
+          lineHeight: 1,
+          flexShrink: 0,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN EDITOR
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ChartEditor({ message, onClose }: ChartEditorProps) {
+export default function ChartEditor({
+  message,
+  divRef,
+  onClose,
+}: ChartEditorProps) {
   const plotRef = useRef<PlotlyHTMLElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [incompatWarning, setIncompatWarning] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
+
+  // ── Determine live source data ─────────────────────────────────────────────
+  // Prefer the LIVE state from the main chart div (captures toolbar changes).
+  // Fall back to original message content if Plotly hasn't rendered yet.
+  const getLiveData = useCallback((): { data: any[]; layout: any } => {
+    const liveDiv = divRef?.current;
+    if (liveDiv && liveDiv.data && liveDiv.data.length > 0) {
+      return {
+        data: liveDiv.data,
+        layout: liveDiv.layout || message?.content?.layout || {},
+      };
+    }
+    return {
+      data: message?.content?.data || [],
+      layout: message?.content?.layout || {},
+    };
+  }, [divRef, message]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<
@@ -1228,32 +1585,98 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
   const [exportW, setExportW] = useState(1200);
   const [exportH, setExportH] = useState(700);
 
-  // Seed from message
+  // ── Seed state from LIVE chart (captures toolbar changes) ─────────────────
   useEffect(() => {
-    const lay = message?.content?.layout || {};
-    setTitle(typeof lay.title === "string" ? lay.title : lay.title?.text || "");
-    setXLabel(lay.xaxis?.title?.text || lay.xaxis?.title || "");
-    setYLabel(lay.yaxis?.title?.text || lay.yaxis?.title || "");
-    const traces = message?.content?.data || [];
-    if (traces.length) {
-      const t0 = traces[0];
-      const type = t0.type || "bar";
-      const mode = t0.mode || "";
-      if (type === "scatter" && mode.includes("lines") && t0.fill)
-        setChartTypeId("area");
-      else if (type === "scatter" && mode.includes("lines"))
-        setChartTypeId("line");
-      else if (type === "scatter") setChartTypeId("scatter");
-      else setChartTypeId(type as ChartTypeId);
+    const { data: liveData, layout: liveLayout } = getLiveData();
+
+    // Title & labels — prefer live layout
+    setTitle(
+      typeof liveLayout.title === "string"
+        ? liveLayout.title
+        : liveLayout.title?.text || "",
+    );
+    setXLabel(liveLayout.xaxis?.title?.text || liveLayout.xaxis?.title || "");
+    setYLabel(liveLayout.yaxis?.title?.text || liveLayout.yaxis?.title || "");
+
+    // Detect chart type from live traces
+    const detectedId = detectChartTypeId(liveData);
+    setChartTypeId(detectedId);
+
+    // Detect barmode for bar subtypes
+    const barmode =
+      liveLayout.barmode || (liveData[0] as any)?.barmode || "group";
+    if (detectedId === "bar" && barmode === "stack") setChartTypeId("stacked");
+    if (detectedId === "bar" && barmode === "relative")
+      setChartTypeId("stacked100");
+    if (detectedId === "bar" && barmode === "group" && liveData.length > 1)
+      setChartTypeId("grouped");
+
+    // Detect palette from first trace color
+    if (liveData.length > 0) {
+      const firstColor = (liveData[0] as any)?.marker?.color;
+      const firstLineColor = (liveData[0] as any)?.line?.color;
+      const c =
+        (typeof firstColor === "string" ? firstColor : firstLineColor) || "";
+      const found = PALETTES.findIndex((p) => p.colors.includes(c));
+      if (found >= 0) setPaletteIdx(found);
     }
+
+    // Legend
+    setShowLegend(liveLayout.showlegend !== false);
+
+    // Grid
+    setShowGrid(liveLayout.xaxis?.showgrid !== false);
+    setShowZero(liveLayout.xaxis?.zeroline !== false);
+
     setMounted(true);
-  }, [message]);
+  }, [getLiveData]);
+
+  // ── Handle chart type change with compatibility guard ─────────────────────
+  const handleChartTypeChange = useCallback(
+    (newId: ChartTypeId) => {
+      if (!canConvert(chartTypeId, newId)) {
+        setIncompatWarning({ from: chartTypeId, to: newId });
+        return;
+      }
+      setIncompatWarning(null);
+      setChartTypeId(newId);
+    },
+    [chartTypeId],
+  );
+
+  // ── Build pie-compatible data from non-pie traces ─────────────────────────
+  const buildPieData = useCallback((rawData: any[], pal: string[]) => {
+    // Aggregate all y values summed per trace name for pie sectors
+    if (rawData.length === 0) return [];
+    const labels: string[] = [];
+    const values: number[] = [];
+    rawData.forEach((trace, i) => {
+      const name = trace.name || `Series ${i + 1}`;
+      const vals: number[] = trace.y || trace.values || trace.r || [];
+      const total = Array.isArray(vals)
+        ? vals.reduce((s: number, v: any) => s + (Number(v) || 0), 0)
+        : Number(vals) || 0;
+      labels.push(name);
+      values.push(total);
+    });
+    return [
+      {
+        type: "pie",
+        labels,
+        values,
+        marker: { colors: pal },
+        textinfo: "label+percent",
+        hoverinfo: "label+value+percent",
+      },
+    ];
+  }, []);
 
   // ── Render chart ──────────────────────────────────────────────────────────
   const applyChart = useCallback(() => {
     if (!plotRef.current || typeof window === "undefined" || !window.Plotly)
       return;
     const Plotly = window.Plotly;
+    const { data: liveData, layout: liveLayout } = getLiveData();
 
     const ct = CHART_TYPES.find((c) => c.id === chartTypeId) || CHART_TYPES[0];
     const pal = PALETTES[paletteIdx].colors;
@@ -1261,85 +1684,136 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
     const textClr = isLightBg ? "#374151" : "rgba(255,255,255,0.8)";
     const gridClr = isLightBg ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.08)";
     const lineClr = isLightBg ? "#e5e7eb" : "rgba(255,255,255,0.1)";
+    const is3D = ct.group === "3d";
+    const isPieType = ct.group === "pie";
 
-    const rawData: any[] = message?.content?.data || [];
+    let data: any[];
 
-    const data = rawData.map((trace: any, i: number) => {
-      const clr = pal[i % pal.length];
-      const base: any = { ...trace };
-
-      // Set type
-      base.type = ct.plotlyType;
-      base.name = trace.name || `Series ${i + 1}`;
-
-      // Color
-      base.marker = {
-        ...(trace.marker || {}),
-        color: ct.plotlyType === "pie" ? pal : clr,
-        size: (ct as any).bubble
-          ? (trace.marker?.size ?? markerSize)
-          : markerSize,
-        opacity: opacity / 100,
-        symbol: markerSymbol,
-        line: { color: "rgba(255,255,255,0.3)", width: borderWidth },
-      };
-
-      // Line style
-      base.line = {
-        color: clr,
-        width: lineWidth,
-        shape: smooth ? "spline" : "linear",
-      };
-
-      // Mode
-      if ((ct as any).mode) {
-        base.mode =
-          (ct as any).mode +
-          (showMarkers && (ct as any).mode === "lines" ? "+markers" : "");
-      } else if (ct.plotlyType === "scatter") {
-        base.mode = "markers";
+    // ── Pie / Donut — needs special data aggregation ─────────────────────────
+    if (isPieType) {
+      const existing0 = liveData[0];
+      // If source is already pie/donut, reuse directly
+      if (existing0?.type === "pie") {
+        data = liveData.map((t: any, i: number) => ({
+          ...t,
+          type: "pie",
+          hole: (ct as any).hole || 0,
+          marker: { ...t.marker, colors: pal },
+        }));
       } else {
-        delete base.mode;
+        // Convert from cartesian: aggregate y values per series into sectors
+        data = buildPieData(liveData, pal);
+        if ((ct as any).hole) data[0].hole = (ct as any).hole;
       }
+    }
 
-      // Fill for area
-      if ((ct as any).fill) {
-        base.fill = (ct as any).fill;
-        const fillAlpha = Math.round(fillOpacity * 2.55)
-          .toString(16)
-          .padStart(2, "0");
-        base.fillcolor = clr + fillAlpha;
-      } else {
-        delete base.fill;
-      }
+    // ── 3D charts ─────────────────────────────────────────────────────────────
+    else if (is3D) {
+      data = liveData.map((trace: any, i: number) => {
+        const clr = pal[i % pal.length];
+        const base: any = { ...trace };
 
-      // Hole for donut
-      if ((ct as any).hole) base.hole = (ct as any).hole;
-      else delete base.hole;
+        if (ct.plotlyType === "mesh3d") {
+          base.type = "mesh3d";
+          base.color = clr;
+          base.opacity = opacity / 100;
+          // ensure i/j/k exist for mesh
+          if (!base.i) {
+            const n = (base.x || []).length;
+            base.i = [];
+            base.j = [];
+            base.k = [];
+          }
+        } else if (ct.plotlyType === "surface") {
+          base.type = "surface";
+          base.colorscale = ct.id === "surface3d" ? "Viridis" : base.colorscale;
+          base.opacity = opacity / 100;
+        } else {
+          // scatter3d / line3d
+          base.type = "scatter3d";
+          base.mode = (ct as any).mode3d || "markers";
+          base.marker = {
+            ...(trace.marker || {}),
+            color: clr,
+            size: Math.max(markerSize - 2, 3),
+            symbol: markerSymbol,
+            opacity: opacity / 100,
+          };
+          base.line = { color: clr, width: lineWidth };
+        }
+        return base;
+      });
+    }
 
-      // Orientation
-      if ((ct as any).orientation) base.orientation = (ct as any).orientation;
-      else delete base.orientation;
+    // ── Standard 2D / statistical / financial ────────────────────────────────
+    else {
+      data = liveData.map((trace: any, i: number) => {
+        const clr = pal[i % pal.length];
+        const base: any = { ...trace };
 
-      // Data labels
-      if (showLabels && ct.plotlyType !== "heatmap") {
-        base.texttemplate =
-          ct.plotlyType === "pie" ? "%{label}<br>%{percent:.0%}" : "%{y}";
-        base.textposition = ct.plotlyType === "pie" ? "auto" : "outside";
-        base.textfont = {
-          size: fontSize - 1,
-          color: textClr,
-          family: fontFamily,
+        base.type = ct.plotlyType;
+        base.name = trace.name || `Series ${i + 1}`;
+
+        base.marker = {
+          ...(trace.marker || {}),
+          color: clr,
+          size: (ct as any).bubble
+            ? (trace.marker?.size ?? markerSize)
+            : markerSize,
+          opacity: opacity / 100,
+          symbol: markerSymbol,
+          line: { color: "rgba(255,255,255,0.3)", width: borderWidth },
         };
-        base.cliponaxis = false;
-      } else {
-        base.texttemplate = undefined;
-        base.text = undefined;
-      }
+        base.line = {
+          color: clr,
+          width: lineWidth,
+          shape: smooth ? "spline" : "linear",
+        };
 
-      return base;
-    });
+        if ((ct as any).mode) {
+          base.mode =
+            (ct as any).mode +
+            (showMarkers && (ct as any).mode === "lines" ? "+markers" : "");
+        } else if (ct.plotlyType === "scatter") {
+          base.mode = "markers";
+        } else {
+          delete base.mode;
+        }
 
+        if ((ct as any).fill) {
+          base.fill = (ct as any).fill;
+          const fillAlpha = Math.round(fillOpacity * 2.55)
+            .toString(16)
+            .padStart(2, "0");
+          base.fillcolor = clr + fillAlpha;
+        } else {
+          delete base.fill;
+        }
+
+        if ((ct as any).hole) base.hole = (ct as any).hole;
+        else delete base.hole;
+        if ((ct as any).orientation) base.orientation = (ct as any).orientation;
+        else delete base.orientation;
+
+        if (showLabels && ct.plotlyType !== "heatmap") {
+          base.texttemplate = "%{y}";
+          base.textposition = "outside";
+          base.textfont = {
+            size: fontSize - 1,
+            color: textClr,
+            family: fontFamily,
+          };
+          base.cliponaxis = false;
+        } else {
+          base.texttemplate = undefined;
+          base.text = undefined;
+        }
+
+        return base;
+      });
+    }
+
+    // ── Layout ────────────────────────────────────────────────────────────────
     const legendConfig: Record<string, any> = {
       bottom: {
         orientation: "h",
@@ -1381,10 +1855,39 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
         r: 20,
       },
       bargap: barGap / 100,
-      barmode:
-        (ct as any).barmode || message?.content?.layout?.barmode || "group",
-      xaxis: {
-        ...(message?.content?.layout?.xaxis || {}),
+      barmode: (ct as any).barmode || liveLayout?.barmode || "group",
+    };
+
+    // 3D scene config
+    if (is3D) {
+      layout.scene = {
+        ...(liveLayout?.scene || {}),
+        xaxis: {
+          ...(liveLayout?.scene?.xaxis || {}),
+          gridcolor: gridClr,
+          tickfont: { color: textClr, size: 10 },
+          backgroundcolor: "rgba(0,0,0,0)",
+        },
+        yaxis: {
+          ...(liveLayout?.scene?.yaxis || {}),
+          gridcolor: gridClr,
+          tickfont: { color: textClr, size: 10 },
+          backgroundcolor: "rgba(0,0,0,0)",
+        },
+        zaxis: {
+          ...(liveLayout?.scene?.zaxis || {}),
+          gridcolor: gridClr,
+          tickfont: { color: textClr, size: 10 },
+          backgroundcolor: "rgba(0,0,0,0)",
+        },
+        bgcolor: "rgba(0,0,0,0)",
+      };
+    }
+
+    // 2D axes
+    if (!is3D && !isPieType) {
+      layout.xaxis = {
+        ...(liveLayout?.xaxis || {}),
         title: xLabel
           ? { text: xLabel, font: { size: fontSize, color: textClr } }
           : undefined,
@@ -1403,9 +1906,9 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
-      },
-      yaxis: {
-        ...(message?.content?.layout?.yaxis || {}),
+      };
+      layout.yaxis = {
+        ...(liveLayout?.yaxis || {}),
         title: yLabel
           ? { text: yLabel, font: { size: fontSize, color: textClr } }
           : undefined,
@@ -1422,8 +1925,8 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
-      },
-    };
+      };
+    }
 
     Plotly.react(plotRef.current, data, layout, {
       responsive: true,
@@ -1457,7 +1960,8 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
     logY,
     reverseX,
     reverseY,
-    message,
+    getLiveData,
+    buildPieData,
   ]);
 
   useEffect(() => {
@@ -1583,7 +2087,7 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
         display: "flex",
         flexDirection: "column",
         background: "#f4f5f7",
-        fontFamily: "'Inter', -apple-system, sans-serif",
+        fontFamily: "'Inter',-apple-system,sans-serif",
       }}
     >
       {/* ─── TOP BAR ─── */}
@@ -1600,7 +2104,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
           boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
         }}
       >
-        {/* Close */}
         <button
           onClick={onClose}
           style={{
@@ -1636,8 +2139,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-
-        {/* Title */}
         <div
           style={{
             display: "flex",
@@ -1678,8 +2179,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
             }}
           />
         </div>
-
-        {/* Actions */}
         <div
           style={{
             display: "flex",
@@ -1688,7 +2187,7 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
             flexShrink: 0,
           }}
         >
-          {(["PNG", "SVG", "JPEG"] as const).map((f, i) => (
+          {(["PNG", "SVG", "JPEG"] as const).map((f) => (
             <button
               key={f}
               onClick={() => handleExport(f.toLowerCase())}
@@ -1765,7 +2264,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
             overflow: "hidden",
           }}
         >
-          {/* Dot grid bg */}
           <div
             style={{
               position: "absolute",
@@ -1777,8 +2275,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
               opacity: 0.4,
             }}
           />
-
-          {/* Chart card */}
           <div
             style={{
               background: bgHex,
@@ -1792,7 +2288,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
               zIndex: 1,
             }}
           >
-            {/* Card header */}
             {(title || subtitle || showWatermark) && (
               <div
                 style={{
@@ -1848,8 +2343,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                 )}
               </div>
             )}
-
-            {/* Annotation badges */}
             {annotations.length > 0 && (
               <div
                 style={{
@@ -1877,11 +2370,8 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                 ))}
               </div>
             )}
-
-            {/* Plotly target */}
             <div ref={plotRef} style={{ width: "100%", minHeight: 380 }} />
           </div>
-
           <p
             style={{
               marginTop: 14,
@@ -1956,72 +2446,123 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
             {/* ═══ GRAPH TAB ═══ */}
             {tab === "graph" && (
               <>
-                <Sec
-                  title={`Chart Type · ${CHART_TYPES.find((c) => c.id === chartTypeId)?.label || ""}`}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3,1fr)",
-                      gap: 7,
-                    }}
+                {incompatWarning && (
+                  <IncompatBanner
+                    from={
+                      CHART_TYPES.find((c) => c.id === incompatWarning.from)
+                        ?.label || incompatWarning.from
+                    }
+                    to={
+                      CHART_TYPES.find((c) => c.id === incompatWarning.to)
+                        ?.label || incompatWarning.to
+                    }
+                    onDismiss={() => setIncompatWarning(null)}
+                  />
+                )}
+
+                {CHART_GROUPS.map((group) => (
+                  <Sec
+                    key={group.id}
+                    title={`${group.label} ${group.types.some((t) => t.id === chartTypeId) ? "· Active" : ""}`}
+                    open={group.types.some((t) => t.id === chartTypeId)}
                   >
-                    {CHART_TYPES.map((ct) => (
-                      <button
-                        key={ct.id}
-                        onClick={() => setChartTypeId(ct.id)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "10px 4px 8px",
-                          borderRadius: 10,
-                          border:
-                            chartTypeId === ct.id
-                              ? "2px solid #06b6d4"
-                              : "1.5px solid #e5e7eb",
-                          background:
-                            chartTypeId === ct.id
-                              ? "rgba(6,182,212,0.06)"
-                              : "#fafafa",
-                          cursor: "pointer",
-                          transition: "all 0.12s",
-                          color: chartTypeId === ct.id ? "#06b6d4" : "#6b7280",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (chartTypeId !== ct.id) {
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "#d1d5db";
-                            (e.currentTarget as HTMLElement).style.background =
-                              "#f3f4f6";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (chartTypeId !== ct.id) {
-                            (e.currentTarget as HTMLElement).style.borderColor =
-                              "#e5e7eb";
-                            (e.currentTarget as HTMLElement).style.background =
-                              "#fafafa";
-                          }
-                        }}
-                      >
-                        {ct.icon}
-                        <span
-                          style={{
-                            fontSize: 9.5,
-                            fontWeight: 600,
-                            textAlign: "center",
-                            lineHeight: 1.25,
-                            letterSpacing: "0.01em",
-                          }}
-                        >
-                          {ct.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </Sec>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3,1fr)",
+                        gap: 7,
+                      }}
+                    >
+                      {group.types.map((ct) => {
+                        const compatible = canConvert(chartTypeId, ct.id);
+                        const isActive = chartTypeId === ct.id;
+                        return (
+                          <button
+                            key={ct.id}
+                            onClick={() => handleChartTypeChange(ct.id)}
+                            title={
+                              compatible
+                                ? `Convert to ${ct.label}`
+                                : `surface3d → 2D not supported directly. Convert to 3D Scatter first.`
+                            }
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "10px 4px 8px",
+                              borderRadius: 10,
+                              border: isActive
+                                ? "2px solid #06b6d4"
+                                : compatible
+                                  ? "1.5px solid #e5e7eb"
+                                  : "1.5px solid #fcd34d",
+                              background: isActive
+                                ? "rgba(6,182,212,0.06)"
+                                : compatible
+                                  ? "#fafafa"
+                                  : "#fffbeb",
+                              cursor: compatible ? "pointer" : "not-allowed",
+                              transition: "all 0.12s",
+                              color: isActive
+                                ? "#06b6d4"
+                                : compatible
+                                  ? "#6b7280"
+                                  : "#d97706",
+                              opacity: compatible ? 1 : 0.5,
+                              position: "relative",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isActive && compatible) {
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.borderColor = "#d1d5db";
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.background = "#f3f4f6";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isActive && compatible) {
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.borderColor = "#e5e7eb";
+                                (
+                                  e.currentTarget as HTMLElement
+                                ).style.background = "#fafafa";
+                              }
+                            }}
+                          >
+                            {ct.icon}
+                            <span
+                              style={{
+                                fontSize: 9.5,
+                                fontWeight: 600,
+                                textAlign: "center",
+                                lineHeight: 1.25,
+                                letterSpacing: "0.01em",
+                              }}
+                            >
+                              {ct.label}
+                            </span>
+                            {!compatible && (
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  top: 3,
+                                  right: 3,
+                                  fontSize: 9,
+                                }}
+                              >
+                                ⚠️
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Sec>
+                ))}
 
                 <Sec title="Data Labels">
                   <Toggle
@@ -2474,7 +3015,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                     />
                   </div>
                 </Sec>
-
                 <Sec title="Grid & Lines">
                   <Toggle
                     label="Show grid lines"
@@ -2492,7 +3032,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                     onChange={setShowTicks}
                   />
                 </Sec>
-
                 <Sec title="Scale">
                   <Toggle
                     label="Log scale — X axis"
@@ -2515,7 +3054,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                     onChange={setReverseY}
                   />
                 </Sec>
-
                 <Sec title="X-Axis Rotation" open={false}>
                   <Slider
                     label="Tick angle"
@@ -2566,7 +3104,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                     />
                   </div>
                 </Sec>
-
                 <Sec title="Annotation Labels">
                   <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                     <input
@@ -2739,7 +3276,6 @@ export default function ChartEditor({ message, onClose }: ChartEditorProps) {
                     })}
                   </div>
                 </Sec>
-
                 <Sec title="Download">
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 7 }}

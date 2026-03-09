@@ -127,7 +127,7 @@ export default function ChatArea({ messages }: ChatAreaProps) {
         >
           {msg.from === "user" ? (
             <div className="flex justify-end">
-              <div className="max-w-[75%] bg-neutral-100 border border-neutral-200 rounded-2xl rounded-tr-sm px-4 py-2.5">
+              <div className="max-w-[75%] bg-cyan-300 border border-white rounded-2xl rounded-tr-sm px-4 py-2.5">
                 {msg.hasFile && (
                   <div className="mb-1.5 flex items-center gap-1.5 text-neutral-400 text-xs">
                     <span>📎</span>

@@ -160,7 +160,7 @@ export default function GraphApp() {
   };
 
   return (
-    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden">
+    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden  ">
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
         async
@@ -187,7 +187,7 @@ export default function GraphApp() {
 
         <div className="main flex-1 flex flex-col min-w-0 relative">
           {/* Topbar */}
-          <div className="topbar flex items-center gap-3 px-4 py-2 bg-white backdrop-blur-xl border-b border-[#111212]/20 ">
+          <div className="topbar flex items-center gap-3 px-4 py-2 bg-white backdrop-blur-xl  border-b border-[#111212]/20 ">
             {!sidebarOpen && (
               <button
                 className="icon-btn p-2 rounded-lg text-[#111212] hover:text-slate-300 transition-colors"

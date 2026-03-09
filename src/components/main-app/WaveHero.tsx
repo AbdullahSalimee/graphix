@@ -75,7 +75,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
       {/* Centered input — Grok style */}
       <div className="w-full max-w-[620px]">
         <div
-          className={`flex items-center gap-2 bg-white border rounded-2xl px-3 py-3 shadow-sm transition-all duration-150 ${
+          className={`flex items-center gap-2 bg-white border border-white rounded-2xl px-3 py-3 shadow-sm transition-all duration-150 ${
             focused ? "border-neutral-400 shadow-md" : "border-neutral-200"
           }`}
         >
@@ -115,11 +115,11 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           {/* Chart type selector */}
           <ChartTypeSelector onSelect={setChartType} />
 
-          <div className="w-px h-5 bg-neutral-100 flex-shrink-0" />
+          <div className="w-px h-5 bg-cyan-500 flex-shrink-0" />
 
           {/* File pill */}
           {fileName && (
-            <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[90px] flex-shrink-0">
+            <div className="flex items-center gap-1 text-cyan-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[90px] flex-shrink-0">
               <span className="truncate">{fileName}</span>
               <button
                 onClick={() => {
@@ -146,7 +146,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
 
           {/* Input */}
           <input
-            className="flex-1 bg-transparent border-none outline-none text-neutral-800 text-sm min-w-0 placeholder:text-neutral-400"
+            className="flex-1  border-none outline-none text-neutral-800 text-sm min-w-0 placeholder:text-neutral-400"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onFocus={() => setFocused(true)}
@@ -171,8 +171,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
             disabled={!canSend}
             className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
               canSend
-                ? "bg-neutral-900 text-white"
-                : "bg-neutral-100 text-neutral-300 cursor-default"
+                ? "bg-cyan-500 text-white"
+                : "bg-cyan-100 text-neutral-300 cursor-default"
             }`}
           >
             {isLoading ? (
@@ -217,7 +217,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
             <button
               key={s}
               onClick={() => setInput(s)}
-              className="text-xs px-3 py-1.5 rounded-full bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 transition-all"
+              className="text-xs px-3 py-1.5 rounded-full bg-white border border-cyan-500 text-cyan-500 hover:border-cyan-300 hover:text-cyan-700 transition-all"
             >
               {s}
             </button>

@@ -140,7 +140,7 @@ export default function Sidebar({
       `}</style>
 
       <aside
-        className={`sb-mount sb-aside${collapsed ? " collapsed" : ""} relative flex flex-col flex-shrink-0 h-dvh bg-neutral-50 border-r border-[#111212]/20  z-10 max-sm:fixed max-sm:left-0 max-sm:top-0 max-sm:shadow-2xl`}
+        className={`sb-mount sb-aside${collapsed ? " collapsed" : ""} relative flex flex-col flex-shrink-0 h-dvh bg-cyan-500/70 border-r border-white  z-10 max-sm:fixed max-sm:left-0 max-sm:top-0 max-sm:shadow-2xl`}
         style={{ width: collapsed ? 64 : 256, minWidth: collapsed ? 64 : 256 }}
       >
         {/* Dot-grid texture */}
@@ -183,25 +183,10 @@ export default function Sidebar({
             <div className="flex items-center justify-between mb-3">
               {/* Logo */}
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative w-9 h-9 rounded-[9px] bg-neutral-900 flex items-end justify-center pb-1.5 flex-shrink-0 shadow-md overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+                <div className="relative w-9 h-9 rounded-[9px] bg-cyan-500 flex items-end justify-center pb-1.5 flex-shrink-0 shadow-md overflow-hidden">
+                  <div className="absolute inset-0 " />
                   <div className="flex items-end gap-[2.5px] h-3.5">
-                    <span
-                      className="w-[3px] rounded-t-sm bg-white/50"
-                      style={{ height: "6px" }}
-                    />
-                    <span
-                      className="w-[3px] rounded-t-sm bg-white/75"
-                      style={{ height: "10px" }}
-                    />
-                    <span
-                      className="w-[3px] rounded-t-sm bg-white"
-                      style={{ height: "14px" }}
-                    />
-                    <span
-                      className="w-[3px] rounded-t-sm bg-white/60"
-                      style={{ height: "8px" }}
-                    />
+                    <img src="/logo.png" alt="" className="h-6 invert" />
                   </div>
                 </div>
 
@@ -237,7 +222,6 @@ export default function Sidebar({
             </div>
 
             {/* Stats strip — hidden when collapsed */}
-            
           </div>
 
           {/* ── Body ── */}
@@ -274,7 +258,6 @@ export default function Sidebar({
                   <span className="new-btn-arrow text-sm ml-auto">→</span>
                 )}
               </button>
-             
             </div>
 
             {/* Section divider */}
@@ -400,7 +383,9 @@ export default function Sidebar({
               </div>
 
               {!collapsed && (
-                <div className="ml-auto w-2 h-2 rounded-full bg-green-500 flex-shrink-0 shadow-[0_0_0_3px_rgba(34,197,94,0.15)]" />
+                <div
+                  className="ml-auto w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0 shadow-[0_0_0_3px_rgba(30,223,226,0.15)]"
+                />
               )}
             </div>
           </div>

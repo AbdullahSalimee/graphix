@@ -64,10 +64,10 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
      
 
       <div
-        className="sticky bottom-0 z-10 bg-neutral-50/95 backdrop-blur-xl border-t border-neutral-200 px-3 md:px-5 pt-2 pb-2"
+        className="sticky bottom-0 z-10  bg-neutral-50/95 backdrop-blur-xl border-t border-neutral-200 px-3 md:px-5 pt-2 pb-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="max-w-[820px] mx-auto flex flex-col gap-1">
+        <div className="max-w-[820px] mx-auto flex flex-col gap-1 my-3">
           {/* ── Input row ── */}
           <div
             className={`flex items-center gap-1.5 bg-white border rounded-lg px-2 py-1.5 shadow-sm transition-all duration-150 ${

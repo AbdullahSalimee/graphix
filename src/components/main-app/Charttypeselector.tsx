@@ -493,13 +493,13 @@ export default function ChartTypeSelector({
         }}
         className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
           selected
-            ? "bg-neutral-100 border border-neutral-300 text-neutral-700"
-            : "bg-transparent border border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
+            ? "bg-cyan-100 border border-cyan-300 text-cyan-700"
+            : "bg-transparent border border-cyan-200 text-black hover:border-cyan-300 hover:text-neutral-700"
         }`}
       >
         {selected ? (
           <>
-            <span className="text-neutral-400">{selectedGroup?.icon}</span>
+            <span className="text-cyan-400">{selectedGroup?.icon}</span>
             <span className="max-w-[90px] truncate">
               {selected.subLabel === "AI Choice"
                 ? selected.groupLabel
@@ -507,7 +507,7 @@ export default function ChartTypeSelector({
             </span>
             <span
               onClick={clearSelection}
-              className="ml-0.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+              className="ml-0.5 text-cyan-500 hover:text-cyan-700 cursor-pointer"
             >
               ✕
             </span>
@@ -550,7 +550,7 @@ export default function ChartTypeSelector({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute bottom-full left-0 z-[9999] w-[600px] max-w-[calc(100vw-2rem)] bg-white border border-neutral-200 rounded-2xl shadow-xl overflow-hidden"
+          className="absolute bottom-full left-0 z-[9999] w-[600px] max-w-[calc(100vw-2rem)] bg-white border border-white rounded-2xl shadow-2xl overflow-hidden"
           style={{ animation: "dropUp 0.15s cubic-bezier(0.16,1,0.3,1) both" }}
         >
           <style>{`
@@ -565,11 +565,11 @@ export default function ChartTypeSelector({
           `}</style>
 
           {/* Header */}
-          <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-            <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+          <div className="px-4 py-3 border-b border-neutral-300 flex items-center justify-between">
+            <span className="text-xs font-semibold  uppercase tracking-wider">
               Select Chart Type
             </span>
-            <span className="text-xs text-neutral-300">
+            <span className="text-xs text-neutral-400">
               {CHART_GROUPS.length} categories ·{" "}
               {CHART_GROUPS.reduce(
                 (s, g) =>
@@ -582,7 +582,7 @@ export default function ChartTypeSelector({
 
           <div className="flex h-[300px]">
             {/* Left — groups */}
-            <div className="w-[190px] flex-shrink-0 border-r border-neutral-100 overflow-y-auto py-1.5">
+            <div className="w-[190px] flex-shrink-0 border-r border-neutral-300 overflow-y-auto py-1.5">
               {CHART_GROUPS.map((group) => (
                 <button
                   key={group.id}
@@ -591,19 +591,19 @@ export default function ChartTypeSelector({
                   }
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 transition-all duration-100 border-l-2 text-left ${
                     activeGroup?.id === group.id
-                      ? "bg-neutral-50 border-l-neutral-400"
-                      : "border-l-transparent hover:bg-neutral-50"
+                      ? "bg-cyan-500 border-l-black rounded-r-xl"
+                      : "border-l-transparent hover:bg-cyan-100 rounded-r-xl"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className={`flex-shrink-0 ${activeGroup?.id === group.id ? "text-neutral-600" : "text-neutral-300"}`}
+                      className={`flex-shrink-0 ${activeGroup?.id === group.id ? "text-white" : "text-cyan-300"}`}
                     >
                       {group.icon}
                     </span>
                     <div>
                       <div
-                        className={`text-xs font-medium ${activeGroup?.id === group.id ? "text-neutral-800" : "text-neutral-500"}`}
+                        className={`text-xs font-medium ${activeGroup?.id === group.id ? "text-white" : "text-neutral-500"}`}
                       >
                         {group.label}
                       </div>
@@ -659,7 +659,7 @@ export default function ChartTypeSelector({
               ) : (
                 <div style={{ animation: "slideIn 0.12s ease both" }}>
                   <div className="px-1 pb-2.5 mb-1 border-b border-neutral-100 flex items-center gap-2">
-                    <span className="text-neutral-400">{activeGroup.icon}</span>
+                    <span className="text-cyan-400">{activeGroup.icon}</span>
                     <div>
                       <div className="text-xs font-semibold text-neutral-700">
                         {activeGroup.label}
@@ -677,13 +677,13 @@ export default function ChartTypeSelector({
                         onClick={() => handleSubSelect(activeGroup, sub)}
                         className={`text-left px-3 py-2 rounded-lg transition-all duration-100 text-xs border ${
                           sub.prompt === null
-                            ? "col-span-2 border-neutral-200 bg-neutral-50 text-neutral-600 font-medium hover:bg-neutral-100"
+                            ? "col-span-2 border-cyan-200 bg-neutral-50 text-neutral-600 font-medium hover:bg-neutral-100"
                             : "border-transparent text-neutral-500 hover:bg-neutral-50 hover:border-neutral-200 hover:text-neutral-800"
                         }`}
                       >
                         {sub.prompt === null ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-neutral-400">✦</span>
+                            <span className="text-cyan-400">✦</span>
                             Let AI choose the best {activeGroup.label} type
                           </div>
                         ) : (
@@ -702,7 +702,7 @@ export default function ChartTypeSelector({
 
           {/* Footer */}
           <div className="px-4 py-2.5 border-t border-neutral-100 flex items-center justify-between">
-            <span className="text-[11px] text-neutral-300">
+            <span className="text-[11px] text-cyan-300/60">
               Select category → pick type → AI generates it
             </span>
             <button

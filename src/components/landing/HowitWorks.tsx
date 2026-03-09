@@ -14,7 +14,6 @@ interface ChartGroup {
   subtypes: ChartSubtype[];
 }
 
-// Clean, purposeful SVG icons that actually represent each chart type
 const Icons = {
   LineScatter: () => (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -449,10 +448,6 @@ const CHART_GROUPS: ChartGroup[] = [
         prompt: "Scatter Plot with a Color Dimension",
       },
       { label: "Grouped Scatter", prompt: "Grouped Scatter Plot" },
-      {
-        label: "Grouped Scatter Custom Gap",
-        prompt: "Grouped Scatter Plot with Custom Scatter Gap",
-      },
       { label: "Basic Line Plot", prompt: "Basic Line Plot" },
       { label: "Named Lines", prompt: "Adding Names to Line and Scatter Plot" },
       { label: "Stylized Line & Scatter", prompt: "Line and Scatter Stylized" },
@@ -692,14 +687,11 @@ const CHART_GROUPS: ChartGroup[] = [
 ];
 
 const TOTAL_TYPES = CHART_GROUPS.reduce((s, g) => s + g.subtypes.length - 1, 0);
-
-// ─── Step 1 ───────────────────────────────────────────────────────────────────
 const DEMO_TEXT = "Show me a 3D scatter of sales vs. engagement by region";
 
 function StepInput({ active }: { active: boolean }) {
   const [typed, setTyped] = useState("");
   const [cursorOn, setCursorOn] = useState(true);
-
   useEffect(() => {
     if (!active) {
       setTyped("");
@@ -718,7 +710,6 @@ function StepInput({ active }: { active: boolean }) {
       clearInterval(blinkId);
     };
   }, [active]);
-
   return (
     <div
       className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
@@ -824,11 +815,9 @@ function StepInput({ active }: { active: boolean }) {
   );
 }
 
-// ─── Step 2 ───────────────────────────────────────────────────────────────────
 function StepSelector({ active }: { active: boolean }) {
   const [activeGroup, setActiveGroup] = useState<ChartGroup | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-
   useEffect(() => {
     if (!active) {
       setActiveGroup(null);
@@ -842,7 +831,6 @@ function StepSelector({ active }: { active: boolean }) {
       clearTimeout(t2);
     };
   }, [active]);
-
   return (
     <div
       className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
@@ -1032,7 +1020,6 @@ function StepSelector({ active }: { active: boolean }) {
   );
 }
 
-// ─── Step 3 ───────────────────────────────────────────────────────────────────
 function StepProcessing({ active }: { active: boolean }) {
   const [step, setStep] = useState(0);
   const PROC = [
@@ -1057,7 +1044,6 @@ function StepProcessing({ active }: { active: boolean }) {
       detail: "Applying styling, axes & interactions",
     },
   ];
-
   useEffect(() => {
     if (!active) {
       setStep(0);
@@ -1069,7 +1055,6 @@ function StepProcessing({ active }: { active: boolean }) {
     );
     return () => ids.forEach(clearTimeout);
   }, [active]);
-
   return (
     <div
       className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
@@ -1195,11 +1180,9 @@ function StepProcessing({ active }: { active: boolean }) {
   );
 }
 
-// ─── Step 4 ───────────────────────────────────────────────────────────────────
 function StepChart({ active }: { active: boolean }) {
   const plotRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     if (!active || !plotRef.current) {
       setReady(false);
@@ -1227,8 +1210,8 @@ function StepChart({ active }: { active: boolean }) {
         };
         const x: number[] = [],
           y: number[] = [],
-          z: number[] = [];
-        const colors: string[] = [],
+          z: number[] = [],
+          colors: string[] = [],
           sizes: number[] = [],
           texts: string[] = [];
         for (let i = 0; i < n; i++) {
@@ -1344,7 +1327,6 @@ function StepChart({ active }: { active: boolean }) {
       });
     };
   }, [active]);
-
   return (
     <div
       className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
@@ -1466,7 +1448,6 @@ function StepChart({ active }: { active: boolean }) {
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
 const NAV_STEPS = [
   { label: "Write your request", sub: "Plain English or CSV upload" },
   {
@@ -1485,7 +1466,6 @@ export default function HowItWorks() {
   const [navVisible, setNavVisible] = useState(false);
   const [navStyle, setNavStyle] = useState<React.CSSProperties>({});
 
-  // ── Step highlighting via IntersectionObserver
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
     stepRefs.current.forEach((el, i) => {
@@ -1509,7 +1489,6 @@ export default function HowItWorks() {
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  // ── Fixed nav: show ONLY while the scrollable steps block is in the viewport
   useEffect(() => {
     const onScroll = () => {
       const content = contentRef.current;
@@ -1519,11 +1498,11 @@ export default function HowItWorks() {
       const contentRect = content.getBoundingClientRect();
       const sectionRect = section.getBoundingClientRect();
 
-      // Show nav only when the steps content block is actually on screen
-      // — not before it enters, not after it leaves
+      // Hide nav once the steps block scrolls away OR enters CTA zone
+      // contentRect.bottom <= vh*0.4 means steps are mostly gone, CTA is showing
       const inView =
-        contentRect.top < window.innerHeight * 0.85 &&
-        contentRect.bottom > window.innerHeight * 0.15;
+        contentRect.top < window.innerHeight * 0.9 &&
+        contentRect.bottom > window.innerHeight * 0.4;
 
       if (!inView) {
         setNavVisible(false);
@@ -1531,7 +1510,6 @@ export default function HowItWorks() {
       }
 
       setNavVisible(true);
-
       const leftPx = sectionRect.left + 32;
       const navHeight = 280;
       const top = Math.max(
@@ -1541,7 +1519,6 @@ export default function HowItWorks() {
           window.innerHeight / 2.4 - navHeight / 2,
         ),
       );
-
       setNavStyle({
         position: "fixed",
         top: `${top}px`,
@@ -1553,7 +1530,6 @@ export default function HowItWorks() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
-    // Don't call onScroll on mount — nav should be hidden until user scrolls to the section
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
@@ -1681,7 +1657,6 @@ export default function HowItWorks() {
   return (
     <>
       <NavPanel />
-
       <section
         ref={sectionRef}
         className="relative overflow-hidden"
@@ -1691,7 +1666,6 @@ export default function HowItWorks() {
           backgroundSize: "40px 40px",
         }}
       >
-        {/* Header */}
         <div className="max-w-5xl mx-auto px-8 pt-28 pb-16 text-center">
           <div
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6"
@@ -1724,14 +1698,8 @@ export default function HowItWorks() {
             Just describe what you need.
           </p>
         </div>
-
-        {/* Steps content — ref'd so nav visibility tracks this block */}
         <div ref={contentRef} className="max-w-5xl mx-auto px-8 pb-24">
           <div className="lg:pl-64">
-            {/* 
-              KEY CHANGE: replaced space-y-40 + min-h-[85vh] with
-              space-y-20 + no min-height — steps are compact and close together
-            */}
             <div className="space-y-20">
               {[StepInput, StepSelector, StepProcessing, StepChart].map(
                 (StepComponent, i) => (
@@ -1749,8 +1717,6 @@ export default function HowItWorks() {
             </div>
           </div>
         </div>
-
-        {/* CTA */}
         <div className="w-full px-8 py-20 text-center">
           <p className="text-2xl font-bold text-white mb-2">
             Ready to see your data differently?

@@ -94,7 +94,7 @@ export default function ForgotPasswordForm() {
       }
       footerText="Remembered it?"
       footerLinkLabel="Back to sign in"
-      footerLinkHref="/auth/signin"
+      footerLinkHref="/signin"
     >
       {submitted ? (
         /* ── SUCCESS STATE ── */
@@ -176,7 +176,7 @@ export default function ForgotPasswordForm() {
               loadingLabel="Sending…"
             />
             <Link
-              href="/auth/signin"
+              href="/signin"
               className="text-[0.82rem] text-[#6b7280] hover:text-white transition-colors whitespace-nowrap"
             >
               ← Back to sign in

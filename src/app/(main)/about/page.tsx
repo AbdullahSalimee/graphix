@@ -3,7 +3,7 @@ import MissionSection from "@/components/about/MissionSection";
 import ValuesSection from "@/components/about/ValuesSection";
 import StorySection from "@/components/about/StorySection";
 import TeamSection from "@/components/about/TeamSection";
-import CtaSection from "@/components/CtaSection";
+import CtaSection from "@/components/about/CtaSection";
 
 export const metadata = {
   title: "About Us — Graphix",
@@ -13,7 +13,7 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="bg-[#111212] text-white">
+    <main className="text-white">
       <AboutHero />
       <MissionSection />
       <ValuesSection />

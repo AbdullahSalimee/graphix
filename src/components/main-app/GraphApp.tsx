@@ -160,7 +160,7 @@ export default function GraphApp() {
   };
 
   return (
-    <div className="graph-app-root fixed inset-0 bg-[#030810] overflow-hidden">
+    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden">
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
         async

@@ -165,9 +165,9 @@ interface ChartToolbarProps {
   divRef: React.RefObject<PlotlyHTMLElement | null>;
   cardRef: React.RefObject<HTMLDivElement | null>;
   message: any;
+  onOpenEditor: () => void;
 }
 
-// ── Portal popup — flies out to the LEFT of the toolbar ─────────────────────
 function PortalPopup({
   anchorRef,
   open,
@@ -178,15 +178,12 @@ function PortalPopup({
   children: React.ReactNode;
 }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
   useEffect(() => {
     if (!open || !anchorRef.current) return;
     const r = anchorRef.current.getBoundingClientRect();
     setPos({ top: r.top + r.height / 2, left: r.left - 10 });
   }, [open, anchorRef]);
-
   if (!open || !pos) return null;
-
   return createPortal(
     <div
       onMouseDown={(e) => e.stopPropagation()}
@@ -203,7 +200,6 @@ function PortalPopup({
   );
 }
 
-// ── Tooltip — flies to the LEFT ──────────────────────────────────────────────
 function Tip({
   children,
   label,
@@ -213,7 +209,6 @@ function Tip({
 }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-
   return (
     <div
       ref={ref}
@@ -256,7 +251,6 @@ function PopLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Toolbar icon button ──────────────────────────────────────────────────────
 function TBtn({
   active,
   onClick,
@@ -275,11 +269,7 @@ function TBtn({
       <button
         onClick={onClick}
         disabled={disabled}
-        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 disabled:opacity-40 ${
-          active
-            ? "bg-white text-neutral-900 shadow-sm border border-white/20"
-            : "text-white/40 hover:text-white hover:bg-white/10 border border-transparent"
-        }`}
+        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 disabled:opacity-40 ${active ? "bg-white text-neutral-900 shadow-sm border border-white/20" : "text-white/40 hover:text-white hover:bg-white/10 border border-transparent"}`}
       >
         {children}
       </button>
@@ -291,6 +281,7 @@ export default function ChartToolbar({
   divRef,
   cardRef,
   message,
+  onOpenEditor,
 }: ChartToolbarProps) {
   const [activePalette, setActivePalette] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
@@ -298,7 +289,7 @@ export default function ChartToolbar({
   const [showConvert, setShowConvert] = useState(false);
   const [gridOn, setGridOn] = useState(true);
   const [legendOn, setLegendOn] = useState(true);
-  const [bgDark, setBgDark] = useState(false); // card starts white (light)
+  const [bgDark, setBgDark] = useState(false);
   const [labelOn, setLabelOn] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [activeConvert, setActiveConvert] = useState<string | null>(null);
@@ -324,7 +315,6 @@ export default function ChartToolbar({
     return () => document.removeEventListener("click", handleClick);
   }, [closeAll]);
 
-  // ── Chart mutations ────────────────────────────────────────────────────────
   const applyPalette = (palette: Palette) => {
     if (!divRef.current || !("Plotly" in window)) return;
     setActivePalette(palette.id);
@@ -363,7 +353,6 @@ export default function ChartToolbar({
     const n = !bgDark;
     setBgDark(n);
     if (n) {
-      // switching TO dark
       cardRef.current.style.background = "#111212";
       cardRef.current.style.borderColor = "rgba(255,255,255,0.08)";
       if (divRef.current && "Plotly" in window) {
@@ -376,7 +365,6 @@ export default function ChartToolbar({
         } as any);
       }
     } else {
-      // switching back TO light
       cardRef.current.style.background = "#ffffff";
       cardRef.current.style.borderColor = "#e5e7eb";
       if (divRef.current && "Plotly" in window) {
@@ -400,14 +388,11 @@ export default function ChartToolbar({
       if (isPie) {
         window.Plotly.restyle(
           divRef.current!,
-          {
-            textinfo: n ? "label+percent" : "none",
-          } as any,
+          { textinfo: n ? "label+percent" : "none" } as any,
           [i],
         );
       } else {
         if (n) {
-          // turn ON — show Y values above bars/points
           const vals = (trace.y ?? []).map((v: any) =>
             v !== null && v !== undefined ? String(v) : "",
           );
@@ -423,14 +408,9 @@ export default function ChartToolbar({
             [i],
           );
         } else {
-          // turn OFF — clear everything
           window.Plotly.restyle(
             divRef.current!,
-            {
-              text: [null],
-              texttemplate: "",
-              textposition: "none",
-            } as any,
+            { text: [null], texttemplate: "", textposition: "none" } as any,
             [i],
           );
         }
@@ -494,8 +474,44 @@ export default function ChartToolbar({
     PALETTES.find((p) => p.id === activePalette) ?? PALETTES[0];
 
   return (
-    // ── Vertical pill, right side of chart ──────────────────────────────────
-    <div className="absolute -right-11 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-0.5 bg-[#111212] border border-white/8 rounded-xl px-1 py-1.5 shadow-sm">
+    <div className="absolute -right-14 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-0.5 bg-[#111212] border border-white/8 rounded-xl px-1 py-1.5 shadow-sm">
+      {/* ── OPEN EDITOR — the money button ── */}
+      <Tip label="Open in editor">
+        <button
+          onClick={onOpenEditor}
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 group relative overflow-hidden"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.08))",
+            border: "1px solid rgba(6,182,212,0.35)",
+            boxShadow: "0 0 12px rgba(6,182,212,0.15)",
+          }}
+        >
+          {/* Glow pulse */}
+          <span
+            className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(6,182,212,0.2), transparent)",
+            }}
+          />
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#06b6d4"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
+          </svg>
+        </button>
+      </Tip>
+
+      <Divider />
+
       {/* Convert chart type */}
       <div ref={convertBtnRef}>
         <TBtn
@@ -527,11 +543,7 @@ export default function ChartToolbar({
               <button
                 key={type.id}
                 onClick={() => convertChart(type)}
-                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 text-xs rounded-lg transition-all border ${
-                  activeConvert === type.id
-                    ? "bg-neutral-900 text-white border-neutral-900"
-                    : "text-neutral-500 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300"
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 text-xs rounded-lg transition-all border ${activeConvert === type.id ? "bg-neutral-900 text-white border-neutral-900" : "text-neutral-500 border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300"}`}
               >
                 {type.icon}
                 <span>{type.label}</span>
@@ -549,11 +561,7 @@ export default function ChartToolbar({
               closeAll();
               setShowPalette((v) => !v);
             }}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${
-              showPalette
-                ? "bg-white/15 border-white/20"
-                : "border-transparent hover:bg-white/10"
-            }`}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${showPalette ? "bg-white/15 border-white/20" : "border-transparent hover:bg-white/10"}`}
           >
             <div className="grid grid-cols-2 gap-[2.5px]">
               {currentPalette.colors.slice(0, 4).map((c, i) => (
@@ -573,11 +581,7 @@ export default function ChartToolbar({
               <button
                 key={palette.id}
                 onClick={() => applyPalette(palette)}
-                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg transition-all border ${
-                  activePalette === palette.id
-                    ? "bg-neutral-50 border-neutral-300"
-                    : "bg-white border-neutral-100 hover:bg-neutral-50"
-                }`}
+                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg transition-all border ${activePalette === palette.id ? "bg-neutral-50 border-neutral-300" : "bg-white border-neutral-100 hover:bg-neutral-50"}`}
               >
                 <div className="flex gap-0.5">
                   {palette.colors.map((c, i) => (
@@ -604,7 +608,6 @@ export default function ChartToolbar({
 
       <Divider />
 
-      {/* Grid */}
       <TBtn
         active={gridOn}
         label={gridOn ? "Hide grid" : "Show grid"}
@@ -625,7 +628,6 @@ export default function ChartToolbar({
         </svg>
       </TBtn>
 
-      {/* Legend */}
       <TBtn
         active={legendOn}
         label={legendOn ? "Hide legend" : "Show legend"}
@@ -651,7 +653,6 @@ export default function ChartToolbar({
         </svg>
       </TBtn>
 
-      {/* Labels */}
       <TBtn
         active={labelOn}
         label={labelOn ? "Hide labels" : "Show labels"}
@@ -670,10 +671,9 @@ export default function ChartToolbar({
         </svg>
       </TBtn>
 
-      {/* Background toggle */}
       <TBtn
         active={bgDark}
-        label={bgDark ? "Switch to light bg" : "Switch to dark bg"}
+        label={bgDark ? "Light background" : "Dark background"}
         onClick={toggleBg}
       >
         <svg
@@ -698,7 +698,6 @@ export default function ChartToolbar({
 
       <Divider />
 
-      {/* Reset zoom */}
       <TBtn active={false} label="Reset zoom & pan" onClick={resetZoom}>
         <svg
           width="13"
@@ -713,7 +712,6 @@ export default function ChartToolbar({
         </svg>
       </TBtn>
 
-      {/* Export */}
       <div ref={exportBtnRef}>
         <TBtn
           active={showExport}

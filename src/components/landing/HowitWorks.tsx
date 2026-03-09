@@ -689,6 +689,8 @@ const CHART_GROUPS: ChartGroup[] = [
 const TOTAL_TYPES = CHART_GROUPS.reduce((s, g) => s + g.subtypes.length - 1, 0);
 const DEMO_TEXT = "Show me a 3D scatter of sales vs. engagement by region";
 
+// ─── Step Components (unchanged logic, same props) ───────────────────────────
+
 function StepInput({ active }: { active: boolean }) {
   const [typed, setTyped] = useState("");
   const [cursorOn, setCursorOn] = useState(true);
@@ -710,106 +712,92 @@ function StepInput({ active }: { active: boolean }) {
       clearInterval(blinkId);
     };
   }, [active]);
+
   return (
     <div
-      className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className="rounded-2xl border border-white/10 bg-white overflow-hidden"
+      style={{
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
+      }}
     >
-      <div
-        className="rounded-2xl border border-white/10 bg-white overflow-hidden"
-        style={{
-          boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
-        }}
-      >
-        <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-          <div className="flex-1 mx-3 h-5 rounded bg-white border border-zinc-200 flex items-center px-2 gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
-            <span className="font-mono text-[10px] text-zinc-400">
-              app.graphai.io
-            </span>
-          </div>
-        </div>
-        <div
-          className="h-44 flex items-center justify-center"
-          style={{
-            background:
-              "repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.04) 39px,rgba(0,0,0,0.04) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.04) 39px,rgba(0,0,0,0.04) 40px)",
-          }}
-        >
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-xl border-2 border-dashed border-zinc-200 flex items-center justify-center mx-auto mb-2">
-              <span className="text-xl text-zinc-300">◈</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 font-mono">
-              Your chart will appear here
-            </p>
-          </div>
-        </div>
-        <div className="p-3 border-t border-zinc-100">
-          <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-zinc-200 text-zinc-500 text-[11px] font-mono whitespace-nowrap shadow-sm">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                <rect
-                  x="1"
-                  y="1"
-                  width="10"
-                  height="10"
-                  rx="2"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                />
-                <path
-                  d="M4 6h4M6 4v4"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                />
-              </svg>
-              Add CSV
-            </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-zinc-200 text-zinc-500 text-[11px] font-mono whitespace-nowrap shadow-sm">
-              <span>⬡</span> Chart Type
-            </button>
-            <div className="flex-1 font-mono text-[12px] text-zinc-700 min-w-0 flex items-center gap-px">
-              <span>{typed}</span>
-              {active && (
-                <span
-                  className={`inline-block w-[1.5px] h-3.5 bg-zinc-800 transition-opacity ${cursorOn ? "opacity-100" : "opacity-0"}`}
-                />
-              )}
-              {!typed && !active && (
-                <span className="text-zinc-300">
-                  Write your request or add a CSV…
-                </span>
-              )}
-            </div>
-            <button className="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center flex-shrink-0">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path
-                  d="M1 6h10M7 2l4 4-4 4"
-                  stroke="white"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
+      <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
+        <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+        <div className="flex-1 mx-3 h-5 rounded bg-white border border-zinc-200 flex items-center px-2 gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
+          <span className="font-mono text-[10px] text-zinc-400">
+            app.graphai.io
+          </span>
         </div>
       </div>
       <div
-        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className="h-44 flex items-center justify-center"
+        style={{
+          background:
+            "repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.04) 39px,rgba(0,0,0,0.04) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.04) 39px,rgba(0,0,0,0.04) 40px)",
+        }}
       >
-        <p className="text-white/70 text-sm leading-relaxed">
-          Type any plain-English request —{" "}
-          <span className="text-white/40 font-mono text-[11px]">
-            "Show revenue by region for Q4"
-          </span>{" "}
-          — or drag in a CSV file. No SQL, no setup required.
-        </p>
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-xl border-2 border-dashed border-zinc-200 flex items-center justify-center mx-auto mb-2">
+            <span className="text-xl text-zinc-300">◈</span>
+          </div>
+          <p className="text-[11px] text-zinc-400 font-mono">
+            Your chart will appear here
+          </p>
+        </div>
+      </div>
+      <div className="p-3 border-t border-zinc-100">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
+          <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-zinc-200 text-zinc-500 text-[11px] font-mono whitespace-nowrap shadow-sm">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              <rect
+                x="1"
+                y="1"
+                width="10"
+                height="10"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              />
+              <path
+                d="M4 6h4M6 4v4"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+            Add CSV
+          </button>
+          <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-zinc-200 text-zinc-500 text-[11px] font-mono whitespace-nowrap shadow-sm">
+            <span>⬡</span> Chart Type
+          </button>
+          <div className="flex-1 font-mono text-[12px] text-zinc-700 min-w-0 flex items-center gap-px">
+            <span>{typed}</span>
+            {active && (
+              <span
+                className={`inline-block w-[1.5px] h-3.5 bg-zinc-800 transition-opacity ${cursorOn ? "opacity-100" : "opacity-0"}`}
+              />
+            )}
+            {!typed && !active && (
+              <span className="text-zinc-300">
+                Write your request or add a CSV…
+              </span>
+            )}
+          </div>
+          <button className="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M1 6h10M7 2l4 4-4 4"
+                stroke="white"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -831,190 +819,178 @@ function StepSelector({ active }: { active: boolean }) {
       clearTimeout(t2);
     };
   }, [active]);
+
   return (
     <div
-      className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className="rounded-2xl border border-white/10 bg-white overflow-hidden"
+      style={{
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
+      }}
     >
-      <div
-        className="rounded-2xl border border-white/10 bg-white overflow-hidden"
-        style={{
-          boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
-        }}
-      >
-        <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 border-b border-zinc-100">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-            <span className="ml-3 font-mono text-[10px] text-zinc-500">
-              Select chart type
-            </span>
-          </div>
-          <span className="font-mono text-[10px] text-zinc-400">
-            {CHART_GROUPS.length} categories · {TOTAL_TYPES} types
+      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 border-b border-zinc-100">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+          <span className="ml-3 font-mono text-[10px] text-zinc-500">
+            Select chart type
           </span>
         </div>
-        <div className="flex" style={{ height: 360 }}>
-          <div className="w-44 flex-shrink-0 border-r border-zinc-100 overflow-y-auto bg-zinc-50 py-1">
-            {CHART_GROUPS.map((g) => (
-              <button
-                key={g.id}
-                onClick={() =>
-                  setActiveGroup(activeGroup?.id === g.id ? null : g)
-                }
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-all duration-150 border-l-2 ${activeGroup?.id === g.id ? "bg-white border-l-zinc-800" : "border-l-transparent hover:bg-white/80 hover:border-l-zinc-300"}`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-5 flex-shrink-0 flex items-center justify-center text-zinc-400">
-                    {g.icon}
-                  </span>
-                  <div className="min-w-0">
-                    <div
-                      className={`text-[11px] font-semibold truncate ${activeGroup?.id === g.id ? "text-zinc-900" : "text-zinc-500"}`}
-                    >
-                      {g.label}
-                    </div>
-                    <div className="text-[9px] text-zinc-400 mt-0.5 font-mono">
-                      {g.subtypes.length - 1} types
-                    </div>
+        <span className="font-mono text-[10px] text-zinc-400">
+          {CHART_GROUPS.length} categories · {TOTAL_TYPES} types
+        </span>
+      </div>
+      <div className="flex" style={{ height: 360 }}>
+        <div className="w-44 flex-shrink-0 border-r border-zinc-100 overflow-y-auto bg-zinc-50 py-1">
+          {CHART_GROUPS.map((g) => (
+            <button
+              key={g.id}
+              onClick={() =>
+                setActiveGroup(activeGroup?.id === g.id ? null : g)
+              }
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-all duration-150 border-l-2 ${activeGroup?.id === g.id ? "bg-white border-l-zinc-800" : "border-l-transparent hover:bg-white/80 hover:border-l-zinc-300"}`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-5 flex-shrink-0 flex items-center justify-center text-zinc-400">
+                  {g.icon}
+                </span>
+                <div className="min-w-0">
+                  <div
+                    className={`text-[11px] font-semibold truncate ${activeGroup?.id === g.id ? "text-zinc-900" : "text-zinc-500"}`}
+                  >
+                    {g.label}
+                  </div>
+                  <div className="text-[9px] text-zinc-400 mt-0.5 font-mono">
+                    {g.subtypes.length - 1} types
                   </div>
                 </div>
-                <svg
+              </div>
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 8 8"
+                fill="none"
+                className={`flex-shrink-0 transition-transform duration-150 ${activeGroup?.id === g.id ? "rotate-90" : ""}`}
+              >
+                <path
+                  d="M2 1.5l3 2.5-3 2.5"
+                  stroke={activeGroup?.id === g.id ? "#27272a" : "#d4d4d8"}
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 bg-white">
+          {!activeGroup ? (
+            <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-300">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 40 40"
+                fill="none"
+                className="text-zinc-200"
+              >
+                <rect
+                  x="4"
+                  y="10"
                   width="8"
-                  height="8"
-                  viewBox="0 0 8 8"
-                  fill="none"
-                  className={`flex-shrink-0 transition-transform duration-150 ${activeGroup?.id === g.id ? "rotate-90" : ""}`}
-                >
-                  <path
-                    d="M2 1.5l3 2.5-3 2.5"
-                    stroke={activeGroup?.id === g.id ? "#27272a" : "#d4d4d8"}
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 bg-white">
-            {!activeGroup ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-300">
-                <svg
-                  width="40"
-                  height="40"
-                  viewBox="0 0 40 40"
-                  fill="none"
-                  className="text-zinc-200"
-                >
-                  <rect
-                    x="4"
-                    y="10"
-                    width="8"
-                    height="20"
-                    rx="1"
-                    fill="currentColor"
-                    opacity="0.4"
-                  />
-                  <rect
-                    x="16"
-                    y="6"
-                    width="8"
-                    height="24"
-                    rx="1"
-                    fill="currentColor"
-                    opacity="0.65"
-                  />
-                  <rect
-                    x="28"
-                    y="14"
-                    width="8"
-                    height="16"
-                    rx="1"
-                    fill="currentColor"
-                    opacity="0.3"
-                  />
-                </svg>
-                <span className="text-xs font-mono text-zinc-400 text-center">
-                  Select a category
-                  <br />
-                  to see all chart types
+                  height="20"
+                  rx="1"
+                  fill="currentColor"
+                  opacity="0.4"
+                />
+                <rect
+                  x="16"
+                  y="6"
+                  width="8"
+                  height="24"
+                  rx="1"
+                  fill="currentColor"
+                  opacity="0.65"
+                />
+                <rect
+                  x="28"
+                  y="14"
+                  width="8"
+                  height="16"
+                  rx="1"
+                  fill="currentColor"
+                  opacity="0.3"
+                />
+              </svg>
+              <span className="text-xs font-mono text-zinc-400 text-center">
+                Select a category
+                <br />
+                to see all chart types
+              </span>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-start justify-between px-1 pb-3 mb-2 border-b border-zinc-100">
+                <div>
+                  <div className="text-xs font-bold text-zinc-900">
+                    {activeGroup.icon} {activeGroup.label}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">
+                    {activeGroup.description}
+                  </div>
+                </div>
+                <span className="font-mono text-[9px] text-zinc-400 bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded flex-shrink-0 ml-2">
+                  {activeGroup.subtypes.length - 1} types
                 </span>
               </div>
-            ) : (
-              <div>
-                <div className="flex items-start justify-between px-1 pb-3 mb-2 border-b border-zinc-100">
-                  <div>
-                    <div className="text-xs font-bold text-zinc-900">
-                      {activeGroup.icon} {activeGroup.label}
-                    </div>
-                    <div className="text-[10px] text-zinc-400 mt-0.5">
-                      {activeGroup.description}
-                    </div>
-                  </div>
-                  <span className="font-mono text-[9px] text-zinc-400 bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded flex-shrink-0 ml-2">
-                    {activeGroup.subtypes.length - 1} types
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  {activeGroup.subtypes.map((sub, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelected(sub.label)}
-                      className={`text-left px-2.5 py-2 rounded-lg text-[11px] transition-all duration-100 border ${sub.prompt === null ? "col-span-2 bg-zinc-900 border-zinc-900 text-white font-semibold hover:bg-zinc-800" : selected === sub.label ? "bg-zinc-900 border-zinc-900 text-white" : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50"}`}
-                    >
-                      {sub.prompt === null ? (
-                        <span className="flex items-center gap-2">
-                          <svg
-                            width="11"
-                            height="11"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                          >
-                            <path
-                              d="M6 1v2M6 9v2M1 6h2M9 6h2M2.5 2.5l1.4 1.4M8.1 8.1l1.4 1.4M9.5 2.5L8.1 3.9M3.9 8.1L2.5 9.5"
-                              stroke="currentColor"
-                              strokeWidth="1.4"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          Let AI choose the best {activeGroup.label} type
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2 font-mono">
-                          <span
-                            className={`w-1 h-1 rounded-full flex-shrink-0 ${selected === sub.label ? "bg-white" : "bg-zinc-300"}`}
+              <div className="grid grid-cols-2 gap-1">
+                {activeGroup.subtypes.map((sub, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelected(sub.label)}
+                    className={`text-left px-2.5 py-2 rounded-lg text-[11px] transition-all duration-100 border ${sub.prompt === null ? "col-span-2 bg-zinc-900 border-zinc-900 text-white font-semibold hover:bg-zinc-800" : selected === sub.label ? "bg-zinc-900 border-zinc-900 text-white" : "bg-white border-zinc-100 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50"}`}
+                  >
+                    {sub.prompt === null ? (
+                      <span className="flex items-center gap-2">
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                        >
+                          <path
+                            d="M6 1v2M6 9v2M1 6h2M9 6h2M2.5 2.5l1.4 1.4M8.1 8.1l1.4 1.4M9.5 2.5L8.1 3.9M3.9 8.1L2.5 9.5"
+                            stroke="currentColor"
+                            strokeWidth="1.4"
+                            strokeLinecap="round"
                           />
-                          {sub.label}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        </svg>
+                        Let AI choose the best {activeGroup.label} type
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 font-mono">
+                        <span
+                          className={`w-1 h-1 rounded-full flex-shrink-0 ${selected === sub.label ? "bg-white" : "bg-zinc-300"}`}
+                        />
+                        {sub.label}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-        <div className="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
-          <span className="font-mono text-[10px] text-zinc-400">
-            Click category → pick type → AI generates it
-          </span>
-          {selected && (
-            <span className="font-mono text-[10px] text-white bg-zinc-900 px-2 py-0.5 rounded">
-              ✓ {selected}
-            </span>
+            </div>
           )}
         </div>
       </div>
-      <div
-        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-      >
-        <p className="text-white/70 text-sm leading-relaxed">
-          Choose from {TOTAL_TYPES}+ chart types across {CHART_GROUPS.length}{" "}
-          categories — or let AI automatically pick the most effective
-          visualization for your data.
-        </p>
+      <div className="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-zinc-400">
+          Click category → pick type → AI generates it
+        </span>
+        {selected && (
+          <span className="font-mono text-[10px] text-white bg-zinc-900 px-2 py-0.5 rounded">
+            ✓ {selected}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -1055,126 +1031,114 @@ function StepProcessing({ active }: { active: boolean }) {
     );
     return () => ids.forEach(clearTimeout);
   }, [active]);
+
   return (
     <div
-      className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className="rounded-2xl border border-white/10 bg-white overflow-hidden"
+      style={{
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
+      }}
     >
-      <div
-        className="rounded-2xl border border-white/10 bg-white overflow-hidden"
-        style={{
-          boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.06), 0 24px 64px rgba(0,0,0,0.7)",
-        }}
-      >
-        <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-          <div className="flex items-center gap-2 ml-3">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-50 animate-ping" />
-              <span className="relative w-2 h-2 rounded-full bg-zinc-600" />
-            </span>
-            <span className="font-mono text-[10px] text-zinc-500">
-              AI is working…
-            </span>
-          </div>
-        </div>
-        <div className="divide-y divide-zinc-50">
-          {PROC.map((s, i) => {
-            const done = step > i + 1,
-              current = step === i + 1;
-            return (
-              <div
-                key={i}
-                className={`flex items-center gap-4 px-5 py-4 transition-all duration-500 ${step <= i ? "opacity-20" : "opacity-100"}`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-400 ${done ? "bg-zinc-900 text-white" : current ? "bg-zinc-100 border-2 border-zinc-300" : "bg-zinc-50 text-zinc-300 border border-zinc-100"}`}
-                >
-                  {current ? (
-                    <svg
-                      className="animate-spin text-zinc-600"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeOpacity="0.2"
-                      />
-                      <path
-                        d="M12 2a10 10 0 0 1 10 10"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  ) : done ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path
-                        d="M2.5 7l3 3 6-6"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : (
-                    <span className="text-base text-zinc-400">{s.icon}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm font-semibold ${done ? "text-zinc-800" : current ? "text-zinc-700" : "text-zinc-400"}`}
-                  >
-                    {s.label}
-                  </p>
-                  <p
-                    className={`text-[11px] font-mono mt-0.5 ${done || current ? "text-zinc-400" : "text-zinc-300"}`}
-                  >
-                    {s.detail}
-                  </p>
-                </div>
-                {done && (
-                  <span className="font-mono text-[10px] text-zinc-400 bg-zinc-50 border border-zinc-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                    done
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50">
-          <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
-            <div
-              className="h-full bg-zinc-900 rounded-full transition-all duration-700"
-              style={{ width: `${(step / PROC.length) * 100}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="font-mono text-[10px] text-zinc-400">
-              Processing your data
-            </span>
-            <span className="font-mono text-[10px] text-zinc-700 font-semibold">
-              {Math.round((step / PROC.length) * 100)}%
-            </span>
-          </div>
+      <div className="flex items-center gap-1.5 px-4 py-3 bg-zinc-50 border-b border-zinc-100">
+        <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+        <div className="flex items-center gap-2 ml-3">
+          <span className="relative flex w-2 h-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-50 animate-ping" />
+            <span className="relative w-2 h-2 rounded-full bg-zinc-600" />
+          </span>
+          <span className="font-mono text-[10px] text-zinc-500">
+            AI is working…
+          </span>
         </div>
       </div>
-      <div
-        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-      >
-        <p className="text-white/70 text-sm leading-relaxed">
-          GraphAI parses intent, maps every dimension to an optimal visual
-          encoding, and generates a fully interactive chart — in under 3
-          seconds.
-        </p>
+      <div className="divide-y divide-zinc-50">
+        {PROC.map((s, i) => {
+          const done = step > i + 1,
+            current = step === i + 1;
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-4 px-5 py-4 transition-all duration-500 ${step <= i ? "opacity-20" : "opacity-100"}`}
+            >
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-400 ${done ? "bg-zinc-900 text-white" : current ? "bg-zinc-100 border-2 border-zinc-300" : "bg-zinc-50 text-zinc-300 border border-zinc-100"}`}
+              >
+                {current ? (
+                  <svg
+                    className="animate-spin text-zinc-600"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeOpacity="0.2"
+                    />
+                    <path
+                      d="M12 2a10 10 0 0 1 10 10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                ) : done ? (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path
+                      d="M2.5 7l3 3 6-6"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <span className="text-base text-zinc-400">{s.icon}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`text-sm font-semibold ${done ? "text-zinc-800" : current ? "text-zinc-700" : "text-zinc-400"}`}
+                >
+                  {s.label}
+                </p>
+                <p
+                  className={`text-[11px] font-mono mt-0.5 ${done || current ? "text-zinc-400" : "text-zinc-300"}`}
+                >
+                  {s.detail}
+                </p>
+              </div>
+              {done && (
+                <span className="font-mono text-[10px] text-zinc-400 bg-zinc-50 border border-zinc-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                  done
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="px-5 py-4 border-t border-zinc-100 bg-zinc-50">
+        <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+          <div
+            className="h-full bg-zinc-900 rounded-full transition-all duration-700"
+            style={{ width: `${(step / PROC.length) * 100}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-1.5">
+          <span className="font-mono text-[10px] text-zinc-400">
+            Processing your data
+          </span>
+          <span className="font-mono text-[10px] text-zinc-700 font-semibold">
+            {Math.round((step / PROC.length) * 100)}%
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1327,417 +1291,513 @@ function StepChart({ active }: { active: boolean }) {
       });
     };
   }, [active]);
+
   return (
     <div
-      className={`transition-all duration-700 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: "#080f1a",
+        border: "1px solid rgba(6,182,212,0.25)",
+        boxShadow:
+          "0 0 0 1px rgba(6,182,212,0.08), 0 24px 64px rgba(0,0,0,0.8), 0 0 80px rgba(6,182,212,0.08)",
+      }}
     >
       <div
-        className="rounded-2xl overflow-hidden"
+        className="flex items-center justify-between px-4 py-3 border-b"
         style={{
-          background: "#080f1a",
-          border: "1px solid rgba(6,182,212,0.25)",
-          boxShadow:
-            "0 0 0 1px rgba(6,182,212,0.08), 0 24px 64px rgba(0,0,0,0.8), 0 0 80px rgba(6,182,212,0.08)",
+          background: "rgba(6,182,212,0.05)",
+          borderColor: "rgba(6,182,212,0.15)",
         }}
       >
-        <div
-          className="flex items-center justify-between px-4 py-3 border-b"
-          style={{
-            background: "rgba(6,182,212,0.05)",
-            borderColor: "rgba(6,182,212,0.15)",
-          }}
-        >
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-            <div className="flex items-center gap-2 ml-3">
-              <span className="relative flex w-2 h-2">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-40 animate-ping" />
-                <span className="relative w-2 h-2 rounded-full bg-cyan-400" />
-              </span>
-              <span className="font-mono text-[10px] text-cyan-400/70">
-                3D Sales Scatter — Ready
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-1">
-            {["SVG", "CSV", "PNG"].map((f) => (
-              <button
-                key={f}
-                className="px-2 py-0.5 rounded font-mono text-[10px] border transition-colors"
-                style={
-                  f === "PNG"
-                    ? {
-                        background: "#06b6d4",
-                        borderColor: "#06b6d4",
-                        color: "#000",
-                      }
-                    : {
-                        background: "transparent",
-                        borderColor: "rgba(6,182,212,0.2)",
-                        color: "rgba(6,182,212,0.5)",
-                      }
-                }
-              >
-                {f}
-              </button>
-            ))}
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+          <div className="flex items-center gap-2 ml-3">
+            <span className="relative flex w-2 h-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-40 animate-ping" />
+              <span className="relative w-2 h-2 rounded-full bg-cyan-400" />
+            </span>
+            <span className="font-mono text-[10px] text-cyan-400/70">
+              3D Sales Scatter — Ready
+            </span>
           </div>
         </div>
-        <div className="relative" style={{ height: 360 }}>
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 ${ready ? "opacity-100" : "opacity-0"}`}
-          >
-            <div ref={plotRef} style={{ width: "100%", height: "100%" }} />
-          </div>
-          {!ready && (
-            <div
-              className="absolute inset-0 flex items-center justify-center gap-3"
-              style={{ color: "#06b6d4" }}
+        <div className="flex gap-1">
+          {["SVG", "CSV", "PNG"].map((f) => (
+            <button
+              key={f}
+              className="px-2 py-0.5 rounded font-mono text-[10px] border transition-colors"
+              style={
+                f === "PNG"
+                  ? {
+                      background: "#06b6d4",
+                      borderColor: "#06b6d4",
+                      color: "#000",
+                    }
+                  : {
+                      background: "transparent",
+                      borderColor: "rgba(6,182,212,0.2)",
+                      color: "rgba(6,182,212,0.5)",
+                    }
+              }
             >
-              <svg
-                className="animate-spin"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeOpacity="0.2"
-                />
-                <path
-                  d="M12 2a10 10 0 0 1 10 10"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <span className="text-xs font-mono">Rendering 3D chart…</span>
-            </div>
-          )}
-        </div>
-        <div
-          className={`px-4 py-3 flex items-center gap-2.5 transition-all duration-500 delay-700 ${ready ? "opacity-100" : "opacity-0"}`}
-          style={{
-            borderTop: "1px solid rgba(6,182,212,0.15)",
-            background: "rgba(6,182,212,0.05)",
-          }}
-        >
-          <span className="text-cyan-400 text-xs">✦</span>
-          <span className="font-mono text-[11px] text-cyan-300/70">
-            East & North regions show strongest correlation (r = 0.87) —
-            potential growth targets
-          </span>
+              {f}
+            </button>
+          ))}
         </div>
       </div>
+      <div className="relative" style={{ height: 360 }}>
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 ${ready ? "opacity-100" : "opacity-0"}`}
+        >
+          <div ref={plotRef} style={{ width: "100%", height: "100%" }} />
+        </div>
+        {!ready && (
+          <div
+            className="absolute inset-0 flex items-center justify-center gap-3"
+            style={{ color: "#06b6d4" }}
+          >
+            <svg
+              className="animate-spin"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeOpacity="0.2"
+              />
+              <path
+                d="M12 2a10 10 0 0 1 10 10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-xs font-mono">Rendering 3D chart…</span>
+          </div>
+        )}
+      </div>
       <div
-        className={`mt-4 transition-all duration-700 delay-200 ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        className={`px-4 py-3 flex items-center gap-2.5 transition-all duration-500 delay-700 ${ready ? "opacity-100" : "opacity-0"}`}
+        style={{
+          borderTop: "1px solid rgba(6,182,212,0.15)",
+          background: "rgba(6,182,212,0.05)",
+        }}
       >
-        <p className="text-white/70 text-sm leading-relaxed">
-          Your chart is fully interactive — rotate, zoom, hover for details.
-          Export in one click, or embed anywhere with a snippet.
-        </p>
+        <span className="text-cyan-400 text-xs">✦</span>
+        <span className="font-mono text-[11px] text-cyan-300/70">
+          East & North regions show strongest correlation (r = 0.87) — potential
+          growth targets
+        </span>
       </div>
     </div>
   );
 }
 
-const NAV_STEPS = [
-  { label: "Write your request", sub: "Plain English or CSV upload" },
+// ─── Step metadata ─────────────────────────────────────────────────────────────
+
+const STEPS = [
   {
-    label: "Choose chart type",
-    sub: `${TOTAL_TYPES}+ types, ${CHART_GROUPS.length} categories`,
+    num: "01",
+    label: "Write your request",
+    headline: "Plain English.\nNo SQL needed.",
+    body: "Type any natural-language request — or drag in a CSV. Describe what you want to see and GraphAI figures out the rest.",
+    tag: "Input",
+    component: StepInput,
   },
-  { label: "AI processes your data", sub: "Parse · Map · Render" },
-  { label: "Get your chart", sub: "Interactive & export-ready" },
+  {
+    num: "02",
+    label: "Choose chart type",
+    headline: `${TOTAL_TYPES}+ chart types.\nAI picks for you.`,
+    body: `Browse ${CHART_GROUPS.length} categories of chart types — or let AI automatically choose the most effective visualization for your data.`,
+    tag: "Selection",
+    component: StepSelector,
+  },
+  {
+    num: "03",
+    label: "AI processes your data",
+    headline: "Parse. Map.\nRender.",
+    body: "GraphAI parses intent, maps every dimension to an optimal visual encoding, and generates a fully interactive chart in under 3 seconds.",
+    tag: "Processing",
+    component: StepProcessing,
+  },
+  {
+    num: "04",
+    label: "Get your chart",
+    headline: "Interactive &\nexport-ready.",
+    body: "Rotate, zoom, hover for details. Export in one click as PNG, SVG, or CSV — or embed anywhere with a snippet.",
+    tag: "Output",
+    component: StepChart,
+  },
 ];
+
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export default function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const sectionRef = useRef<HTMLElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [navVisible, setNavVisible] = useState(false);
-  const [navStyle, setNavStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
     stepRefs.current.forEach((el, i) => {
       if (!el) return;
-      let initialFired = false;
-      const observer = new IntersectionObserver(
+      let fired = false;
+      const obs = new IntersectionObserver(
         (entries) => {
-          entries.forEach((entry) => {
-            if (!initialFired) {
-              initialFired = true;
+          entries.forEach((e) => {
+            if (!fired) {
+              fired = true;
               return;
             }
-            if (entry.isIntersecting) setActiveStep(i);
+            if (e.isIntersecting) setActiveStep(i);
           });
         },
         { rootMargin: "-35% 0px -55% 0px", threshold: 0 },
       );
-      observer.observe(el);
-      observers.push(observer);
+      obs.observe(el);
+      observers.push(obs);
     });
     return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  useEffect(() => {
-    const onScroll = () => {
-      const content = contentRef.current;
-      const section = sectionRef.current;
-      if (!content || !section) return;
+  return (
+    <section className="relative overflow-hidden bg-[#111212]">
+      {/* Subtle grid */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
+        }}
+      />
 
-      const contentRect = content.getBoundingClientRect();
-      const sectionRect = section.getBoundingClientRect();
+      {/* Radial glow top */}
+     
 
-      // Hide nav once the steps block scrolls away OR enters CTA zone
-      // contentRect.bottom <= vh*0.4 means steps are mostly gone, CTA is showing
-      const inView =
-        contentRect.top < window.innerHeight * 0.9 &&
-        contentRect.bottom > window.innerHeight * 0.4;
+      {/* ── HEADER ── */}
+      <div className="relative max-w-6xl mx-auto px-6 pt-32 pb-20">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+          {/* Left: label + heading */}
+          <div className="max-w-xl">
+            <div
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6"
+              style={{
+                border: "1px solid rgba(6,182,212,0.2)",
+                background: "rgba(6,182,212,0.05)",
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span
+                className="text-[10px] tracking-[0.25em] uppercase font-mono"
+                style={{ color: "rgba(6,182,212,0.8)" }}
+              >
+                How it works
+              </span>
+            </div>
+            <h2
+              className="text-5xl md:text-6xl font-black tracking-tighter leading-none"
+              style={{ color: "#fff" }}
+            >
+              From question
+              <br />
+              <span style={{ color: "rgba(6,182,212,0.6)" }}>to chart.</span>
+            </h2>
+          </div>
 
-      if (!inView) {
-        setNavVisible(false);
-        return;
-      }
+          {/* Right: descriptor + steps count */}
+          <div className="md:text-right">
+            <p className="text-white/40 text-sm font-mono leading-relaxed mb-4 max-w-xs md:ml-auto">
+              No code. No SQL.
+              <br />
+              No configuration. Just describe what you need.
+            </p>
+            <div className="flex md:justify-end gap-6">
+              {[
+                ["4", "steps"],
+                [String(TOTAL_TYPES) + "+", "chart types"],
+                [String(CHART_GROUPS.length), "categories"],
+              ].map(([n, l]) => (
+                <div key={l} className="text-center">
+                  <div className="text-2xl font-black text-white">{n}</div>
+                  <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider">
+                    {l}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-      setNavVisible(true);
-      const leftPx = sectionRect.left + 32;
-      const navHeight = 280;
-      const top = Math.max(
-        60,
-        Math.min(
-          window.innerHeight - navHeight - 30,
-          window.innerHeight / 2.4 - navHeight / 2,
-        ),
-      );
-      setNavStyle({
-        position: "fixed",
-        top: `${top}px`,
-        left: `${leftPx}px`,
-        width: "220px",
-        zIndex: 50,
-      });
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
-
-  const NavPanel = () => (
-    <div
-      style={navVisible ? navStyle : { display: "none" }}
-      className="hidden lg:block"
-    >
-      <div className="space-y-1">
-        {NAV_STEPS.map((s, i) => (
-          <button
-            key={i}
-            onClick={() =>
-              stepRefs.current[i]?.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              })
-            }
-            className="w-full flex items-start gap-3 px-4 py-4 rounded-xl text-left transition-all duration-300"
-            style={{
-              background:
-                activeStep === i ? "rgba(6,182,212,0.07)" : "transparent",
-              border:
-                activeStep === i
-                  ? "1px solid rgba(6,182,212,0.2)"
-                  : "1px solid transparent",
-            }}
-          >
-            <div className="flex flex-col items-center justify-start gap-1">
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-300"
+        {/* Step tab bar */}
+        <div className="mt-14 flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+          {STEPS.map((s, i) => (
+            <button
+              key={i}
+              onClick={() =>
+                stepRefs.current[i]?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                })
+              }
+              className="flex-1 min-w-[120px] flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 relative overflow-hidden"
+              style={{
+                background:
+                  activeStep === i
+                    ? "rgba(6,182,212,0.08)"
+                    : "rgba(255,255,255,0.02)",
+                border:
+                  activeStep === i
+                    ? "1px solid rgba(6,182,212,0.25)"
+                    : "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <span
+                className="text-[10px] font-black font-mono flex-shrink-0"
                 style={{
-                  background:
-                    activeStep === i
-                      ? "#06b6d4"
-                      : activeStep > i
-                        ? "rgba(6,182,212,0.2)"
-                        : "rgba(255,255,255,0.07)",
                   color:
-                    activeStep === i
-                      ? "#000"
-                      : activeStep > i
-                        ? "#06b6d4"
-                        : "rgba(255,255,255,0.2)",
-                  boxShadow:
-                    activeStep === i ? "0 0 12px rgba(6,182,212,0.5)" : "none",
+                    activeStep === i ? "#06b6d4" : "rgba(255,255,255,0.15)",
                 }}
               >
-                {activeStep > i ? (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path
-                      d="M1.5 5l2.5 2.5 4.5-4"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
-              </div>
-              {i < NAV_STEPS.length - 1 && (
-                <div
-                  className="w-px mt-1 h-9 transition-all duration-700"
-                  style={{
-                    background:
-                      activeStep > i
-                        ? "rgba(6,182,212,0.35)"
-                        : "rgba(255,255,255,0.06)",
-                  }}
-                />
-              )}
-            </div>
-            <div className="min-w-0 pb-2">
-              <p
-                className="text-sm font-semibold transition-colors duration-300"
+                {s.num}
+              </span>
+              <span
+                className="text-[11px] font-semibold leading-tight"
                 style={{
                   color:
                     activeStep === i
-                      ? "#06b6d4"
-                      : activeStep > i
-                        ? "rgba(255,255,255,0.35)"
-                        : "rgba(255,255,255,0.25)",
+                      ? "rgba(255,255,255,0.9)"
+                      : "rgba(255,255,255,0.25)",
                 }}
               >
                 {s.label}
-              </p>
-              <p
-                className="font-mono text-[10px] mt-0.5"
-                style={{ color: "rgba(255,255,255,0.2)" }}
-              >
-                {s.sub}
-              </p>
-            </div>
-          </button>
-        ))}
-      </div>
-      <div className="mt-5 px-3">
-        <div
-          className="h-px rounded-full overflow-hidden"
-          style={{ background: "rgba(6,182,212,0.1)" }}
-        >
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${((activeStep + 1) / NAV_STEPS.length) * 100}%`,
-              background: "linear-gradient(90deg, #06b6d4, white)",
-            }}
-          />
+              </span>
+              {/* active underline */}
+              {activeStep === i && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-px"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, #06b6d4, transparent)",
+                  }}
+                />
+              )}
+            </button>
+          ))}
         </div>
-        <p
-          className="font-mono text-[10px] mt-2"
-          style={{ color: "rgba(6,182,212,0.4)" }}
-        >
-          Step {activeStep + 1} of {NAV_STEPS.length}
-        </p>
       </div>
-    </div>
-  );
 
-  return (
-    <>
-      <NavPanel />
-      <section
-        ref={sectionRef}
-        className="relative overflow-hidden"
+      {/* ── STEPS ── */}
+      <div className="relative max-w-6xl mx-auto px-6 pb-12">
+        <div className="space-y-0">
+          {STEPS.map((s, i) => {
+            const StepComp = s.component;
+            const isActive = activeStep === i;
+            const isEven = i % 2 === 0;
+
+            return (
+              <div
+                key={i}
+                ref={(el) => {
+                  stepRefs.current[i] = el;
+                }}
+                className="relative"
+              >
+                {/* Thin connector line between steps */}
+                {i < STEPS.length - 1 && (
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+                    style={{
+                      top: "100%",
+                      width: 1,
+                      height: 48,
+                      background:
+                        "linear-gradient(180deg, rgba(6,182,212,0.15), transparent)",
+                      zIndex: 10,
+                    }}
+                  />
+                )}
+
+                <div
+                  className="grid md:grid-cols-2 gap-0 py-16"
+                  style={{
+                    borderTop: "1px solid rgba(255,255,255,0.04)",
+                  }}
+                >
+                  {/* ── Left or Right: Text side ── */}
+                  <div
+                    className={`flex flex-col justify-center px-4 md:px-10 py-6 ${isEven ? "md:order-1" : "md:order-2"}`}
+                  >
+                    {/* Step tag */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <span
+                        className="text-[10px] font-mono font-bold px-2 py-0.5 rounded"
+                        style={{
+                          background: isActive
+                            ? "rgba(6,182,212,0.12)"
+                            : "rgba(255,255,255,0.04)",
+                          color: isActive ? "#06b6d4" : "rgba(255,255,255,0.2)",
+                          border: isActive
+                            ? "1px solid rgba(6,182,212,0.2)"
+                            : "1px solid rgba(255,255,255,0.06)",
+                          transition: "all 0.4s ease",
+                        }}
+                      >
+                        {s.tag}
+                      </span>
+                      <div
+                        className="h-px flex-1"
+                        style={{
+                          background: isActive
+                            ? "linear-gradient(90deg, rgba(6,182,212,0.3), transparent)"
+                            : "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)",
+                          transition: "all 0.6s ease",
+                        }}
+                      />
+                    </div>
+
+                    {/* Step number */}
+                    <div
+                      className="text-[80px] font-black leading-none mb-2 select-none"
+                      style={{
+                        color: isActive
+                          ? "rgba(6,182,212,0.08)"
+                          : "rgba(255,255,255,0.03)",
+                        transition: "color 0.5s ease",
+                        fontVariantNumeric: "tabular-nums",
+                        letterSpacing: "-0.05em",
+                      }}
+                    >
+                      {s.num}
+                    </div>
+
+                    {/* Headline */}
+                    <h3
+                      className="text-3xl md:text-4xl font-black tracking-tight leading-tight mb-5 whitespace-pre-line"
+                      style={{
+                        color: isActive ? "#fff" : "rgba(255,255,255,0.35)",
+                        transition: "color 0.5s ease",
+                      }}
+                    >
+                      {s.headline}
+                    </h3>
+
+                    {/* Body */}
+                    <p
+                      className="text-sm leading-relaxed font-mono max-w-sm"
+                      style={{
+                        color: isActive
+                          ? "rgba(255,255,255,0.55)"
+                          : "rgba(255,255,255,0.2)",
+                        transition: "color 0.5s ease",
+                      }}
+                    >
+                      {s.body}
+                    </p>
+
+                    {/* Step dot progress */}
+                    <div className="flex gap-2 mt-8">
+                      {STEPS.map((_, di) => (
+                        <div
+                          key={di}
+                          className="rounded-full transition-all duration-400"
+                          style={{
+                            width: di === i ? 20 : 6,
+                            height: 6,
+                            background:
+                              di === i
+                                ? "#06b6d4"
+                                : di < i
+                                  ? "rgba(6,182,212,0.3)"
+                                  : "rgba(255,255,255,0.08)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Right or Left: Visual side ── */}
+                  <div
+                    className={`px-4 md:px-10 py-6 flex items-center ${isEven ? "md:order-2" : "md:order-1"}`}
+                    style={{
+                      opacity: isActive ? 1 : 0.3,
+                      transform: isActive ? "scale(1)" : "scale(0.97)",
+                      transition: "opacity 0.6s ease, transform 0.6s ease",
+                    }}
+                  >
+                    <div className="w-full">
+                      <StepComp active={isActive} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── FOOTER CTA ── */}
+      <div
+        className="relative mx-6 mb-16 rounded-2xl overflow-hidden"
         style={{
-          background: "#111212",
-          backgroundImage: `linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
+          maxWidth: "calc(100% - 48px)",
+          marginLeft: "auto",
+          marginRight: "auto",
+          background:
+            "linear-gradient(135deg, rgba(6,182,212,0.06) 0%, rgba(6,182,212,0.02) 100%)",
+          border: "1px solid rgba(6,182,212,0.15)",
         }}
       >
-        <div className="max-w-5xl mx-auto px-8 pt-28 pb-16 text-center">
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-6"
-            style={{
-              border: "1px solid rgba(6,182,212,0.25)",
-              background: "rgba(6,182,212,0.06)",
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span
-              className="text-[10px] tracking-[0.2em] uppercase"
-              style={{ color: "rgba(6,182,212,0.8)" }}
+        {/* Glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.08) 0%, transparent 60%)",
+          }}
+        />
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-8 px-10 py-12">
+          <div>
+            <p className="text-2xl font-black text-white tracking-tight">
+              Ready to see your data differently?
+            </p>
+            <p
+              className="font-mono text-sm mt-1"
+              style={{ color: "rgba(6,182,212,0.5)" }}
             >
-              How it works
-            </span>
+              Join 12,000+ teams already using GraphAI.
+            </p>
           </div>
-          <h2 className="text-4xl md:text-7xl font-extrabold text-white tracking-tighter mb-5">
-            From question to chart
-            <br />
-            <span style={{ color: "rgba(255,255,255,0.2)" }}>
-              in four steps.
-            </span>
-          </h2>
-          <p
-            className="font-mono text-sm max-w-sm mx-auto leading-relaxed"
-            style={{ color: "rgba(255,255,255,0.4)" }}
-          >
-            No code. No SQL. No configuration.
-            <br />
-            Just describe what you need.
-          </p>
-        </div>
-        <div ref={contentRef} className="max-w-5xl mx-auto px-8 pb-24">
-          <div className="lg:pl-64">
-            <div className="space-y-20">
-              {[StepInput, StepSelector, StepProcessing, StepChart].map(
-                (StepComponent, i) => (
-                  <div
-                    key={i}
-                    ref={(el) => {
-                      stepRefs.current[i] = el;
-                    }}
-                    className="py-8"
-                  >
-                    <StepComponent active={activeStep === i} />
-                  </div>
-                ),
-              )}
-            </div>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <button
+              className="px-7 py-3 rounded-xl text-sm font-bold transition-all hover:scale-105 hover:shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+                color: "#000",
+                boxShadow: "0 0 32px rgba(6,182,212,0.3)",
+              }}
+            >
+              Start for free →
+            </button>
+            <button
+              className="px-7 py-3 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                color: "rgba(255,255,255,0.5)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              Watch demo
+            </button>
           </div>
         </div>
-        <div className="w-full px-8 py-20 text-center">
-          <p className="text-2xl font-bold text-white mb-2">
-            Ready to see your data differently?
-          </p>
-          <p
-            className="font-mono text-sm mb-8"
-            style={{ color: "rgba(6,182,212,0.5)" }}
-          >
-            Join 12,000+ teams already using GraphAI.
-          </p>
-          <button
-            className="px-8 py-3.5 rounded-xl text-black text-sm font-bold transition-all hover:scale-105"
-            style={{
-              background: "linear-gradient(135deg, #06b6d4, #0891b2)",
-              boxShadow: "0 0 40px rgba(6,182,212,0.35)",
-            }}
-          >
-            Start for free →
-          </button>
-        </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }

@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChartToolbar from "./ChartToolbar";
+import ChartEditor from "./ChartEditor";
 
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 640;
 
 function buildLayout(baseLayout: any) {
   const mobile = isMobile();
-
   return {
     ...baseLayout,
     autosize: true,
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
-    // ── Strip the title — we show it in the card header instead ──
     title: undefined,
     font: {
       color: "#6b7280",
@@ -54,7 +53,6 @@ function buildLayout(baseLayout: any) {
       showgrid: true,
       automargin: true,
     },
-    // ── 3D scene axes — always dark gridlines ──
     scene: {
       ...(baseLayout.scene || {}),
       xaxis: {
@@ -158,6 +156,7 @@ function ChartBlock({ message }: ChartBlockProps) {
   const divRef = useRef<PlotlyHTMLElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const rendered = useRef(false);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     if (message.status !== "success" || rendered.current || !divRef.current)
@@ -174,9 +173,7 @@ function ChartBlock({ message }: ChartBlockProps) {
       try {
         const layout = buildLayout(message.content?.layout || {});
         const mobile = isMobile();
-
         const PALETTE = [
-          // Blues & Indigos
           "#6366f1",
           "#818cf8",
           "#4f46e5",
@@ -185,7 +182,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#0ea5e9",
           "#38bdf8",
           "#0284c7",
-          // Pinks & Roses
           "#f43f5e",
           "#fb7185",
           "#e11d48",
@@ -194,7 +190,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#db2777",
           "#e879f9",
           "#d946ef",
-          // Greens & Teals
           "#10b981",
           "#34d399",
           "#059669",
@@ -203,7 +198,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#4ade80",
           "#22c55e",
           "#84cc16",
-          // Purples & Violets
           "#a855f7",
           "#c084fc",
           "#7c3aed",
@@ -212,7 +206,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#9333ea",
           "#6d28d9",
           "#7e22ce",
-          // Oranges & Ambers
           "#fb923c",
           "#f97316",
           "#ea580c",
@@ -221,7 +214,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#d97706",
           "#fb7185",
           "#fca5a5",
-          // Cyans & Sky
           "#06b6d4",
           "#22d3ee",
           "#0891b2",
@@ -230,38 +222,22 @@ function ChartBlock({ message }: ChartBlockProps) {
           "#155e75",
           "#164e63",
           "#083344",
-          // Limes & Yellows
-          "#a3e635",
-          "#bef264",
-          "#65a30d",
-          "#ca8a04",
-          "#eab308",
-          "#facc15",
-          "#fde047",
-          "#fef08a",
         ];
-        // Shuffle palette so colors are never predictable
         const shuffled = [...PALETTE].sort(() => Math.random() - 0.5);
         const data = (message.content?.data || []).map(
           (trace: any, i: number) => {
             const color = shuffled[i % shuffled.length];
             const isPie = trace.type === "pie" || trace.type === "donut";
-
-            // Deep-clone marker and always force a single solid color
-            // (AI often returns marker.color as an array which bypasses palette)
-            const newMarker = {
-              ...(trace.marker || {}),
-              // Force scalar color — never allow array to override palette
-              color: isPie ? shuffled : color,
-              size: mobile
-                ? Math.min(trace.marker?.size || 6, 5)
-                : trace.marker?.size || 7,
-              line: { color: "white", width: isPie ? 2 : 1.5 },
-            };
-
             return {
               ...trace,
-              marker: newMarker,
+              marker: {
+                ...(trace.marker || {}),
+                color: isPie ? shuffled : color,
+                size: mobile
+                  ? Math.min(trace.marker?.size || 6, 5)
+                  : trace.marker?.size || 7,
+                line: { color: "white", width: isPie ? 2 : 1.5 },
+              },
               line: {
                 ...(trace.line || {}),
                 color,
@@ -271,7 +247,6 @@ function ChartBlock({ message }: ChartBlockProps) {
             };
           },
         );
-
         window.Plotly.newPlot(divRef.current, data, layout, {
           responsive: true,
           displayModeBar: false,
@@ -281,7 +256,6 @@ function ChartBlock({ message }: ChartBlockProps) {
         console.error("Plotly render error:", e);
       }
     };
-
     tryRender();
   }, [message.status, message.content]);
 
@@ -325,7 +299,6 @@ function ChartBlock({ message }: ChartBlockProps) {
     );
   }
 
-  // Extract title from layout BEFORE stripping it
   const chartTitle =
     message.content?.layout?.title?.text ||
     (typeof message.content?.layout?.title === "string"
@@ -333,53 +306,66 @@ function ChartBlock({ message }: ChartBlockProps) {
       : "Chart");
 
   return (
-    <div
-      ref={cardRef}
-      className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-visible w-full"
-    >
-      {/* Card header — title lives HERE only */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-neutral-300" />
-          <span className="text-neutral-500 text-xs font-medium tracking-wide truncate">
-            {chartTitle}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          {(["SVG", "CSV", "PNG"] as const).map((fmt, i) => (
-            <button
-              key={fmt}
-              onClick={() => {
-                if (!divRef.current || !("Plotly" in window)) return;
-                const name = chartTitle
-                  .replace(/[^a-z0-9]/gi, "_")
-                  .toLowerCase();
-                window.Plotly.downloadImage(divRef.current, {
-                  format: fmt.toLowerCase() as any,
-                  width: 1400,
-                  height: 800,
-                  filename: name,
-                });
-              }}
-              className={`text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all ${
-                i === 2
-                  ? "bg-neutral-900 text-white"
-                  : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
-              }`}
-            >
-              {fmt}
-            </button>
-          ))}
-        </div>
-      </div>
+    <>
+      {/* Editor modal */}
+      {editorOpen && (
+        <ChartEditor
+          message={message}
+          divRef={divRef}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
 
-      {/* Plotly — no internal title rendered */}
       <div
-        ref={divRef}
-        className="w-full h-[320px] md:h-[380px] lg:h-[440px] px-2"
-      />
+        ref={cardRef}
+        className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-visible w-full"
+      >
+        {/* Card header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-neutral-300" />
+            <span className="text-neutral-500 text-xs font-medium tracking-wide truncate">
+              {chartTitle}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {(["SVG", "CSV", "PNG"] as const).map((fmt, i) => (
+              <button
+                key={fmt}
+                onClick={() => {
+                  if (!divRef.current || !("Plotly" in window)) return;
+                  const name = chartTitle
+                    .replace(/[^a-z0-9]/gi, "_")
+                    .toLowerCase();
+                  window.Plotly.downloadImage(divRef.current, {
+                    format: fmt.toLowerCase() as any,
+                    width: 1400,
+                    height: 800,
+                    filename: name,
+                  });
+                }}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all ${i === 2 ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"}`}
+              >
+                {fmt}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <ChartToolbar divRef={divRef} cardRef={cardRef} message={message} />
-    </div>
+        {/* Plotly */}
+        <div
+          ref={divRef}
+          className="w-full h-[320px] md:h-[380px] lg:h-[440px] px-2"
+        />
+
+        {/* Toolbar — NOW includes the open-editor arrow button */}
+        <ChartToolbar
+          divRef={divRef}
+          cardRef={cardRef}
+          message={message}
+          onOpenEditor={() => setEditorOpen(true)}
+        />
+      </div>
+    </>
   );
 }

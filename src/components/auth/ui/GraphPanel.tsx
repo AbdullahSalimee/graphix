@@ -27,7 +27,7 @@ export default function GraphPanel() {
         trendRatio: 0.1,
         offset: (i: number) =>
           Math.sin(i * 0.06 + t * 0.008) * 18 +
-          Math.sin(i * 0.10 + t * 0.009) * 10,
+          Math.sin(i * 0.1 + t * 0.009) * 10,
         stroke: "rgba(255,255,255,0.90)",
         lw: 2.2,
         fillTop: "rgba(255,255,255,0.06)",
@@ -39,8 +39,8 @@ export default function GraphPanel() {
         baseRatio: 0.58,
         trendRatio: 0.1,
         offset: (i: number) =>
-          Math.sin(i * 0.10 + t * 0.009) * 8 +
-          Math.sin(i * 0.18 + t * 0.010) * 12,
+          Math.sin(i * 0.1 + t * 0.009) * 8 +
+          Math.sin(i * 0.18 + t * 0.01) * 12,
         stroke: "rgba(255,255,255,0.30)",
         lw: 1,
         fillTop: "rgba(255,255,255,0.025)",
@@ -52,7 +52,7 @@ export default function GraphPanel() {
         baseRatio: 0.74,
         trendRatio: 0.1,
         offset: (i: number) =>
-          Math.sin(i * 0.04 + t * 0.010) * 10 +
+          Math.sin(i * 0.04 + t * 0.01) * 10 +
           Math.sin(i * 0.15 + t * 0.015) * 16,
         stroke: "rgba(255,255,255,0.12)",
         lw: 1.0,

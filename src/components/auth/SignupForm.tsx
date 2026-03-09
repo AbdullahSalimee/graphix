@@ -135,7 +135,7 @@ export default function SignupForm() {
               </Link>{" "}
               and{" "}
               <Link
-                href="/privacy"
+                href="/policy"
                 className="text-white underline underline-offset-2 hover:text-[#00d4c8] transition-colors"
               >
                 Privacy Policy
@@ -171,7 +171,7 @@ export default function SignupForm() {
             loadingLabel="Creating account…"
           />
           <Link
-            href="/auth/signin"
+            href="/signin"
             className="text-[0.82rem] text-[#6b7280] hover:text-white transition-colors"
           >
             Already have an account?{" "}

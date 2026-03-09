@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import Navbar from "../NavBar";
+import Link from "next/link";
 
 type ChartMode = "bar" | "line" | "scatter";
 interface BarPair {
@@ -638,13 +639,12 @@ export default function Hero() {
               AI handles the rest — intelligent chart selection, smart styling,
               instant beauty.
             </p>
-            <a
-              data-anim="hero-cta"
-              href="#"
+            <Link
+              href="/app"
               className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
             >
-              INSTALL NOW
-            </a>
+              TRY NOW
+            </Link>
           </div>
         </div>
 

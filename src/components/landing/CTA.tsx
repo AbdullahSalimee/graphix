@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
@@ -620,7 +621,7 @@ export default function CTA() {
 
       <div
         className={`cta-root${ready ? " cta-ready" : ""}`}
-        style={{ background: "#111", color: "#fff", fontFamily: "monospace" }}
+        style={{ background: "white", color: "black", fontFamily: "monospace" }}
       >
         <div style={{ display: "flex", flexWrap: "wrap" }}>
           {/* LEFT: 3D cube */}
@@ -653,10 +654,7 @@ export default function CTA() {
               <div
                 data-anim="bar"
                 style={{
-                  height: 1,
-                  width: 220,
-                  background: "linear-gradient(90deg, #0891b2, #06b6d4)",
-                  marginBottom: 24,
+                  background: "white",
                 }}
               />
 
@@ -667,7 +665,7 @@ export default function CTA() {
                   lineHeight: 1.05,
                   letterSpacing: "-0.04em",
                   marginBottom: 20,
-                  color: "#fff",
+                  color: "black",
                 }}
               >
                 {CLOSING_WORDS.map((word, i) => (
@@ -710,12 +708,12 @@ export default function CTA() {
                 }}
               >
                 {[
-                  { val: 70, suffix: "+", label: "CHART TYPES", color: "#fff" },
+                  { val: 70, suffix: "+", label: "CHART TYPES", color: "black" },
                   {
                     val: 12847,
                     suffix: "",
                     label: "CHARTS TODAY",
-                    color: "#fff",
+                    color: "black",
                   },
                   {
                     val: null,
@@ -745,8 +743,18 @@ export default function CTA() {
                   alignItems: "center",
                 }}
               >
-                <button className="cta-btn">Install Now</button>
-                <button className="cta-ghost">View Docs</button>
+                <Link
+                  className="bg-cyan-600 text-2 font-bold px-3 py-2 hover:bg-cyan-700 hover:cursor-pointer"
+                  href="/app"
+                >
+                  Try Now
+                </Link>
+                <Link
+                  className="text-2 font-bold px-3 py-2 border border-white hover:bg-white hover:cursor-pointer hover:text-gray-900 transition-colors"
+                  href="/about"
+                >
+                  About Us
+                </Link>
               </div>
 
               <p

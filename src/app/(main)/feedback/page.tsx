@@ -1,6 +1,5 @@
 import NavBar from "@/components/NavBar";
 import FeedbackForm from "@/components/feedback/FeedbackForm";
-import FeedbackForm2 from "@/components/feedback/FeedbackForm2";
 
 export const metadata = {
   title: "Feedback — Graphix",
@@ -11,8 +10,7 @@ export const metadata = {
 export default function FeedbackPage() {
   return (
     <main className="text-white min-h-screen">
-        {/* <FeedbackForm /> */}
-        <FeedbackForm2 />
+        <FeedbackForm />
     </main>
   );
 }

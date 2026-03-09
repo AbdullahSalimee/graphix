@@ -61,7 +61,7 @@ export default function LoginForm() {
           error={errors.password?.message}
           right={
             <Link
-              href="/auth/forgotpassword"
+              href="/forgotpassword"
               className="text-[0.72rem] text-[#6b7280] hover:text-[#00d4c8] transition-colors"
             >
               Forgot password?
@@ -84,7 +84,7 @@ export default function LoginForm() {
             loadingLabel="Signing in…"
           />
           <Link
-            href="/auth/signup"
+            href="/signup"
             className="text-[0.82rem] text-[#6b7280] hover:text-white transition-colors whitespace-nowrap"
           >
             Don't have an account?{" "}

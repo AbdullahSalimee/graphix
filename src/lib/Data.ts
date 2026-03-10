@@ -1,79 +1,11 @@
-export const CYAN = "#0891b2";
-export const BORDER = "#1e2227";
-
-export type Tab =
-  | "dashboard"
-  | "graphs"
-  | "shared"
-  | "favourites"
-  | "templates"
-  | "settings"
-  | "billing"
-  | "help"
-  | "new-graph"
-  | "import-google"
-  | "import-excel"
-  | "import-paste";
-
-export const PAGE_TITLE: Record<Tab, string> = {
-  dashboard: "Dashboard",
-  graphs: "My Graphs",
-  shared: "Shared With Me",
-  favourites: "Favourites",
-  templates: "Templates",
-  settings: "Settings",
-  billing: "Billing",
-  help: "Help",
-  "new-graph": "New Graph",
-  "import-google": "Connect Google Sheets",
-  "import-excel": "Upload Excel Sheet",
-  "import-paste": "Paste Data",
+export const USER = {
+  name: "Alex Chen",
+  email: "alex@company.com",
+  avatar: "AC",
+  plan: "Pro",
 };
 
-export const NAV_GROUPS = [
-  {
-    label: "Workspace",
-    items: [
-      { id: "dashboard" as Tab, label: "Dashboard", icon: "grid" },
-      { id: "graphs" as Tab, label: "My Graphs", icon: "chart", badge: "24" },
-      { id: "shared" as Tab, label: "Shared", icon: "share", badge: "3" },
-      {
-        id: "favourites" as Tab,
-        label: "Favourites",
-        icon: "star",
-        badge: "3",
-      },
-    ],
-  },
-  {
-    label: "Library",
-    items: [{ id: "templates" as Tab, label: "Templates", icon: "layout" }],
-  },
-  {
-    label: "Account",
-    items: [
-      { id: "billing" as Tab, label: "Billing", icon: "card" },
-      { id: "settings" as Tab, label: "Settings", icon: "settings" },
-      { id: "help" as Tab, label: "Help", icon: "help" },
-    ],
-  },
-];
-
-export interface Graph {
-  id: string;
-  title: string;
-  tag: string;
-  category: string;
-  updated: string;
-  views: number;
-  trend: string;
-  trendUp: boolean;
-  starred: boolean;
-  desc: string;
-  data: number[];
-}
-
-export const GRAPHS: Graph[] = [
+export const GRAPHS = [
   {
     id: "g1",
     title: "Monthly Revenue",
@@ -82,7 +14,7 @@ export const GRAPHS: Graph[] = [
     updated: "2h ago",
     views: 284,
     trend: "+18.4%",
-    trendUp: true,
+    up: true,
     starred: true,
     desc: "12-month rolling revenue across all product lines",
     data: [30, 42, 38, 55, 48, 62, 70, 65, 80, 88, 76, 95],
@@ -95,7 +27,7 @@ export const GRAPHS: Graph[] = [
     updated: "Yesterday",
     views: 156,
     trend: "+7.2%",
-    trendUp: true,
+    up: true,
     starred: true,
     desc: "Weekly new sign-ups by acquisition channel",
     data: [20, 35, 28, 45, 52, 40, 60, 55, 70, 65, 80, 72],
@@ -108,7 +40,7 @@ export const GRAPHS: Graph[] = [
     updated: "3 days ago",
     views: 98,
     trend: "-2.1%",
-    trendUp: false,
+    up: false,
     starred: false,
     desc: "Monthly churn rate segmented by plan tier",
     data: [60, 55, 58, 52, 50, 54, 48, 45, 50, 44, 42, 40],
@@ -121,7 +53,7 @@ export const GRAPHS: Graph[] = [
     updated: "1 week ago",
     views: 210,
     trend: "+31.6%",
-    trendUp: true,
+    up: true,
     starred: false,
     desc: "Cumulative feature engagement over 90 days",
     data: [10, 15, 22, 28, 35, 30, 42, 50, 46, 60, 72, 85],
@@ -134,7 +66,7 @@ export const GRAPHS: Graph[] = [
     updated: "1 week ago",
     views: 67,
     trend: "-9.3%",
-    trendUp: false,
+    up: false,
     starred: false,
     desc: "Open, resolved and escalated tickets by week",
     data: [80, 72, 68, 75, 60, 55, 58, 50, 45, 48, 42, 38],
@@ -147,7 +79,7 @@ export const GRAPHS: Graph[] = [
     updated: "2 weeks ago",
     views: 133,
     trend: "+4.8%",
-    trendUp: true,
+    up: true,
     starred: true,
     desc: "Net Promoter Score averaged across all cohorts",
     data: [40, 38, 42, 45, 44, 50, 48, 55, 52, 58, 60, 64],
@@ -160,7 +92,7 @@ export const GRAPHS: Graph[] = [
     updated: "3 weeks ago",
     views: 88,
     trend: "-5.7%",
-    trendUp: false,
+    up: false,
     starred: false,
     desc: "Customer acquisition cost per marketing channel",
     data: [90, 82, 75, 80, 70, 65, 68, 60, 62, 58, 55, 52],
@@ -173,7 +105,7 @@ export const GRAPHS: Graph[] = [
     updated: "1 month ago",
     views: 177,
     trend: "+12.0%",
-    trendUp: true,
+    up: true,
     starred: false,
     desc: "Average session time segmented by device type",
     data: [25, 28, 30, 26, 32, 35, 38, 34, 40, 42, 38, 45],
@@ -181,32 +113,67 @@ export const GRAPHS: Graph[] = [
 ];
 
 export const STATS = [
-  { label: "Total Graphs", value: "24", delta: "+3 this week" },
-  { label: "Total Views", value: "8.4k", delta: "+12% vs last" },
-  { label: "Shared Links", value: "11", delta: "4 active" },
-  { label: "Storage Used", value: "2.1GB", delta: "of 10GB" },
+  {
+    label: "Total Graphs",
+    value: "24",
+    delta: "+3 this week",
+    icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+  },
+  {
+    label: "Total Views",
+    value: "8.4k",
+    delta: "+12% vs last",
+    icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+  },
+  {
+    label: "Shared Links",
+    value: "11",
+    delta: "4 active now",
+    icon: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z",
+  },
+  {
+    label: "Storage Used",
+    value: "2.1GB",
+    delta: "21% of 10GB",
+    icon: "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4",
+  },
 ];
 
 export const ACTIVITY = [
-  { action: "Edited", graph: "Monthly Revenue", time: "2h ago", avatar: "AC" },
-  { action: "Shared", graph: "NPS Over Time", time: "5h ago", avatar: "AC" },
+  {
+    action: "Edited",
+    graph: "Monthly Revenue",
+    time: "2h ago",
+    avatar: "AC",
+    own: true,
+  },
+  {
+    action: "Shared",
+    graph: "NPS Over Time",
+    time: "5h ago",
+    avatar: "AC",
+    own: true,
+  },
   {
     action: "Viewed",
     graph: "User Acquisition",
     time: "Yesterday",
     avatar: "JK",
+    own: false,
   },
   {
     action: "Created",
     graph: "Session Duration",
-    time: "3d ago",
+    time: "3 days ago",
     avatar: "AC",
+    own: true,
   },
   {
     action: "Starred",
     graph: "Feature Adoption",
-    time: "1w ago",
+    time: "1 week ago",
     avatar: "PM",
+    own: false,
   },
 ];
 
@@ -237,9 +204,41 @@ export const TEMPLATES = [
   },
 ];
 
-export const USER = {
-  name: "Alex Chen",
-  email: "alex@company.com",
-  avatar: "AC",
-  plan: "Pro",
+export const NAV = [
+  {
+    group: "Workspace",
+    items: [
+      { id: "dashboard", label: "Dashboard", badge: null },
+      { id: "graphs", label: "My Graphs", badge: "24" },
+      { id: "shared", label: "Shared", badge: "3" },
+      { id: "favourites", label: "Favourites", badge: "3" },
+    ],
+  },
+  {
+    group: "Library",
+    items: [{ id: "templates", label: "Templates", badge: null }],
+  },
+  {
+    group: "Account",
+    items: [
+      { id: "billing", label: "Billing", badge: null },
+      { id: "settings", label: "Settings", badge: null },
+      { id: "help", label: "Help", badge: null },
+    ],
+  },
+];
+
+export const PAGE_TITLES = {
+  dashboard: "Dashboard",
+  graphs: "My Graphs",
+  shared: "Shared With Me",
+  favourites: "Favourites",
+  templates: "Templates",
+  settings: "Settings",
+  billing: "Billing",
+  help: "Help & Support",
+  "new-graph": "New Graph",
+  "import-google": "Google Sheets",
+  "import-excel": "Upload Excel",
+  "import-paste": "Paste Data",
 };

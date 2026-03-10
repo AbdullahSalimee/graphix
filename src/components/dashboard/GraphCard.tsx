@@ -1,8 +1,20 @@
-"use client";
-import { useEffect, useRef, useState } from "react";
-import { CYAN, BORDER } from "@/lib/Data";
-import type { Graph } from "@/lib/Data";
+import { useState, useEffect, useRef } from "react";
+import {
+  CYAN,
+  WHITE,
+  W08,
+  W12,
+  W20,
+  W35,
+  W55,
+  C08,
+  C18,
+  C35,
+} from "@/lib/Tokens";
+import { IC } from "@/lib/Tokens";
+import { Chip, StripeDivider, Ico } from "./UIKit";
 
+// ── Sparkline (private, only used by GraphCard) ───────────────
 function Sparkline({ data, hover }: { data: number[]; hover: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -10,277 +22,274 @@ function Sparkline({ data, hover }: { data: number[]; hover: boolean }) {
     if (!c) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    const w = (c.width = c.offsetWidth),
-      h = (c.height = c.offsetHeight);
+    c.width = c.offsetWidth * 2;
+    c.height = c.offsetHeight * 2;
+    ctx.scale(2, 2);
+    const W = c.offsetWidth,
+      H = c.offsetHeight;
     const mn = Math.min(...data),
       mx = Math.max(...data),
       rng = mx - mn || 1;
     const pts = data.map((v, i) => ({
-      x: (i / (data.length - 1)) * w,
-      y: h - ((v - mn) / rng) * (h - 14) - 7,
+      x: (i / (data.length - 1)) * W,
+      y: H - ((v - mn) / rng) * (H - 18) - 9,
     }));
-    ctx.clearRect(0, 0, w, h);
-    const ag = ctx.createLinearGradient(0, 0, 0, h);
-    ag.addColorStop(
+    ctx.clearRect(0, 0, W, H);
+    // fill
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(
       0,
-      hover ? "rgba(8,145,178,0.22)" : "rgba(255,255,255,0.07)",
+      hover ? "rgba(8,145,178,0.30)" : "rgba(255,255,255,0.07)",
     );
-    ag.addColorStop(1, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.beginPath();
-    ctx.moveTo(pts[0].x, h);
+    ctx.moveTo(pts[0].x, H);
     ctx.lineTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) {
       const cx = (pts[i - 1].x + pts[i].x) / 2;
       ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
     }
-    ctx.lineTo(pts[pts.length - 1].x, h);
+    ctx.lineTo(pts[pts.length - 1].x, H);
     ctx.closePath();
-    ctx.fillStyle = ag;
+    ctx.fillStyle = g;
     ctx.fill();
-    if (hover) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        const cx = (pts[i - 1].x + pts[i].x) / 2;
-        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-      }
-      ctx.strokeStyle = "rgba(8,145,178,0.3)";
-      ctx.lineWidth = 8;
-      ctx.filter = "blur(5px)";
-      ctx.stroke();
-      ctx.filter = "none";
-      ctx.restore();
-    }
+    // line
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) {
       const cx = (pts[i - 1].x + pts[i].x) / 2;
       ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
     }
-    ctx.strokeStyle = hover ? CYAN : "rgba(255,255,255,0.6)";
+    ctx.strokeStyle = hover ? CYAN : "rgba(255,255,255,0.55)";
     ctx.lineWidth = hover ? 2 : 1.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.stroke();
+    // dot
     const last = pts[pts.length - 1];
     ctx.beginPath();
-    ctx.arc(last.x, last.y, hover ? 4 : 3, 0, Math.PI * 2);
-    ctx.fillStyle = hover ? CYAN : "white";
+    ctx.arc(last.x, last.y, hover ? 3.5 : 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = hover ? CYAN : WHITE;
     ctx.fill();
     if (hover) {
       ctx.beginPath();
-      ctx.arc(last.x, last.y, 8, 0, Math.PI * 2);
-      ctx.strokeStyle = `${CYAN}55`;
-      ctx.lineWidth = 1.5;
+      ctx.arc(last.x, last.y, 7, 0, Math.PI * 2);
+      ctx.strokeStyle = C35;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
     }
   }, [data, hover]);
-  return <canvas ref={ref} className="w-full h-full" />;
+  return <canvas ref={ref} style={{ width: "100%", height: "100%" }} />;
 }
 
+// ── GraphCard ────────────────────────────────────────────────
 export default function GraphCard({
   graph,
   index = 0,
 }: {
-  graph: Graph;
-  index?: number;
+  graph: any;
+  index: number;
 }) {
+  const [hov, setHov] = useState(false);
   const [vis, setVis] = useState(false);
-  const [hover, setHover] = useState(false);
-  const [starred, setStar] = useState(graph.starred);
-  const ref = useRef<HTMLDivElement>(null);
+  const [star, setStar] = useState(graph.starred);
 
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setVis(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.05 },
-    );
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
+    const t = setTimeout(() => setVis(true), index * 65 + 80);
+    return () => clearTimeout(t);
+  }, [index]);
 
   return (
     <div
-      ref={ref}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      className="relative flex flex-col overflow-hidden cursor-pointer"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        background: "#0a0d10",
-        border: "1px solid",
-        borderColor: hover ? CYAN : BORDER,
+        border: `1px solid ${hov ? CYAN : W08}`,
+        borderRadius: 6,
+        overflow: "hidden",
+        cursor: "pointer",
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
         opacity: vis ? 1 : 0,
-        transform: vis ? "translateY(0)" : "translateY(22px)",
-        transition: `opacity 0.5s ease ${index * 0.055}s, transform 0.5s ease ${index * 0.055}s, border-color 0.2s`,
+        transform: vis ? "none" : "translateY(14px)",
+        transition: "opacity 0.4s ease, transform 0.4s ease, border-color 0.2s",
       }}
     >
-      {/* Cyan top accent */}
+      {/* top accent */}
       <div
-        className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-300"
         style={{
-          background: hover
+          height: 2,
+          background: hov
             ? `linear-gradient(90deg,${CYAN},transparent)`
             : "transparent",
+          transition: "background 0.3s",
         }}
       />
 
-      {/* Sparkline area */}
+      {/* sparkline */}
       <div
-        className="relative h-[110px] overflow-hidden transition-colors duration-200"
-        style={{ background: hover ? `${CYAN}06` : "#090b0e" }}
+        style={{
+          height: 94,
+          position: "relative",
+          background: hov ? C08 : "transparent",
+          padding: "11px 14px 7px",
+          transition: "background 0.2s",
+        }}
       >
-        <div className="absolute inset-0 px-4 pt-4 pb-1">
-          <Sparkline data={graph.data} hover={hover} />
-        </div>
-        <div
-          className="absolute top-3 left-3 px-2 py-0.5 text-[0.57rem] uppercase tracking-[0.12em] font-syne font-bold border transition-all duration-200"
-          style={{
-            color: hover ? CYAN : "rgba(255,255,255,0.32)",
-            borderColor: hover ? `${CYAN}55` : BORDER,
-            background: hover ? `${CYAN}12` : "transparent",
-          }}
-        >
-          {graph.tag}
+        <Sparkline data={graph.data} hover={hov} />
+        <div style={{ position: "absolute", top: 9, left: 11 }}>
+          <Chip>{graph.tag}</Chip>
         </div>
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setStar((s) => !s);
+            setStar((s: boolean) => !s);
           }}
-          className="absolute top-3 right-3 hover:scale-110 transition-transform duration-150"
+          style={{
+            position: "absolute",
+            top: 9,
+            right: 11,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+          }}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill={starred ? CYAN : "none"}
-            stroke={starred ? CYAN : "rgba(255,255,255,0.22)"}
-            strokeWidth="1.8"
-          >
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
+          <Ico
+            d={IC.star}
+            size={13}
+            fill={star ? CYAN : "none"}
+            stroke={star ? CYAN : W20}
+          />
         </button>
       </div>
 
-      {/* Animated separator */}
-      <div
-        className="h-[1px] relative overflow-hidden"
-        style={{ background: BORDER }}
-      >
-        {hover && (
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `repeating-linear-gradient(-45deg,transparent 0,transparent 3px,${CYAN}55 3px,${CYAN}55 6px)`,
-              backgroundSize: "9px 9px",
-              animation: "diagMove 1.2s linear infinite",
-            }}
-          />
-        )}
-      </div>
 
-      {/* Body */}
-      <div className="p-4 flex flex-col gap-2.5 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-syne font-bold text-[0.92rem] text-white leading-tight">
+      {/* body */}
+      <div
+        style={{
+          padding: "12px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          flex: 1,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 14,
+                lineHeight: 1.3,
+              }}
+            >
               {graph.title}
-            </h3>
-            <p
-              className="text-[0.71rem] mt-0.5 leading-snug line-clamp-1"
-              style={{ color: "rgba(255,255,255,0.28)" }}
+            </div>
+            <div
+              style={{
+                color: W35,
+                fontSize: 12,
+                marginTop: 3,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
               {graph.desc}
-            </p>
+            </div>
           </div>
           <span
-            className="text-[0.7rem] font-syne font-bold flex-shrink-0 px-1.5 py-0.5 border"
             style={{
-              color: graph.trendUp ? CYAN : "rgba(255,90,90,0.75)",
-              borderColor: graph.trendUp ? `${CYAN}44` : "rgba(255,90,90,0.25)",
-              background: graph.trendUp ? `${CYAN}10` : "rgba(255,90,90,0.08)",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "2px 7px",
+              borderRadius: 2,
+              flexShrink: 0,
+              color: graph.up ? CYAN : W55,
+              background: graph.up ? C18 : W08,
+              border: `1px solid ${graph.up ? C35 : W12}`,
             }}
           >
             {graph.trend}
           </span>
         </div>
-        <span
-          className="text-[0.6rem] uppercase tracking-[0.1em] border px-2 py-0.5 self-start transition-all duration-200"
+        <Chip>{graph.category}</Chip>
+        <div
           style={{
-            color: hover ? CYAN : "rgba(255,255,255,0.22)",
-            borderColor: hover ? `${CYAN}44` : BORDER,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderTop: `1px solid ${W08}`,
+            paddingTop: 9,
           }}
         >
-          {graph.category}
-        </span>
-        <div
-          className="flex items-center justify-between mt-auto pt-2.5 border-t"
-          style={{ borderColor: BORDER }}
-        >
+          <span style={{ color: W20, fontSize: 12 }}>{graph.updated}</span>
           <span
-            className="text-[0.67rem]"
-            style={{ color: "rgba(255,255,255,0.22)" }}
+            style={{
+              color: W20,
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
           >
-            {graph.updated}
-          </span>
-          <span
-            className="text-[0.67rem] flex items-center gap-1"
-            style={{ color: "rgba(255,255,255,0.22)" }}
-          >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+            <Ico d={IC.eye} size={11} />
             {graph.views}
           </span>
         </div>
       </div>
 
-      {/* Hover CTA bar */}
+      {/* hover CTA */}
       <div
-        className="absolute bottom-0 left-0 right-0 flex transition-all duration-200"
         style={{
-          opacity: hover ? 1 : 0,
-          transform: hover ? "translateY(0)" : "translateY(6px)",
+          opacity: hov ? 1 : 0,
+          transform: hov ? "none" : "translateY(5px)",
+          transition: "all 0.17s",
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          display: "flex",
         }}
       >
         <button
-          className="flex-1 py-2 text-[0.68rem] font-syne font-bold uppercase tracking-widest text-[#090b0e]"
-          style={{ background: CYAN }}
+          style={{
+            flex: 1,
+            padding: "8px",
+            background: CYAN,
+            border: "none",
+            color: "#111212",
+            fontWeight: 800,
+            fontSize: 11,
+            letterSpacing: "0.07em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+          }}
         >
           Open →
         </button>
         <button
-          className="px-3 py-2 border-l border-[#0a7a96] text-[rgba(255,255,255,0.75)] hover:text-white transition-colors"
-          style={{ background: CYAN }}
+          style={{
+            padding: "8px 12px",
+            background: CYAN,
+            border: "none",
+            borderLeft: "1px solid rgba(255,255,255,0.18)",
+            color: "#111212",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+          }}
         >
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="18" cy="5" r="3" />
-            <circle cx="6" cy="12" r="3" />
-            <circle cx="18" cy="19" r="3" />
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-          </svg>
+          <Ico d={IC.shared} size={12} stroke="#111212" />
         </button>
       </div>
     </div>

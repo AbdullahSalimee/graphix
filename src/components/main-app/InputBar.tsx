@@ -3,6 +3,7 @@
 
 import { useState, useRef, ChangeEvent, KeyboardEvent } from "react";
 import ChartTypeSelector from "./Charttypeselector";
+import { processCSV } from "./Csvprocessor";
 
 interface SelectedChart {
   groupLabel: string;
@@ -12,15 +13,25 @@ interface SelectedChart {
 
 interface InputBarProps {
   onSend: (prompt: string, fileContent: string, fileName: string) => void;
+  /**
+   * Called when the CSV processor succeeds — bypasses the AI entirely.
+   * Parent should push this directly as a success message.
+   */
+  onCSVChart: (plotlyData: any[], plotlyLayout: any, label: string) => void;
   isLoading: boolean;
 }
 
-export default function InputBar({ onSend, isLoading }: InputBarProps) {
+export default function InputBar({
+  onSend,
+  onCSVChart,
+  isLoading,
+}: InputBarProps) {
   const [input, setInput] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
   const [chartType, setChartType] = useState<SelectedChart | null>(null);
   const [focused, setFocused] = useState(false);
+  const [csvLabel, setCsvLabel] = useState<string | null>(null); // shows detected chart type badge
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -28,9 +39,19 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setCsvLabel(null);
     try {
       const text = await file.text();
       setFileContent(text);
+
+      // Immediately try to detect what chart type would be used (for the badge)
+      // Only if the user hasn't manually picked a chart type
+      if (!chartType) {
+        const peek = processCSV(text);
+        if (peek.ok) {
+          setCsvLabel(peek.chartTypeLabel);
+        }
+      }
     } catch (err) {
       console.error("Failed to read file:", err);
     }
@@ -39,11 +60,34 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
   const clearFile = () => {
     setFileContent("");
     setFileName("");
+    setCsvLabel(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const send = () => {
     if (!input.trim() || isLoading) return;
+
+    // ── CSV fast path ─────────────────────────────────────────────────────
+    // Only activate when:
+    //   1. A file is attached
+    //   2. The user has NOT manually selected a chart type
+    if (fileContent && !chartType) {
+      const result = processCSV(fileContent);
+      if (result.ok) {
+        // Bypass AI — hand the Plotly config directly to the parent
+        onCSVChart(
+          result.plotlyData,
+          result.plotlyLayout,
+          result.chartTypeLabel,
+        );
+        setInput("");
+        clearFile();
+        return;
+      }
+      // Broken CSV → fall through to normal AI route below
+    }
+
+    // ── Normal AI route ───────────────────────────────────────────────────
     let finalPrompt = input.trim();
     if (chartType) {
       if (chartType.prompt) {
@@ -65,6 +109,19 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
       <div className="max-w-[820px] mx-auto flex flex-col gap-1 my-1.5 sm:my-3">
+        {/* ── CSV auto-detect badge ── */}
+        {csvLabel && !chartType && (
+          <div className="flex items-center gap-1.5 px-1">
+            <span className="text-[10px] text-neutral-400">Auto-detected:</span>
+            <span className="text-[10px] font-semibold text-cyan-600 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5">
+              ✦ {csvLabel}
+            </span>
+            <span className="text-[10px] text-neutral-300">
+              · override with chart type selector
+            </span>
+          </div>
+        )}
+
         {/* ── Input row ── */}
         <div
           className={`flex items-center gap-1 sm:gap-1.5 bg-white border rounded-lg sm:rounded-xl px-2 py-1.5 shadow-sm transition-all duration-150 ${
@@ -100,7 +157,13 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
           </label>
 
           {/* Chart type selector */}
-          <ChartTypeSelector onSelect={setChartType} />
+          <ChartTypeSelector
+            onSelect={(sel) => {
+              setChartType(sel);
+              // If user picks a type manually, hide the auto-detect badge
+              if (sel) setCsvLabel(null);
+            }}
+          />
 
           {/* Divider */}
           <div className="w-px h-4 bg-neutral-100 flex-shrink-0" />
@@ -145,7 +208,9 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
             placeholder={
               chartType
                 ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                : 'e.g. "Monthly sales Q1–Q4"'
+                : csvLabel
+                  ? `Describe the chart or just hit send…`
+                  : 'e.g. "Monthly sales Q1–Q4"'
             }
             disabled={isLoading}
           />

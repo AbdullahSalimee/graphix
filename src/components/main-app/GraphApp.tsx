@@ -100,6 +100,7 @@ export default function GraphApp() {
     }
   }, [activeConv?.messages?.length]);
 
+  // ── Normal AI route ────────────────────────────────────────────────────────
   const handleSend = async (
     input: string,
     fileContent: string,
@@ -159,8 +160,32 @@ export default function GraphApp() {
     }
   };
 
+  // ── CSV fast path (no AI) ──────────────────────────────────────────────────
+  const handleCSVChart = useCallback(
+    (plotlyData: any[], plotlyLayout: any, label: string) => {
+      if (!activeId) return;
+      const convId = activeId;
+
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        from: "user",
+        content: `📊 CSV auto-chart: ${label}`,
+        status: "success",
+      };
+      const aiMsg: Message = {
+        id: crypto.randomUUID(),
+        from: "ai",
+        content: { data: plotlyData, layout: plotlyLayout },
+        status: "success", // instant — no loading state needed
+      };
+
+      updateMessages(convId, (msgs) => [...msgs, userMsg, aiMsg]);
+    },
+    [activeId, updateMessages],
+  );
+
   return (
-    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden  ">
+    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden">
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
         async
@@ -216,9 +241,13 @@ export default function GraphApp() {
             )}
           </div>
 
-          {/* InputBar only shown after first message */}
+          {/* InputBar */}
           {hasMessages && (
-            <InputBar onSend={handleSend} isLoading={isLoading} />
+            <InputBar
+              onSend={handleSend}
+              onCSVChart={handleCSVChart}
+              isLoading={isLoading}
+            />
           )}
         </div>
       </div>

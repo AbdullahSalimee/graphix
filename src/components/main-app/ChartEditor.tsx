@@ -1212,11 +1212,14 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
         style={{
           width: "100%",
           accentColor: "#06b6d4",
           cursor: "pointer",
           height: 4,
+          touchAction: "none",
         }}
       />
     </div>
@@ -1817,8 +1820,8 @@ export default function ChartEditor({
     },
   ] as const;
 
-  // Shared panel content renderer
-  const PanelContent = () => (
+  // Render panel content as a function call (NOT a component) to prevent input focus loss
+  const renderPanel = () => (
     <div
       style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}
     >
@@ -2966,7 +2969,7 @@ export default function ChartEditor({
                     </button>
                   ))}
                 </div>
-                <PanelContent />
+                {renderPanel()}
               </div>
             </>
           )}
@@ -3165,7 +3168,7 @@ export default function ChartEditor({
                 </button>
               ))}
             </div>
-            <PanelContent />
+            {renderPanel()}
           </div>
         </div>
       )}

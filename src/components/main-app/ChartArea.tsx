@@ -6,9 +6,206 @@ import ChartEditor from "./ChartEditor";
 
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 640;
 
-function buildLayout(baseLayout: any) {
+// ─── Colour palette (stable per trace index, not randomised on every render) ──
+const PALETTE = [
+  "#6366f1",
+  "#ec4899",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#f97316",
+  "#8b5cf6",
+  "#14b8a6",
+  "#84cc16",
+  "#fb923c",
+  "#a855f7",
+  "#22d3ee",
+  "#e11d48",
+  "#16a34a",
+  "#d97706",
+  "#7c3aed",
+  "#0284c7",
+];
+
+function stableColor(i: number) {
+  return PALETTE[i % PALETTE.length];
+}
+
+// ─── Detect chart type from Plotly trace ─────────────────────────────────────
+function detectType(traces: any[]): string {
+  if (!traces?.length) return "bar";
+  const t = traces[0];
+  const type = (t.type || "").toLowerCase();
+  const mode = (t.mode || "").toLowerCase();
+  if (type === "heatmap") return "heatmap";
+  if (type === "waterfall") return "waterfall";
+  if (type === "scatterpolar" || type === "barpolar") return "radar";
+  if (type === "pie") return t.hole ? "donut" : "pie";
+  if (type === "scatter3d") return "scatter3d";
+  if (type === "surface") return "surface";
+  if (type === "funnel") return "funnel";
+  if (type === "bar") return "bar";
+  if (type === "scatter") {
+    if (
+      mode.includes("lines") &&
+      (t.fill === "tonexty" || t.fill === "tozeroy")
+    )
+      return "area";
+    if (mode.includes("lines")) return "line";
+    return "scatter";
+  }
+  if (type === "histogram") return "histogram";
+  if (type === "box") return "box";
+  if (type === "violin") return "violin";
+  return type || "bar";
+}
+
+// ─── Pre-process traces before handing to Plotly ─────────────────────────────
+function preprocessTraces(
+  data: any[],
+  layout: any,
+): { data: any[]; layout: any } {
+  if (!data?.length) return { data, layout };
+
+  const chartType = detectType(data);
   const mobile = isMobile();
+
+  // ── Scatter: if AI mistakenly put x=id-like column, try to fix ──────────────
+  if (chartType === "scatter") {
+    return {
+      data: data.map((trace, i) => {
+        const clr = stableColor(i);
+        return {
+          ...trace,
+          type: "scatter",
+          mode: trace.mode || "markers",
+          marker: {
+            ...(trace.marker || {}),
+            color: trace.marker?.color || clr,
+            size: mobile ? 6 : trace.marker?.size || 9,
+            opacity: 0.82,
+            line: { color: "white", width: 1 },
+          },
+          line: { color: clr, width: 2 },
+        };
+      }),
+      layout,
+    };
+  }
+
+  // ── Heatmap: ensure z is a 2D array ─────────────────────────────────────────
+  if (chartType === "heatmap") {
+    const trace = data[0];
+    // If AI returned flat arrays, keep as-is; Plotly handles it
+    return {
+      data: [
+        {
+          ...trace,
+          type: "heatmap",
+          colorscale: trace.colorscale || "Viridis",
+          showscale: true,
+          hoverongaps: false,
+        },
+      ],
+      layout: {
+        ...layout,
+        xaxis: { ...(layout.xaxis || {}), side: "bottom" },
+      },
+    };
+  }
+
+  // ── Waterfall: fix measure array if missing ──────────────────────────────────
+  if (chartType === "waterfall") {
+    const trace = data[0];
+    const yVals: number[] = trace.y || trace.values || [];
+    // Auto-generate measure array if absent
+    const measure =
+      trace.measure ||
+      yVals.map((_: any, idx: number) => {
+        if (idx === 0) return "absolute";
+        if (idx === yVals.length - 1) return "total";
+        return "relative";
+      });
+    return {
+      data: [
+        {
+          ...trace,
+          type: "waterfall",
+          measure,
+          connector: {
+            line: { color: "rgba(0,0,0,0.15)", width: 1, dash: "dot" },
+          },
+          increasing: { marker: { color: "#10b981" } },
+          decreasing: { marker: { color: "#ef4444" } },
+          totals: { marker: { color: "#6366f1" } },
+          textposition: "outside",
+          text: trace.text || undefined,
+        },
+      ],
+      layout,
+    };
+  }
+
+  // ── Radar / Scatterpolar ─────────────────────────────────────────────────────
+  if (chartType === "radar") {
+    return {
+      data: data.map((trace, i) => ({
+        ...trace,
+        type: "scatterpolar",
+        fill: trace.fill || "toself",
+        marker: { color: stableColor(i), size: 5 },
+        line: { color: stableColor(i), width: 2 },
+      })),
+      layout: {
+        ...layout,
+        polar: {
+          ...(layout.polar || {}),
+          radialaxis: {
+            visible: true,
+            range: [0, 100],
+            ...(layout.polar?.radialaxis || {}),
+          },
+          angularaxis: { ...(layout.polar?.angularaxis || {}) },
+        },
+      },
+    };
+  }
+
+  // ── Default: colour each trace consistently ──────────────────────────────────
   return {
+    data: data.map((trace, i) => {
+      const clr = stableColor(i);
+      const isPie = trace.type === "pie" || trace.type === "donut";
+      return {
+        ...trace,
+        marker: {
+          ...(trace.marker || {}),
+          color: isPie ? PALETTE : trace.marker?.color || clr,
+          size: mobile
+            ? Math.min(trace.marker?.size || 6, 5)
+            : trace.marker?.size || 7,
+          line: { color: "white", width: isPie ? 2 : 1 },
+        },
+        line: {
+          ...(trace.line || {}),
+          color: trace.line?.color || clr,
+          width: mobile ? 1.5 : trace.line?.width || 2.5,
+        },
+        fillcolor: trace.fill ? (trace.line?.color || clr) + "22" : undefined,
+      };
+    }),
+    layout,
+  };
+}
+
+// ─── Build Plotly layout ──────────────────────────────────────────────────────
+function buildLayout(baseLayout: any, chartType: string) {
+  const mobile = isMobile();
+  const isRadar = chartType === "radar";
+  const isHeatmap = chartType === "heatmap";
+
+  const base: any = {
     ...baseLayout,
     autosize: true,
     paper_bgcolor: "rgba(0,0,0,0)",
@@ -27,71 +224,58 @@ function buildLayout(baseLayout: any) {
       font: { size: mobile ? 10 : 12, color: "#e5e7eb" },
       orientation: "h",
       x: 0.5,
-      y: -0.22,
+      y: isRadar ? -0.15 : -0.22,
       xanchor: "center",
       yanchor: "top",
     },
     margin: mobile
       ? { t: 10, l: 46, r: 12, b: 80 }
       : { t: 10, l: 55, r: 24, b: 72 },
-    xaxis: {
+  };
+
+  // Axes only for cartesian charts
+  if (!isRadar) {
+    base.xaxis = {
       ...(baseLayout.xaxis || {}),
-      tickangle: mobile ? -40 : 0,
+      tickangle: mobile ? -40 : isHeatmap ? -30 : 0,
       tickfont: { size: mobile ? 9 : 11, color: "#9ca3af" },
       gridcolor: "rgba(0,0,0,0.05)",
       linecolor: "rgba(0,0,0,0.08)",
       zerolinecolor: "rgba(0,0,0,0.08)",
-      showgrid: true,
+      showgrid: !isHeatmap,
       automargin: true,
-    },
-    yaxis: {
+    };
+    base.yaxis = {
       ...(baseLayout.yaxis || {}),
       tickfont: { size: mobile ? 9 : 11, color: "#9ca3af" },
       gridcolor: "rgba(0,0,0,0.05)",
       linecolor: "rgba(0,0,0,0.08)",
       zerolinecolor: "rgba(0,0,0,0.08)",
-      showgrid: true,
+      showgrid: !isHeatmap,
       automargin: true,
-    },
-    scene: {
-      ...(baseLayout.scene || {}),
-      xaxis: {
-        ...(baseLayout.scene?.xaxis || {}),
-        gridcolor: "rgba(0,0,0,0.15)",
-        linecolor: "rgba(0,0,0,0.2)",
-        zerolinecolor: "rgba(0,0,0,0.2)",
-        tickfont: { color: "#6b7280", size: 10 },
-        backgroundcolor: "rgba(0,0,0,0)",
-      },
-      yaxis: {
-        ...(baseLayout.scene?.yaxis || {}),
-        gridcolor: "rgba(0,0,0,0.15)",
-        linecolor: "rgba(0,0,0,0.2)",
-        zerolinecolor: "rgba(0,0,0,0.2)",
-        tickfont: { color: "#6b7280", size: 10 },
-        backgroundcolor: "rgba(0,0,0,0)",
-      },
-      zaxis: {
-        ...(baseLayout.scene?.zaxis || {}),
-        gridcolor: "rgba(0,0,0,0.15)",
-        linecolor: "rgba(0,0,0,0.2)",
-        zerolinecolor: "rgba(0,0,0,0.2)",
-        tickfont: { color: "#6b7280", size: 10 },
-        backgroundcolor: "rgba(0,0,0,0)",
-      },
+    };
+  }
+
+  // Radar polar config
+  if (isRadar) {
+    base.polar = {
+      ...(baseLayout.polar || {}),
       bgcolor: "rgba(0,0,0,0)",
-    },
-    colorway: [
-      "#3b82f6",
-      "#8b5cf6",
-      "#ec4899",
-      "#10b981",
-      "#f59e0b",
-      "#ef4444",
-      "#06b6d4",
-      "#f97316",
-    ],
-  };
+      radialaxis: {
+        visible: true,
+        gridcolor: "rgba(0,0,0,0.08)",
+        tickfont: { size: 9, color: "#9ca3af" },
+        ...(baseLayout.polar?.radialaxis || {}),
+      },
+      angularaxis: {
+        gridcolor: "rgba(0,0,0,0.08)",
+        tickfont: { size: mobile ? 9 : 11, color: "#6b7280" },
+        ...(baseLayout.polar?.angularaxis || {}),
+      },
+    };
+  }
+
+  return base;
 }
 
 interface Message {
@@ -172,82 +356,16 @@ function ChartBlock({ message }: ChartBlockProps) {
       rendered.current = true;
 
       try {
-        const layout = buildLayout(message.content?.layout || {});
-        const mobile = isMobile();
-        const PALETTE = [
-          "#6366f1",
-          "#818cf8",
-          "#4f46e5",
-          "#3b82f6",
-          "#60a5fa",
-          "#0ea5e9",
-          "#38bdf8",
-          "#0284c7",
-          "#f43f5e",
-          "#fb7185",
-          "#e11d48",
-          "#f472b6",
-          "#ec4899",
-          "#db2777",
-          "#e879f9",
-          "#d946ef",
-          "#10b981",
-          "#34d399",
-          "#059669",
-          "#14b8a6",
-          "#2dd4bf",
-          "#4ade80",
-          "#22c55e",
-          "#84cc16",
-          "#a855f7",
-          "#c084fc",
-          "#7c3aed",
-          "#8b5cf6",
-          "#a78bfa",
-          "#9333ea",
-          "#6d28d9",
-          "#7e22ce",
-          "#fb923c",
-          "#f97316",
-          "#ea580c",
-          "#f59e0b",
-          "#fbbf24",
-          "#d97706",
-          "#fb7185",
-          "#fca5a5",
-          "#06b6d4",
-          "#22d3ee",
-          "#0891b2",
-          "#67e8f9",
-          "#0e7490",
-          "#155e75",
-          "#164e63",
-          "#083344",
-        ];
-        const shuffled = [...PALETTE].sort(() => Math.random() - 0.5);
-        const data = (message.content?.data || []).map(
-          (trace: any, i: number) => {
-            const color = shuffled[i % shuffled.length];
-            const isPie = trace.type === "pie" || trace.type === "donut";
-            return {
-              ...trace,
-              marker: {
-                ...(trace.marker || {}),
-                color: isPie ? shuffled : color,
-                size: mobile
-                  ? Math.min(trace.marker?.size || 6, 5)
-                  : trace.marker?.size || 7,
-                line: { color: "white", width: isPie ? 2 : 1.5 },
-              },
-              line: {
-                ...(trace.line || {}),
-                color,
-                width: mobile ? 1.5 : trace.line?.width || 2.5,
-              },
-              fillcolor: trace.fill ? color + "22" : undefined,
-            };
-          },
+        const rawData = message.content?.data || [];
+        const rawLayout = message.content?.layout || {};
+        const chartType = detectType(rawData);
+
+        const { data, layout: processedLayout } = preprocessTraces(
+          rawData,
+          rawLayout,
         );
+        const layout = buildLayout(processedLayout, chartType);
+
         window.Plotly.newPlot(divRef.current, data, layout, {
           responsive: true,
           displayModeBar: false,
@@ -255,6 +373,13 @@ function ChartBlock({ message }: ChartBlockProps) {
         });
       } catch (e) {
         console.error("Plotly render error:", e);
+        // Show fallback error inside chart area
+        if (divRef.current) {
+          divRef.current.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444;font-size:13px;gap:8px;padding:24px;text-align:center;">
+              <span>⚠</span><span>Chart render failed — try a different chart type or check your data format.</span>
+            </div>`;
+        }
       }
     };
     tryRender();
@@ -263,9 +388,10 @@ function ChartBlock({ message }: ChartBlockProps) {
   useEffect(() => {
     const onResize = () => {
       if (divRef.current && "Plotly" in window && rendered.current) {
+        const chartType = detectType(message.content?.data || []);
         window.Plotly.relayout(
           divRef.current,
-          buildLayout(message.content?.layout || {}),
+          buildLayout(message.content?.layout || {}, chartType),
         );
       }
     };
@@ -306,6 +432,8 @@ function ChartBlock({ message }: ChartBlockProps) {
       ? message.content.layout.title
       : "Chart");
 
+  const chartType = detectType(message.content?.data || []);
+
   return (
     <>
       {editorOpen && (
@@ -327,9 +455,12 @@ function ChartBlock({ message }: ChartBlockProps) {
             <span className="text-neutral-500 text-xs font-medium tracking-wide truncate">
               {chartTitle}
             </span>
+            {/* Chart type badge */}
+            <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-neutral-100 text-neutral-400 flex-shrink-0">
+              {chartType}
+            </span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* On mobile: show only PNG, on desktop show all 3 */}
             <button
               onClick={() => {
                 if (!divRef.current || !("Plotly" in window)) return;
@@ -367,7 +498,6 @@ function ChartBlock({ message }: ChartBlockProps) {
                 {fmt}
               </button>
             ))}
-            {/* Mobile toolbar toggle */}
             <button
               onClick={() => setToolbarOpen((v) => !v)}
               className="sm:hidden w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-900 text-white ml-1"
@@ -395,7 +525,7 @@ function ChartBlock({ message }: ChartBlockProps) {
           className="w-full h-[260px] sm:h-[320px] md:h-[380px] lg:h-[440px] px-1 sm:px-2"
         />
 
-        {/* Mobile inline toolbar (shown below chart when toggled) */}
+        {/* Mobile inline toolbar */}
         {toolbarOpen && (
           <div className="sm:hidden border-t border-neutral-100 px-3 py-2.5 bg-neutral-50 rounded-b-2xl">
             <MobileToolbarInline
@@ -411,7 +541,7 @@ function ChartBlock({ message }: ChartBlockProps) {
           </div>
         )}
 
-        {/* Desktop toolbar (floating on right) */}
+        {/* Desktop toolbar */}
         <div className="hidden sm:block">
           <ChartToolbar
             divRef={divRef}
@@ -425,7 +555,6 @@ function ChartBlock({ message }: ChartBlockProps) {
   );
 }
 
-// Inline mobile toolbar that appears below the chart
 function MobileToolbarInline({
   divRef,
   cardRef,
@@ -442,7 +571,6 @@ function MobileToolbarInline({
   const [gridOn, setGridOn] = useState(true);
   const [legendOn, setLegendOn] = useState(true);
   const [bgDark, setBgDark] = useState(false);
-  const [labelOn, setLabelOn] = useState(false);
 
   const toggleGrid = () => {
     if (!divRef.current || !("Plotly" in window)) return;
@@ -465,30 +593,29 @@ function MobileToolbarInline({
     if (!cardRef.current) return;
     const n = !bgDark;
     setBgDark(n);
-    if (n) {
-      cardRef.current.style.background = "#111212";
-      cardRef.current.style.borderColor = "rgba(255,255,255,0.08)";
-      if (divRef.current && "Plotly" in window) {
-        window.Plotly.relayout(divRef.current, {
-          "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-          "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-          "xaxis.gridcolor": "rgba(255,255,255,0.08)",
-          "yaxis.gridcolor": "rgba(255,255,255,0.08)",
-          "font.color": "rgba(255,255,255,0.7)",
-        } as any);
-      }
-    } else {
-      cardRef.current.style.background = "#ffffff";
-      cardRef.current.style.borderColor = "#e5e7eb";
-      if (divRef.current && "Plotly" in window) {
-        window.Plotly.relayout(divRef.current, {
-          "xaxis.tickfont": { color: "#666" },
-          "yaxis.tickfont": { color: "#666" },
-          "xaxis.gridcolor": "rgba(0,0,0,0.08)",
-          "yaxis.gridcolor": "rgba(0,0,0,0.08)",
-          "font.color": "#333",
-        } as any);
-      }
+    cardRef.current.style.background = n ? "#111212" : "#ffffff";
+    cardRef.current.style.borderColor = n
+      ? "rgba(255,255,255,0.08)"
+      : "#e5e7eb";
+    if (divRef.current && "Plotly" in window) {
+      window.Plotly.relayout(
+        divRef.current,
+        n
+          ? {
+              "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+              "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+              "xaxis.gridcolor": "rgba(255,255,255,0.08)",
+              "yaxis.gridcolor": "rgba(255,255,255,0.08)",
+              "font.color": "rgba(255,255,255,0.7)",
+            }
+          : ({
+              "xaxis.tickfont": { color: "#666" },
+              "yaxis.tickfont": { color: "#666" },
+              "xaxis.gridcolor": "rgba(0,0,0,0.08)",
+              "yaxis.gridcolor": "rgba(0,0,0,0.08)",
+              "font.color": "#333",
+            } as any),
+      );
     }
   };
   const resetZoom = () => {
@@ -500,109 +627,15 @@ function MobileToolbarInline({
   };
 
   const actions = [
-    {
-      label: "Edit",
-      icon: (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
-        </svg>
-      ),
-      onClick: onOpenEditor,
-      active: false,
-      accent: true,
-    },
-    {
-      label: gridOn ? "Grid ✓" : "Grid",
-      icon: (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-        </svg>
-      ),
-      onClick: toggleGrid,
-      active: gridOn,
-    },
+    { label: "Edit", onClick: onOpenEditor, active: false, accent: true },
+    { label: gridOn ? "Grid ✓" : "Grid", onClick: toggleGrid, active: gridOn },
     {
       label: legendOn ? "Legend ✓" : "Legend",
-      icon: (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <line x1="3" y1="6" x2="9" y2="6" />
-          <circle cx="6" cy="6" r="2" fill="currentColor" />
-          <line x1="3" y1="12" x2="9" y2="12" />
-          <circle cx="6" cy="12" r="2" fill="currentColor" />
-          <line x1="12" y1="6" x2="21" y2="6" />
-          <line x1="12" y1="12" x2="21" y2="12" />
-        </svg>
-      ),
       onClick: toggleLegend,
       active: legendOn,
     },
-    {
-      label: bgDark ? "Dark ✓" : "Dark",
-      icon: (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-        </svg>
-      ),
-      onClick: toggleBg,
-      active: bgDark,
-    },
-    {
-      label: "Reset",
-      icon: (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-      ),
-      onClick: resetZoom,
-      active: false,
-    },
+    { label: bgDark ? "Dark ✓" : "Dark", onClick: toggleBg, active: bgDark },
+    { label: "Reset", onClick: resetZoom, active: false },
   ];
 
   return (
@@ -611,15 +644,8 @@ function MobileToolbarInline({
         <button
           key={a.label}
           onClick={a.onClick}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
-            a.accent
-              ? "bg-cyan-500 text-white"
-              : a.active
-                ? "bg-neutral-900 text-white"
-                : "bg-white border border-neutral-200 text-neutral-600"
-          }`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${a.accent ? "bg-cyan-500 text-white" : a.active ? "bg-neutral-900 text-white" : "bg-white border border-neutral-200 text-neutral-600"}`}
         >
-          {a.icon}
           {a.label}
         </button>
       ))}

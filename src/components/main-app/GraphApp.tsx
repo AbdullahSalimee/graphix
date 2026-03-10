@@ -100,11 +100,11 @@ export default function GraphApp() {
     }
   }, [activeConv?.messages?.length]);
 
-  // ── Normal AI route ────────────────────────────────────────────────────────
   const handleSend = async (
     input: string,
     fileContent: string,
     fileName: string,
+    prebuiltConfig?: any, // ← pre-built Plotly config from csvPreprocessor
   ) => {
     if (!input.trim() || isLoading || !activeId) return;
     const convId = activeId;
@@ -127,6 +127,20 @@ export default function GraphApp() {
     updateMessages(convId, (msgs) => [...msgs, userMsg, aiMsg]);
     setIsLoading(true);
 
+    // ── If csvPreprocessor already built the config, skip the API call ──────────
+    if (prebuiltConfig) {
+      updateMessages(convId, (msgs) =>
+        msgs.map((m) =>
+          m.id === aiMsg.id
+            ? { ...m, content: prebuiltConfig, status: "success" }
+            : m,
+        ),
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    // ── Normal AI path ────────────────────────────────────────────────────────────
     try {
       const res = await fetch("https://graphy-server.vercel.app/api/chart", {
         method: "POST",
@@ -159,30 +173,6 @@ export default function GraphApp() {
       setIsLoading(false);
     }
   };
-
-  // ── CSV fast path (no AI) ──────────────────────────────────────────────────
-  const handleCSVChart = useCallback(
-    (plotlyData: any[], plotlyLayout: any, label: string) => {
-      if (!activeId) return;
-      const convId = activeId;
-
-      const userMsg: Message = {
-        id: crypto.randomUUID(),
-        from: "user",
-        content: `📊 CSV auto-chart: ${label}`,
-        status: "success",
-      };
-      const aiMsg: Message = {
-        id: crypto.randomUUID(),
-        from: "ai",
-        content: { data: plotlyData, layout: plotlyLayout },
-        status: "success", // instant — no loading state needed
-      };
-
-      updateMessages(convId, (msgs) => [...msgs, userMsg, aiMsg]);
-    },
-    [activeId, updateMessages],
-  );
 
   return (
     <div className="graph-app-root fixed inset-0 bg-white overflow-hidden">
@@ -241,13 +231,9 @@ export default function GraphApp() {
             )}
           </div>
 
-          {/* InputBar */}
+          {/* InputBar only shown after first message */}
           {hasMessages && (
-            <InputBar
-              onSend={handleSend}
-              onCSVChart={handleCSVChart}
-              isLoading={isLoading}
-            />
+            <InputBar onSend={handleSend} isLoading={isLoading} />
           )}
         </div>
       </div>

@@ -3,7 +3,7 @@
 
 import { useState, useRef, ChangeEvent, KeyboardEvent } from "react";
 import ChartTypeSelector from "./Charttypeselector";
-import { processCSV } from "./Csvprocessor";
+import { autoDetectChartHint, csvToPlotly } from "./Csvprocessor";
 
 interface SelectedChart {
   groupLabel: string;
@@ -12,26 +12,23 @@ interface SelectedChart {
 }
 
 interface InputBarProps {
-  onSend: (prompt: string, fileContent: string, fileName: string) => void;
-  /**
-   * Called when the CSV processor succeeds — bypasses the AI entirely.
-   * Parent should push this directly as a success message.
-   */
-  onCSVChart: (plotlyData: any[], plotlyLayout: any, label: string) => void;
+  onSend: (
+    prompt: string,
+    fileContent: string,
+    fileName: string,
+    prebuiltConfig?: any,
+  ) => void;
   isLoading: boolean;
 }
 
-export default function InputBar({
-  onSend,
-  onCSVChart,
-  isLoading,
-}: InputBarProps) {
+export default function InputBar({ onSend, isLoading }: InputBarProps) {
   const [input, setInput] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
   const [chartType, setChartType] = useState<SelectedChart | null>(null);
   const [focused, setFocused] = useState(false);
-  const [csvLabel, setCsvLabel] = useState<string | null>(null); // shows detected chart type badge
+  const [detectedHint, setDetectedHint] = useState<string | null>(null);
+  const [userOverride, setUserOverride] = useState(false); // true when user manually picked a chart type
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -39,18 +36,22 @@ export default function InputBar({
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    setCsvLabel(null);
     try {
       const text = await file.text();
       setFileContent(text);
 
-      // Immediately try to detect what chart type would be used (for the badge)
-      // Only if the user hasn't manually picked a chart type
-      if (!chartType) {
-        const peek = processCSV(text);
-        if (peek.ok) {
-          setCsvLabel(peek.chartTypeLabel);
-        }
+      // Auto-detect chart type from CSV structure
+      const hint = autoDetectChartHint(text);
+      if (hint !== "auto") {
+        setDetectedHint(hint);
+        // Pre-select matching chart type in the selector
+        setChartType({
+          groupLabel: hint.charAt(0).toUpperCase() + hint.slice(1),
+          subLabel: "AI Choice",
+          prompt: null,
+        });
+      } else {
+        setDetectedHint(null);
       }
     } catch (err) {
       console.error("Failed to read file:", err);
@@ -60,34 +61,41 @@ export default function InputBar({
   const clearFile = () => {
     setFileContent("");
     setFileName("");
-    setCsvLabel(null);
+    setDetectedHint(null);
+    setUserOverride(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const send = () => {
     if (!input.trim() || isLoading) return;
 
-    // ── CSV fast path ─────────────────────────────────────────────────────
-    // Only activate when:
-    //   1. A file is attached
-    //   2. The user has NOT manually selected a chart type
-    if (fileContent && !chartType) {
-      const result = processCSV(fileContent);
-      if (result.ok) {
-        // Bypass AI — hand the Plotly config directly to the parent
-        onCSVChart(
-          result.plotlyData,
-          result.plotlyLayout,
-          result.chartTypeLabel,
+    if (fileContent) {
+      // Determine which hint to use:
+      // - If user manually picked a type → use that (their choice wins)
+      // - Otherwise → use auto-detection
+      const autoHint = autoDetectChartHint(fileContent);
+      const userPickedType =
+        userOverride && chartType ? chartType.groupLabel.toLowerCase() : null;
+
+      // The effective hint: user override > auto-detection > "auto"
+      const effectiveHint =
+        userPickedType || (autoHint !== "auto" ? autoHint : "auto");
+
+      // If we have a concrete chart type (not "auto"), build it directly
+      if (effectiveHint !== "auto") {
+        const config = csvToPlotly(
+          fileContent,
+          effectiveHint as any,
+          input.trim(),
         );
+        onSend(input.trim(), fileContent, fileName, config);
         setInput("");
         clearFile();
         return;
       }
-      // Broken CSV → fall through to normal AI route below
     }
 
-    // ── Normal AI route ───────────────────────────────────────────────────
+    // Normal AI path for line, bar, pie, etc.
     let finalPrompt = input.trim();
     if (chartType) {
       if (chartType.prompt) {
@@ -109,16 +117,48 @@ export default function InputBar({
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
       <div className="max-w-[820px] mx-auto flex flex-col gap-1 my-1.5 sm:my-3">
-        {/* ── CSV auto-detect badge ── */}
-        {csvLabel && !chartType && (
-          <div className="flex items-center gap-1.5 px-1">
-            <span className="text-[10px] text-neutral-400">Auto-detected:</span>
-            <span className="text-[10px] font-semibold text-cyan-600 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5">
-              ✦ {csvLabel}
+        {/* Detection / override banner */}
+        {(detectedHint || userOverride) && (
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
+              userOverride
+                ? "bg-violet-50 border-violet-200 text-violet-700"
+                : "bg-cyan-50 border-cyan-200 text-cyan-700"
+            }`}
+          >
+            <span
+              className={userOverride ? "text-violet-400" : "text-cyan-400"}
+            >
+              ✦
             </span>
-            <span className="text-[10px] text-neutral-300">
-              · override with chart type selector
+            <span>
+              {userOverride ? (
+                <>
+                  Using{" "}
+                  <strong>
+                    {chartType?.subLabel === "AI Choice"
+                      ? chartType?.groupLabel
+                      : chartType?.subLabel}
+                  </strong>{" "}
+                  chart — your selection overrides auto-detection
+                </>
+              ) : (
+                <>
+                  Detected <strong>{detectedHint}</strong> chart — will render
+                  directly without AI
+                </>
+              )}
             </span>
+            <button
+              onClick={() => {
+                setDetectedHint(null);
+                setUserOverride(false);
+                setChartType(null);
+              }}
+              className={`ml-auto ${userOverride ? "text-violet-400 hover:text-violet-600" : "text-cyan-400 hover:text-cyan-600"}`}
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -158,10 +198,9 @@ export default function InputBar({
 
           {/* Chart type selector */}
           <ChartTypeSelector
-            onSelect={(sel) => {
-              setChartType(sel);
-              // If user picks a type manually, hide the auto-detect badge
-              if (sel) setCsvLabel(null);
+            onSelect={(ct) => {
+              setChartType(ct);
+              setUserOverride(true);
             }}
           />
 
@@ -171,6 +210,11 @@ export default function InputBar({
           {/* Inline file pill */}
           {fileName && (
             <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[96px] flex-shrink-0">
+              {detectedHint && (
+                <span className="text-cyan-400 text-[9px] font-bold uppercase mr-0.5">
+                  {detectedHint}
+                </span>
+              )}
               <span className="truncate">{fileName}</span>
               <button
                 onClick={clearFile}
@@ -206,10 +250,10 @@ export default function InputBar({
               }
             }}
             placeholder={
-              chartType
-                ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                : csvLabel
-                  ? `Describe the chart or just hit send…`
+              detectedHint
+                ? `Title for your ${detectedHint} chart…`
+                : chartType
+                  ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
                   : 'e.g. "Monthly sales Q1–Q4"'
             }
             disabled={isLoading}

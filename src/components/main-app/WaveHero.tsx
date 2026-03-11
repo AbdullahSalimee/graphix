@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, ChangeEvent } from "react";
 import ChartTypeSelector from "./Charttypeselector";
+import { autoDetectChartHint, csvToPlotly } from "./Csvprocessor";
 
 const words = [
   "bar charts",
@@ -16,7 +17,12 @@ interface SelectedChart {
 }
 
 interface WaveHeroProps {
-  onSend: (prompt: string, fileContent: string, fileName: string) => void;
+  onSend: (
+    prompt: string,
+    fileContent: string,
+    fileName: string,
+    prebuiltConfig?: any,
+  ) => void;
   isLoading: boolean;
 }
 
@@ -28,6 +34,11 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
   const [focused, setFocused] = useState(false);
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
+  const [detectedHint, setDetectedHint] = useState<string | null>(null);
+  const [userOverride, setUserOverride] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -40,8 +51,97 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
     return () => clearInterval(id);
   }, []);
 
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    try {
+      const text = await file.text();
+      setFileContent(text);
+      setBannerDismissed(false);
+
+      const hint = autoDetectChartHint(text);
+      if (hint !== "auto") {
+        setDetectedHint(hint);
+        setUserOverride(false);
+        setChartType({
+          groupLabel: hint.charAt(0).toUpperCase() + hint.slice(1),
+          subLabel: "AI Choice",
+          prompt: null,
+        });
+      } else {
+        setDetectedHint(null);
+        setUserOverride(false);
+      }
+    } catch (err) {
+      console.error("Failed to read file:", err);
+    }
+  };
+
+  const clearFile = () => {
+    setFileContent("");
+    setFileName("");
+    setDetectedHint(null);
+    setUserOverride(false);
+    setBannerDismissed(false);
+    setChartType(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   const send = () => {
     if (!input.trim() || isLoading) return;
+
+    if (fileContent) {
+      // Case 1: User manually picked a chart type → AI handles it
+      if (userOverride) {
+        let finalPrompt = input.trim();
+        if (chartType) {
+          if (chartType.prompt) {
+            finalPrompt += ` — make this as a "${chartType.prompt}"`;
+          } else {
+            finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+          }
+        }
+        onSend(finalPrompt, fileContent, fileName);
+        setInput("");
+        clearFile();
+        return;
+      }
+
+      // Case 2: Banner was dismissed via ✕ → send to AI, skip csvToPlotly
+      if (bannerDismissed) {
+        let finalPrompt = input.trim();
+        if (chartType?.prompt) {
+          finalPrompt += ` — make this as a "${chartType.prompt}"`;
+        }
+        onSend(finalPrompt, fileContent, fileName);
+        setInput("");
+        clearFile();
+        return;
+      }
+
+      // Case 3: Auto-detection banner still active → build directly without AI
+      const autoHint = autoDetectChartHint(fileContent);
+      if (autoHint !== "auto") {
+        const config = csvToPlotly(fileContent, autoHint, input.trim());
+        onSend(input.trim(), fileContent, fileName, config);
+        setInput("");
+        clearFile();
+        return;
+      }
+
+      // Case 4: Detection returned "auto" → send to AI normally
+      let finalPrompt = input.trim();
+      if (chartType?.prompt) {
+        finalPrompt += ` — make this as a "${chartType.prompt}"`;
+      }
+      onSend(finalPrompt, fileContent, fileName);
+      setInput("");
+      clearFile();
+      return;
+    }
+
+    // No file — normal AI path
     let finalPrompt = input.trim();
     if (chartType) {
       if (chartType.prompt) {
@@ -52,11 +152,11 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
     }
     onSend(finalPrompt, fileContent, fileName);
     setInput("");
-    setFileContent("");
-    setFileName("");
+    clearFile();
   };
 
   const canSend = !!input.trim() && !isLoading;
+  const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-3 sm:px-4 gap-6 sm:gap-8 py-8">
@@ -71,7 +171,53 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
       </div>
 
       {/* Centered input */}
-      <div className="w-full max-w-[620px]">
+      <div className="w-full max-w-[620px] flex flex-col gap-2">
+        {/* Detection / override banner */}
+        {showBanner && (
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
+              userOverride
+                ? "bg-violet-50 border-violet-200 text-violet-700"
+                : "bg-cyan-50 border-cyan-200 text-cyan-700"
+            }`}
+          >
+            <span
+              className={userOverride ? "text-violet-400" : "text-cyan-400"}
+            >
+              ✦
+            </span>
+            <span>
+              {userOverride ? (
+                <>
+                  Using{" "}
+                  <strong>
+                    {chartType?.subLabel === "AI Choice"
+                      ? chartType?.groupLabel
+                      : chartType?.subLabel}
+                  </strong>{" "}
+                  chart — your selection overrides auto-detection
+                </>
+              ) : (
+                <>
+                  Detected <strong>{detectedHint}</strong> chart — will render
+                  directly without AI
+                </>
+              )}
+            </span>
+            <button
+              onClick={() => {
+                setDetectedHint(null);
+                setUserOverride(false);
+                setBannerDismissed(true);
+                setChartType(null);
+              }}
+              className={`ml-auto ${userOverride ? "text-violet-400 hover:text-violet-600" : "text-cyan-400 hover:text-cyan-600"}`}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div
           className={`flex items-center gap-1.5 sm:gap-2 bg-white border border-white rounded-xl sm:rounded-2xl px-2.5 sm:px-3 py-2.5 sm:py-3 shadow-sm transition-all duration-150 ${
             focused ? "border-neutral-400 shadow-md" : "border-neutral-200"
@@ -85,15 +231,10 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           >
             <input
               id="hero-file-upload"
+              ref={fileRef}
               type="file"
               accept=".csv,.json,text/csv,text/plain,application/json"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setFileName(file.name);
-                const text = await file.text();
-                setFileContent(text);
-              }}
+              onChange={handleFile}
               className="hidden"
             />
             <svg
@@ -111,19 +252,30 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           </label>
 
           {/* Chart type selector */}
-          <ChartTypeSelector onSelect={setChartType} />
+          <ChartTypeSelector
+            onSelect={(ct) => {
+              setChartType(ct);
+              if (fileContent) {
+                setUserOverride(true);
+                setDetectedHint(null);
+                setBannerDismissed(false);
+              }
+            }}
+          />
 
           <div className="w-px h-5 bg-cyan-500 flex-shrink-0" />
 
           {/* File pill */}
           {fileName && (
-            <div className="flex items-center gap-1 text-cyan-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[90px] flex-shrink-0">
+            <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[90px] flex-shrink-0">
+              {detectedHint && !userOverride && !bannerDismissed && (
+                <span className="text-cyan-400 text-[9px] font-bold uppercase mr-0.5">
+                  {detectedHint}
+                </span>
+              )}
               <span className="truncate">{fileName}</span>
               <button
-                onClick={() => {
-                  setFileContent("");
-                  setFileName("");
-                }}
+                onClick={clearFile}
                 className="text-neutral-300 hover:text-neutral-600"
               >
                 <svg
@@ -156,9 +308,13 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
               }
             }}
             placeholder={
-              chartType
-                ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                : 'e.g. "Monthly sales Q1–Q4 2024"'
+              userOverride && chartType
+                ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
+                : detectedHint && !bannerDismissed
+                  ? `Title for your ${detectedHint} chart…`
+                  : chartType
+                    ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
+                    : 'e.g. "Monthly sales Q1–Q4 2024"'
             }
             disabled={isLoading}
           />
@@ -204,8 +360,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
           </button>
         </div>
 
-        {/* Suggestion chips — scrollable on mobile */}
-        <div className="flex gap-2 mt-3 sm:mt-4 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:justify-center">
+        {/* Suggestion chips */}
+        <div className="flex gap-2 mt-1 sm:mt-2 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:justify-center">
           {[
             "Monthly revenue Q1–Q4",
             "User growth by region",

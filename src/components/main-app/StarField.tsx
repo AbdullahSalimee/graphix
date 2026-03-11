@@ -16,7 +16,7 @@ export default function AnimatedBackground() {
 
         .bg-layer {
           animation: slide 3s ease-in-out infinite alternate;
-          background-image: linear-gradient(-60deg, #ffffff, #ffffff 50%);
+          background-image: linear-gradient(-60deg, black, black 50%);
           position: fixed;
           inset: 0;
           left: -50%;
@@ -31,7 +31,7 @@ export default function AnimatedBackground() {
           animation-duration: 4.2s;
           background-image: linear-gradient(
             -60deg,
-            rgba(243, 244, 246, 0.7) 50%,
+            black 50%,
             /* gray-100 */ rgba(229, 231, 235, 0.7) 50% /* gray-200 */
           );
         }
@@ -41,7 +41,7 @@ export default function AnimatedBackground() {
           animation-duration: 5.5s;
           background-image: linear-gradient(
             -60deg,
-            rgba(229, 231, 235, 0.5) 50%,
+            black 20%,
             /* gray-200 */ rgba(209, 213, 219, 0.5) 50% /* gray-300 */
           );
         }

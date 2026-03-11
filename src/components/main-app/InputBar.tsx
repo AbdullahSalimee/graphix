@@ -28,7 +28,8 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
   const [chartType, setChartType] = useState<SelectedChart | null>(null);
   const [focused, setFocused] = useState(false);
   const [detectedHint, setDetectedHint] = useState<string | null>(null);
-  const [userOverride, setUserOverride] = useState(false); // true when user manually picked a chart type
+  const [userOverride, setUserOverride] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false); // ← tracks ✕ click
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -39,12 +40,12 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     try {
       const text = await file.text();
       setFileContent(text);
+      setBannerDismissed(false); // reset on every new file
 
-      // Auto-detect chart type from CSV structure
       const hint = autoDetectChartHint(text);
       if (hint !== "auto") {
         setDetectedHint(hint);
-        // Pre-select matching chart type in the selector
+        setUserOverride(false);
         setChartType({
           groupLabel: hint.charAt(0).toUpperCase() + hint.slice(1),
           subLabel: "AI Choice",
@@ -52,6 +53,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
         });
       } else {
         setDetectedHint(null);
+        setUserOverride(false);
       }
     } catch (err) {
       console.error("Failed to read file:", err);
@@ -63,6 +65,8 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     setFileName("");
     setDetectedHint(null);
     setUserOverride(false);
+    setBannerDismissed(false);
+    setChartType(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -70,32 +74,56 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     if (!input.trim() || isLoading) return;
 
     if (fileContent) {
-      // Determine which hint to use:
-      // - If user manually picked a type → use that (their choice wins)
-      // - Otherwise → use auto-detection
+      // Case 1: User manually picked a chart type from selector → AI handles it
+      if (userOverride) {
+        let finalPrompt = input.trim();
+        if (chartType) {
+          if (chartType.prompt) {
+            finalPrompt += ` — make this as a "${chartType.prompt}"`;
+          } else {
+            finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+          }
+        }
+        onSend(finalPrompt, fileContent, fileName);
+        setInput("");
+        clearFile();
+        return;
+      }
+
+      // Case 2: User clicked ✕ on banner → send to AI, skip csvToPlotly entirely
+      if (bannerDismissed) {
+        let finalPrompt = input.trim();
+        if (chartType?.prompt) {
+          finalPrompt += ` — make this as a "${chartType.prompt}"`;
+        }
+        onSend(finalPrompt, fileContent, fileName);
+        setInput("");
+        clearFile();
+        return;
+      }
+
+      // Case 3: Auto-detection banner still active → build directly without AI
       const autoHint = autoDetectChartHint(fileContent);
-      const userPickedType =
-        userOverride && chartType ? chartType.groupLabel.toLowerCase() : null;
-
-      // The effective hint: user override > auto-detection > "auto"
-      const effectiveHint =
-        userPickedType || (autoHint !== "auto" ? autoHint : "auto");
-
-      // If we have a concrete chart type (not "auto"), build it directly
-      if (effectiveHint !== "auto") {
-        const config = csvToPlotly(
-          fileContent,
-          effectiveHint as any,
-          input.trim(),
-        );
+      if (autoHint !== "auto") {
+        const config = csvToPlotly(fileContent, autoHint, input.trim());
         onSend(input.trim(), fileContent, fileName, config);
         setInput("");
         clearFile();
         return;
       }
+
+      // Case 4: Detection returned "auto" → send to AI normally
+      let finalPrompt = input.trim();
+      if (chartType?.prompt) {
+        finalPrompt += ` — make this as a "${chartType.prompt}"`;
+      }
+      onSend(finalPrompt, fileContent, fileName);
+      setInput("");
+      clearFile();
+      return;
     }
 
-    // Normal AI path for line, bar, pie, etc.
+    // No file — normal AI path
     let finalPrompt = input.trim();
     if (chartType) {
       if (chartType.prompt) {
@@ -111,6 +139,9 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
 
   const canSend = !!input.trim() && !isLoading;
 
+  // Banner shows only when detection is active (not dismissed) OR user has overridden
+  const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
+
   return (
     <div
       className="sticky bottom-0 z-10 bg-neutral-50/95 backdrop-blur-xl border-t border-neutral-200 px-2 sm:px-3 md:px-5 pt-2 pb-2"
@@ -118,7 +149,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     >
       <div className="max-w-[820px] mx-auto flex flex-col gap-1 my-1.5 sm:my-3">
         {/* Detection / override banner */}
-        {(detectedHint || userOverride) && (
+        {showBanner && (
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
               userOverride
@@ -151,8 +182,11 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
             </span>
             <button
               onClick={() => {
+                // ✕ clicked: hide banner and remember it was dismissed
+                // send() will see bannerDismissed=true and route to AI
                 setDetectedHint(null);
                 setUserOverride(false);
+                setBannerDismissed(true);
                 setChartType(null);
               }}
               className={`ml-auto ${userOverride ? "text-violet-400 hover:text-violet-600" : "text-cyan-400 hover:text-cyan-600"}`}
@@ -200,7 +234,12 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
           <ChartTypeSelector
             onSelect={(ct) => {
               setChartType(ct);
-              setUserOverride(true);
+              if (fileContent) {
+                // Selecting a chart type while file is loaded = user override
+                setUserOverride(true);
+                setDetectedHint(null);
+                setBannerDismissed(false);
+              }
             }}
           />
 
@@ -210,7 +249,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
           {/* Inline file pill */}
           {fileName && (
             <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[96px] flex-shrink-0">
-              {detectedHint && (
+              {detectedHint && !userOverride && !bannerDismissed && (
                 <span className="text-cyan-400 text-[9px] font-bold uppercase mr-0.5">
                   {detectedHint}
                 </span>
@@ -250,11 +289,13 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
               }
             }}
             placeholder={
-              detectedHint
-                ? `Title for your ${detectedHint} chart…`
-                : chartType
-                  ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                  : 'e.g. "Monthly sales Q1–Q4"'
+              userOverride && chartType
+                ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
+                : detectedHint && !bannerDismissed
+                  ? `Title for your ${detectedHint} chart…`
+                  : chartType
+                    ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
+                    : 'e.g. "Monthly sales Q1–Q4"'
             }
             disabled={isLoading}
           />

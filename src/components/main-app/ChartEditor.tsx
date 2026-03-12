@@ -2027,6 +2027,15 @@ export default function ChartEditor({
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
+    // Inject keyframes globally to avoid SSR hydration mismatch
+    const styleId = "chart-editor-keyframes";
+    if (!document.getElementById(styleId)) {
+      const s = document.createElement("style");
+      s.id = styleId;
+      s.textContent =
+        "@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }";
+      document.head.appendChild(s);
+    }
     return () => {
       document.body.style.overflow = "";
     };
@@ -2160,6 +2169,9 @@ export default function ChartEditor({
       "contour-basic",
       "contour-lines",
       "contour-labels",
+      "heatmap",
+      "heatmap-categorical",
+      "heatmap-annotated",
       "2d-histogram-contour",
       "2d-histogram-slider",
       "parallel-basic",
@@ -2215,15 +2227,64 @@ export default function ChartEditor({
         return base;
       });
     } else if (isSpecial) {
-      // For special types just re-type existing traces and apply palette
-      data = liveData.map((trace: any, i: number) => {
-        const clr = pal[i % pal.length];
-        return {
-          ...trace,
-          type: ct.plotlyType,
-          marker: { ...(trace.marker || {}), color: clr },
-        };
-      });
+      const isContourOrHeatmap = [
+        "contour-simple",
+        "contour-basic",
+        "contour-lines",
+        "contour-labels",
+        "heatmap",
+        "heatmap-categorical",
+        "heatmap-annotated",
+      ].includes(ct.id);
+      if (isContourOrHeatmap) {
+        // Only the first trace matters for matrix-based charts
+        const trace0 = liveData[0] || {};
+        // If source already has z matrix data, use it directly
+        if (trace0.z) {
+          const base: any = {
+            type: ct.plotlyType,
+            z: trace0.z,
+            x: trace0.x,
+            y: trace0.y,
+            colorscale: "Viridis",
+            name: trace0.name,
+          };
+          if (ct.id === "contour-lines") base.contours = { coloring: "lines" };
+          if (ct.id === "contour-labels") base.contours = { showlabels: true };
+          if (ct.id === "heatmap-annotated") base.showscale = true;
+          data = [base];
+        } else {
+          // Source has no z (e.g. bar/scatter) — build a z matrix from all traces y values
+          const allTraces = liveData;
+          const xLabels = allTraces.map((t: any) => t.name || "");
+          const yLabels = (allTraces[0]?.x || []).map(String);
+          // z[row][col]: rows = x-categories, cols = traces
+          const zMatrix: number[][] = (allTraces[0]?.y || []).map(
+            (_: any, rowIdx: number) =>
+              allTraces.map((t: any) => Number(t.y?.[rowIdx]) || 0),
+          );
+          const base: any = {
+            type: ct.plotlyType,
+            z: zMatrix,
+            x: xLabels,
+            y: yLabels,
+            colorscale: "Viridis",
+          };
+          if (ct.id === "contour-lines") base.contours = { coloring: "lines" };
+          if (ct.id === "contour-labels") base.contours = { showlabels: true };
+          if (ct.id === "heatmap-annotated") base.showscale = true;
+          data = [base];
+        }
+      } else {
+        data = liveData.map((trace: any, i: number) => {
+          const clr = pal[i % pal.length];
+          return {
+            ...trace,
+            type: ct.plotlyType,
+            marker: { ...(trace.marker || {}), color: clr },
+          };
+        });
+      }
     } else {
       data = liveData.map((trace: any, i: number) => {
         const clr = pal[i % pal.length];
@@ -2453,7 +2514,7 @@ export default function ChartEditor({
   };
 
   const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
-  if (!mounted) return null;
+  if (!mounted || typeof document === "undefined") return null;
 
   const TABS = [
     {
@@ -3772,7 +3833,6 @@ export default function ChartEditor({
                   animation: "slideUp 0.25s cubic-bezier(0.16,1,0.3,1) both",
                 }}
               >
-                <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
                 <div
                   style={{
                     display: "flex",

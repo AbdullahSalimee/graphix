@@ -104,7 +104,7 @@ export default function GraphApp() {
     input: string,
     fileContent: string,
     fileName: string,
-    prebuiltConfig?: any, // ← pre-built Plotly config from csvPreprocessor
+    prebuiltConfig?: any,
   ) => {
     if (!input.trim() || isLoading || !activeId) return;
     const convId = activeId;
@@ -127,7 +127,6 @@ export default function GraphApp() {
     updateMessages(convId, (msgs) => [...msgs, userMsg, aiMsg]);
     setIsLoading(true);
 
-    // ── If csvPreprocessor already built the config, skip the API call ──────────
     if (prebuiltConfig) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
@@ -140,7 +139,6 @@ export default function GraphApp() {
       return;
     }
 
-    // ── Normal AI path ────────────────────────────────────────────────────────────
     try {
       const res = await fetch("https://graphy-server.vercel.app/api/chart", {
         method: "POST",
@@ -175,17 +173,25 @@ export default function GraphApp() {
   };
 
   return (
-    <div className="graph-app-root fixed inset-0 bg-white overflow-hidden">
+    <div
+      className="graph-app-root fixed inset-0 overflow-hidden"
+      style={{ background: "#09090f" }}
+    >
       <script
         src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
         async
       />
       <StarField />
 
-      <div className="app-shell flex h-dvh relative z-10 font-sans">
+      <div className="app-shell flex h-dvh relative z-10">
+        {/* Mobile backdrop */}
         {sidebarOpen && (
           <div
-            className="sidebar-backdrop fixed inset-0 z-[9] bg-black/55 backdrop-blur-sm sm:hidden"
+            className="fixed inset-0 z-[9] sm:hidden"
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(4px)",
+            }}
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -202,36 +208,68 @@ export default function GraphApp() {
 
         <div className="main flex-1 flex flex-col min-w-0 relative">
           {/* Topbar */}
-          <div className="topbar flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 bg-white backdrop-blur-xl border-b border-[#111212]/20">
+          <div
+            className="topbar flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 flex-shrink-0"
+            style={{
+              background: "rgba(9,9,15,0.85)",
+              backdropFilter: "blur(12px)",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
             {!sidebarOpen && (
               <button
-                className="icon-btn p-2 rounded-lg text-[#111212] hover:text-slate-300 transition-colors flex-shrink-0"
+                className="flex items-center justify-center w-8 h-8 rounded-lg transition-all flex-shrink-0"
+                style={{
+                  color: "rgba(255,255,255,0.4)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
                 onClick={() => setSidebarOpen(true)}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.color =
+                    "rgba(255,255,255,0.8)";
+                  (e.currentTarget as HTMLElement).style.background =
+                    "rgba(255,255,255,0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.color =
+                    "rgba(255,255,255,0.4)";
+                  (e.currentTarget as HTMLElement).style.background =
+                    "transparent";
+                }}
                 aria-label="Open sidebar"
               >
                 <MenuIcon />
               </button>
             )}
-            <span className="topbar-title text-black text-sm font-medium truncate flex-1 min-w-0">
-              {activeConv?.title || "Graph AI"}
+            <span
+              className="text-sm font-medium truncate flex-1 min-w-0"
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {activeConv?.title || "Graphix"}
             </span>
           </div>
 
           {/* Chat / Hero area */}
           <div
             ref={chatRef}
-            className="chat-area flex-1 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent"
+            className="chat-area flex-1 overflow-y-auto overscroll-contain"
+            style={{
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(255,255,255,0.08) transparent",
+            }}
           >
             {!hasMessages ? (
               <WaveHero onSend={handleSend} isLoading={isLoading} />
             ) : (
-              <div className="py-3 sm:py-5 px-2 sm:px-4 md:px-6">
+              <div className="py-4 sm:py-6 px-2 sm:px-4 md:px-6">
                 <ChatArea messages={activeConv?.messages ?? []} />
               </div>
             )}
           </div>
 
-          {/* InputBar only shown after first message */}
           {hasMessages && (
             <InputBar onSend={handleSend} isLoading={isLoading} />
           )}
@@ -244,14 +282,13 @@ export default function GraphApp() {
 function MenuIcon() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
-      strokeLinejoin="round"
     >
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="12" x2="21" y2="12" />

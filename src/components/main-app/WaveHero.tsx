@@ -59,7 +59,6 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
       const text = await file.text();
       setFileContent(text);
       setBannerDismissed(false);
-
       const hint = autoDetectChartHint(text);
       if (hint !== "auto") {
         setDetectedHint(hint);
@@ -90,37 +89,26 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
 
   const send = () => {
     if (!input.trim() || isLoading) return;
-
     if (fileContent) {
-      // Case 1: User manually picked a chart type → AI handles it
       if (userOverride) {
-        let finalPrompt = input.trim();
-        if (chartType) {
-          if (chartType.prompt) {
-            finalPrompt += ` — make this as a "${chartType.prompt}"`;
-          } else {
-            finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-          }
-        }
-        onSend(finalPrompt, fileContent, fileName);
+        let fp = input.trim();
+        if (chartType)
+          fp += chartType.prompt
+            ? ` — make this as a "${chartType.prompt}"`
+            : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+        onSend(fp, fileContent, fileName);
         setInput("");
         clearFile();
         return;
       }
-
-      // Case 2: Banner was dismissed via ✕ → send to AI, skip csvToPlotly
       if (bannerDismissed) {
-        let finalPrompt = input.trim();
-        if (chartType?.prompt) {
-          finalPrompt += ` — make this as a "${chartType.prompt}"`;
-        }
-        onSend(finalPrompt, fileContent, fileName);
+        let fp = input.trim();
+        if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+        onSend(fp, fileContent, fileName);
         setInput("");
         clearFile();
         return;
       }
-
-      // Case 3: Auto-detection banner still active → build directly without AI
       const autoHint = autoDetectChartHint(fileContent);
       if (autoHint !== "auto") {
         const config = csvToPlotly(fileContent, autoHint, input.trim());
@@ -129,28 +117,19 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
         clearFile();
         return;
       }
-
-      // Case 4: Detection returned "auto" → send to AI normally
-      let finalPrompt = input.trim();
-      if (chartType?.prompt) {
-        finalPrompt += ` — make this as a "${chartType.prompt}"`;
-      }
-      onSend(finalPrompt, fileContent, fileName);
+      let fp = input.trim();
+      if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+      onSend(fp, fileContent, fileName);
       setInput("");
       clearFile();
       return;
     }
-
-    // No file — normal AI path
-    let finalPrompt = input.trim();
-    if (chartType) {
-      if (chartType.prompt) {
-        finalPrompt += ` — make this as a "${chartType.prompt}"`;
-      } else {
-        finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-      }
-    }
-    onSend(finalPrompt, fileContent, fileName);
+    let fp = input.trim();
+    if (chartType)
+      fp += chartType.prompt
+        ? ` — make this as a "${chartType.prompt}"`
+        : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+    onSend(fp, fileContent, fileName);
     setInput("");
     clearFile();
   };
@@ -159,225 +138,350 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
   const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
 
   return (
-    <div className="flex flex-col items-center justify-center h-full px-3 sm:px-4 gap-6 sm:gap-8 py-8">
-      {/* Logo + Title */}
-      <div className="flex flex-col items-center gap-3 sm:gap-4">
-        <img src="/logo.png" alt="" className="h-10 sm:h-14 animate-pulse" />
-        <div className="text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-7xl tracking-tighter font-bold text-white py-1 rounded-lg leading-none">
-            Graphix
-          </h1>
-        </div>
-      </div>
+    <>
+      <style>{`
+        @keyframes heroFadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .hero-fade-1 { animation: heroFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) 0.05s both; }
+        .hero-fade-2 { animation: heroFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) 0.15s both; }
+        .hero-fade-3 { animation: heroFadeUp 0.5s cubic-bezier(0.22,1,0.36,1) 0.25s both; }
+        .hero-word {
+          display: inline-block;
+          transition: opacity 0.28s ease, transform 0.28s ease;
+        }
+        .hero-word-hidden { opacity: 0; transform: translateY(4px); }
+        .hero-word-visible { opacity: 1; transform: translateY(0); }
 
-      {/* Centered input */}
-      <div className="w-full max-w-[620px] flex flex-col gap-2">
-        {/* Detection / override banner */}
-        {showBanner && (
+        /* Dark input */
+        .hero-input-row {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .hero-input-row:focus-within {
+          border-color: rgba(6,182,212,0.4);
+          box-shadow: 0 0 0 3px rgba(6,182,212,0.06), 0 4px 24px rgba(0,0,0,0.3);
+        }
+        .hero-text-input::placeholder { color: rgba(255,255,255,0.2); }
+        .hero-text-input { color: rgba(255,255,255,0.85); caret-color: #06b6d4; }
+        .hero-text-input:focus { outline: none; }
+
+        .chip {
+          font-size: 11px;
+          padding: 6px 12px;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.1);
+          color: rgba(255,255,255,0.45);
+          background: rgba(255,255,255,0.04);
+          white-space: nowrap;
+          cursor: pointer;
+          transition: all 0.14s ease;
+          flex-shrink: 0;
+        }
+        .chip:hover {
+          border-color: rgba(6,182,212,0.35);
+          color: rgba(6,182,212,0.85);
+          background: rgba(6,182,212,0.06);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
+      <div className="flex flex-col items-center justify-center h-full px-4 sm:px-6 gap-8 sm:gap-10 py-10">
+        {/* Logo + Wordmark */}
+        <div className="hero-fade-1 flex flex-col items-center gap-3">
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
-              userOverride
-                ? "bg-violet-50 border-violet-200 text-violet-700"
-                : "bg-cyan-50 border-cyan-200 text-cyan-700"
-            }`}
-          >
-            <span
-              className={userOverride ? "text-violet-400" : "text-cyan-400"}
-            >
-              ✦
-            </span>
-            <span>
-              {userOverride ? (
-                <>
-                  Using{" "}
-                  <strong>
-                    {chartType?.subLabel === "AI Choice"
-                      ? chartType?.groupLabel
-                      : chartType?.subLabel}
-                  </strong>{" "}
-                  chart — your selection overrides auto-detection
-                </>
-              ) : (
-                <>
-                  Detected <strong>{detectedHint}</strong> chart — will render
-                  directly without AI
-                </>
-              )}
-            </span>
-            <button
-              onClick={() => {
-                setDetectedHint(null);
-                setUserOverride(false);
-                setBannerDismissed(true);
-                setChartType(null);
-              }}
-              className={`ml-auto ${userOverride ? "text-violet-400 hover:text-violet-600" : "text-cyan-400 hover:text-cyan-600"}`}
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        <div
-          className={`flex items-center gap-1.5 sm:gap-2 bg-white border border-white rounded-xl sm:rounded-2xl px-2.5 sm:px-3 py-2.5 sm:py-3 shadow-sm transition-all duration-150 ${
-            focused ? "border-neutral-400 shadow-md" : "border-neutral-200"
-          }`}
-        >
-          {/* Attach */}
-          <label
-            htmlFor="hero-file-upload"
-            className="cursor-pointer flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all flex-shrink-0"
-            title="Attach CSV or JSON"
-          >
-            <input
-              id="hero-file-upload"
-              ref={fileRef}
-              type="file"
-              accept=".csv,.json,text/csv,text/plain,application/json"
-              onChange={handleFile}
-              className="hidden"
-            />
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-            </svg>
-          </label>
-
-          {/* Chart type selector */}
-          <ChartTypeSelector
-            onSelect={(ct) => {
-              setChartType(ct);
-              if (fileContent) {
-                setUserOverride(true);
-                setDetectedHint(null);
-                setBannerDismissed(false);
-              }
+            className="flex items-center justify-center rounded-2xl"
+            style={{
+              width: 52,
+              height: 52,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 0 32px rgba(6,182,212,0.08)",
             }}
-          />
+          >
+            <img
+              src="/logo.png"
+              alt=""
+              style={{ height: 28, filter: "brightness(0) invert(1)" }}
+            />
+          </div>
 
-          <div className="w-px h-5 bg-cyan-500 flex-shrink-0" />
-
-          {/* File pill */}
-          {fileName && (
-            <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[90px] flex-shrink-0">
-              {detectedHint && !userOverride && !bannerDismissed && (
-                <span className="text-cyan-400 text-[9px] font-bold uppercase mr-0.5">
-                  {detectedHint}
-                </span>
-              )}
-              <span className="truncate">{fileName}</span>
-              <button
-                onClick={clearFile}
-                className="text-neutral-300 hover:text-neutral-600"
+          <div className="text-center">
+            <h1
+              style={{
+                fontSize: "clamp(48px, 8vw, 80px)",
+                fontWeight: 800,
+                letterSpacing: "-0.04em",
+                color: "#ffffff",
+                lineHeight: 1,
+                margin: 0,
+              }}
+            >
+              Graphix
+            </h1>
+            <p
+              style={{
+                marginTop: 10,
+                fontSize: 14,
+                color: "rgba(255,255,255,0.3)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Turn your data into{" "}
+              <span
+                className={`hero-word ${visible ? "hero-word-visible" : "hero-word-hidden"}`}
+                style={{ color: "#22d3ee" }}
               >
-                <svg
-                  width="8"
-                  height="8"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                {words[index]}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {/* Input section */}
+        <div className="hero-fade-2 w-full" style={{ maxWidth: 600 }}>
+          {/* Banner */}
+          {showBanner && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs mb-2"
+              style={{
+                background: userOverride
+                  ? "rgba(139,92,246,0.08)"
+                  : "rgba(6,182,212,0.07)",
+                border: `1px solid ${userOverride ? "rgba(139,92,246,0.2)" : "rgba(6,182,212,0.2)"}`,
+                color: userOverride
+                  ? "rgba(167,139,250,0.9)"
+                  : "rgba(34,211,238,0.9)",
+              }}
+            >
+              <span style={{ fontSize: 10 }}>✦</span>
+              <span>
+                {userOverride ? (
+                  <>
+                    Using{" "}
+                    <strong>
+                      {chartType?.subLabel === "AI Choice"
+                        ? chartType?.groupLabel
+                        : chartType?.subLabel}
+                    </strong>{" "}
+                    — overrides auto-detection
+                  </>
+                ) : (
+                  <>
+                    Detected <strong>{detectedHint}</strong> — will render
+                    without AI
+                  </>
+                )}
+              </span>
+              <button
+                onClick={() => {
+                  setDetectedHint(null);
+                  setUserOverride(false);
+                  setBannerDismissed(true);
+                  setChartType(null);
+                }}
+                className="ml-auto transition-opacity hover:opacity-70"
+              >
+                ✕
               </button>
             </div>
           )}
 
-          {/* Input */}
-          <input
-            className="flex-1 border-none outline-none text-neutral-800 text-xs sm:text-sm min-w-0 placeholder:text-neutral-400 bg-transparent"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
+          {/* Input row */}
+          <div className="hero-input-row flex items-center gap-2 rounded-xl px-3 py-2.5">
+            {/* Attach */}
+            <label
+              htmlFor="hero-file-upload"
+              className="cursor-pointer flex items-center justify-center w-7 h-7 rounded-lg transition-all flex-shrink-0"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.color =
+                  "rgba(255,255,255,0.7)")
               }
-            }}
-            placeholder={
-              userOverride && chartType
-                ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
-                : detectedHint && !bannerDismissed
-                  ? `Title for your ${detectedHint} chart…`
-                  : chartType
-                    ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                    : 'e.g. "Monthly sales Q1–Q4 2024"'
-            }
-            disabled={isLoading}
-          />
-
-          {/* Send */}
-          <button
-            onClick={send}
-            disabled={!canSend}
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
-              canSend
-                ? "bg-cyan-500 text-white"
-                : "bg-cyan-100 text-neutral-300 cursor-default"
-            }`}
-          >
-            {isLoading ? (
-              <svg
-                className="animate-spin"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            ) : (
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Suggestion chips */}
-        <div className="flex gap-2 mt-1 sm:mt-2 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:justify-center">
-          {[
-            "Monthly revenue Q1–Q4",
-            "User growth by region",
-            "Sales vs forecast",
-            "Top 10 products",
-          ].map((s) => (
-            <button
-              key={s}
-              onClick={() => setInput(s)}
-              className="text-xs px-3 py-1.5 rounded-full bg-white border border-cyan-500 text-cyan-500 hover:border-cyan-300 hover:text-cyan-700 transition-all whitespace-nowrap flex-shrink-0"
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.color =
+                  "rgba(255,255,255,0.3)")
+              }
+              title="Attach CSV or JSON"
             >
-              {s}
+              <input
+                id="hero-file-upload"
+                ref={fileRef}
+                type="file"
+                accept=".csv,.json,text/csv,text/plain,application/json"
+                onChange={handleFile}
+                className="hidden"
+              />
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+            </label>
+
+            {/* Chart type selector */}
+            <ChartTypeSelector
+              onSelect={(ct) => {
+                setChartType(ct);
+                if (fileContent) {
+                  setUserOverride(true);
+                  setDetectedHint(null);
+                  setBannerDismissed(false);
+                }
+              }}
+            />
+
+            {/* Divider */}
+            <div
+              className="w-px h-4 flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+
+            {/* File pill */}
+            {fileName && (
+              <div
+                className="flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 max-w-[80px] flex-shrink-0"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.4)",
+                  fontFamily: "monospace",
+                }}
+              >
+                {detectedHint && !userOverride && !bannerDismissed && (
+                  <span
+                    style={{
+                      color: "#22d3ee",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {detectedHint}
+                  </span>
+                )}
+                <span className="truncate">{fileName}</span>
+                <button
+                  onClick={clearFile}
+                  style={{ color: "rgba(255,255,255,0.25)", flexShrink: 0 }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.6)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.25)")
+                  }
+                >
+                  <svg
+                    width="7"
+                    height="7"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Text input */}
+            <input
+              className="hero-text-input flex-1 bg-transparent border-none min-w-0 text-sm"
+              style={{ fontSize: 13, letterSpacing: "-0.01em" }}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder={
+                userOverride && chartType
+                  ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
+                  : detectedHint && !bannerDismissed
+                    ? `Title for your ${detectedHint} chart…`
+                    : chartType
+                      ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
+                      : 'e.g. "Monthly sales Q1–Q4 2024"'
+              }
+              disabled={isLoading}
+            />
+
+            {/* Send */}
+            <button
+              onClick={send}
+              disabled={!canSend}
+              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+              style={{
+                background: canSend ? "#06b6d4" : "rgba(255,255,255,0.06)",
+                color: canSend ? "#000" : "rgba(255,255,255,0.2)",
+                boxShadow: canSend ? "0 0 16px rgba(6,182,212,0.3)" : "none",
+                cursor: canSend ? "pointer" : "default",
+              }}
+            >
+              {isLoading ? (
+                <svg
+                  className="animate-spin"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              ) : (
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              )}
             </button>
-          ))}
+          </div>
+
+          {/* Suggestion chips */}
+          <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1 sm:justify-center">
+            {[
+              "Monthly revenue Q1–Q4",
+              "User growth by region",
+              "Sales vs forecast",
+              "Top 10 products",
+            ].map((s) => (
+              <button key={s} onClick={() => setInput(s)} className="chip">
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

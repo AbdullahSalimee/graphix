@@ -27,145 +27,141 @@ export default function Sidebar({
 
   return (
     <>
+      {/* ── Only the truly irreplaceable styles ── */}
       <style>{`
-        .sb-aside {
-          transition:
-            width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-            min-width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-            transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-            opacity 0.22s ease;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bricolage+Grotesque:wght@700;800&display=swap');
+
+        /* Precise label collapse (opacity + max-width + transform together) */
         .sb-label {
-          transition: opacity 0.18s ease, max-width 0.28s cubic-bezier(0.4,0,0.2,1), transform 0.22s ease;
+          transition: opacity 0.15s ease, max-width 0.26s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease;
           overflow: hidden;
           white-space: nowrap;
         }
         .sb-aside.collapsed .sb-label {
           opacity: 0;
           max-width: 0 !important;
-          transform: translateX(-6px);
+          transform: translateX(-5px);
           pointer-events: none;
         }
-        .sb-aside:not(.collapsed) .sb-label {
-          opacity: 1;
-          max-width: 200px;
-          transform: translateX(0);
-        }
+
+        /* Tooltip exact behavior */
         .sb-tip {
           position: absolute;
-          left: calc(100% + 10px);
+          left: calc(100% + 12px);
           top: 50%;
           transform: translateY(-50%) translateX(-4px);
-          background: #0f172a;
-          color: #e2e8f0;
-          font-size: 11px;
-          font-family: monospace;
+          background: rgba(255,255,255,0.06);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.7);
+          font-size: 10px;
+          font-family: 'DM Mono', monospace;
           letter-spacing: 0.06em;
-          padding: 4px 8px;
-          border-radius: 5px;
+          padding: 4px 9px;
+          border-radius: 6px;
           white-space: nowrap;
           pointer-events: none;
           opacity: 0;
-          transition: opacity 0.15s ease, transform 0.15s ease;
+          transition: opacity 0.14s ease, transform 0.14s ease;
           z-index: 50;
-          border: 1px solid rgba(255,255,255,0.07);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .sb-aside.collapsed .sb-tip-trigger:hover .sb-tip {
           opacity: 1;
           transform: translateY(-50%) translateX(0);
         }
-        .sb-toggle {
-          position: absolute;
-          top: 50%;
-          right: -12px;
-          transform: translateY(-50%);
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: white;
-          border: 1.5px solid #e5e7eb;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          z-index: 20;
-          transition: background 0.15s, border-color 0.15s;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        }
-        .sb-toggle:hover {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: white;
-        }
+
+        /* Toggle button glow & rotation */
         .sb-toggle svg {
-          transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+          transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
         }
         .sb-aside.collapsed .sb-toggle svg {
           transform: rotate(180deg);
         }
-        @keyframes pulseDot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+
+        /* Active dot pulse (exact timing & spread) */
+        @keyframes dotGlow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(6,182,212,0.5); }
+          50%      { box-shadow: 0 0 0 3px rgba(6,182,212,0); }
         }
-        .pulse-dot { animation: pulseDot 2.4s ease infinite; }
-        @keyframes sbSlideIn {
-          from { opacity: 0; transform: translateX(-18px); }
-          to   { opacity: 1; transform: translateX(0); }
+        .dot-glow {
+          animation: dotGlow 2.4s ease infinite;
         }
-        .sb-mount { animation: sbSlideIn 0.35s cubic-bezier(0.22,1,0.36,1) both; }
-        .conv-item::before {
+
+        /* New button shimmer */
+        .new-btn {
+          position: relative;
+          overflow: hidden;
+        }
+        .new-btn::after {
           content: '';
           position: absolute;
-          left: 0; top: 20%; bottom: 20%;
-          width: 2px;
-          border-radius: 2px;
-          background: #22d3ee;
-          opacity: 0;
-          transition: opacity 0.15s ease;
+          inset: 0;
+          background: linear-gradient(90deg, transparent 0%, rgba(6,182,212,0.06) 50%, transparent 100%);
+          transform: translateX(-100%);
+          transition: transform 0.4s ease;
         }
-        .conv-item:hover::before { opacity: 0.5; }
-        .conv-item.conv-active::before { opacity: 1; }
+        .new-btn:hover::after {
+          transform: translateX(100%);
+        }
+
+        /* Custom scrollbar */
+        .sb-scroll::-webkit-scrollbar { width: 3px; }
+        .sb-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sb-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 9999px; }
+        .sb-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+
+        /* Noise (SVG fractal noise) */
+        .sb-noise {
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+          background-size: 128px 128px;
+          opacity: 0.025;
+        }
       `}</style>
 
       <aside
-        className={`sb-mount sb-aside${collapsed ? " collapsed" : ""} relative flex flex-col flex-shrink-0 h-dvh z-10 max-sm:fixed max-sm:left-0 max-sm:top-0 max-sm:shadow-2xl`}
+        className={`
+          sb-aside
+          relative flex flex-col flex-shrink-0 h-dvh z-10
+          max-sm:fixed max-sm:left-0 max-sm:top-0 max-sm:shadow-2xl
+          transition-[width,min-width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
+          ${collapsed ? "collapsed w-[60px] min-w-[60px]" : "w-[248px] min-w-[248px]"}
+        `}
         style={{
-          width: collapsed ? 64 : 256,
-          minWidth: collapsed ? 64 : 256,
-          /* ✅ Deep ink — no more flat cyan */
-          background:
-            "linear-gradient(180deg, #0d1117 0%, #111827 60%, #0d1117 100%)",
-          borderRight: "1px solid rgba(255,255,255,0.07)",
+          background: "#09090b",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        {/* Subtle dot grid */}
+        {/* Noise */}
+        <div className="sb-noise absolute inset-0 pointer-events-none z-0" />
+
+        {/* Subtle cyan gradient line */}
         <div
-          className="absolute inset-0 pointer-events-none z-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px)",
-            backgroundSize: "20px 20px",
-          }}
-        />
-        {/* Top accent line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-[1px] z-10"
+          className="absolute top-0 right-0 bottom-0 w-px pointer-events-none z-0"
           style={{
             background:
-              "linear-gradient(90deg, transparent, #22d3ee 40%, #818cf8 80%, transparent)",
+              "linear-gradient(180deg, transparent, rgba(6,182,212,0.12) 40%, rgba(6,182,212,0.06) 70%, transparent)",
           }}
         />
 
-        {/* Collapse toggle */}
+        {/* Collapse toggle button */}
         <button
-          className="sb-toggle"
+          className={`
+            sb-toggle
+            absolute top-1/2 -right-[11px] -translate-y-1/2
+            w-[22px] h-[22px] rounded-full
+            bg-[#18181b] border border-white/10
+            flex items-center justify-center cursor-pointer z-20
+            transition-colors duration-150
+            hover:bg-[#06b6d4] hover:border-[#06b6d4] hover:text-black
+            hover:shadow-[0_0_12px_rgba(6,182,212,0.4)]
+            text-white/35
+          `}
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg
-            width="10"
-            height="10"
+            width="9"
+            height="9"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -180,61 +176,64 @@ export default function Sidebar({
         <div className="relative z-10 flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Header */}
           <div
-            className="px-3 pb-3"
-            style={{
-              paddingTop: "max(1.2rem, env(safe-area-inset-top))",
-              borderBottom: "1px solid rgba(255,255,255,0.07)",
-            }}
+            className="flex-shrink-0 px-3 pb-3 border-b border-white/[0.05]"
+            style={{ paddingTop: "max(1.1rem, env(safe-area-inset-top))" }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between">
+              {/* Logo + title */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className="relative w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  className="relative flex-shrink-0 flex items-center justify-center rounded-xl overflow-hidden"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #164e63 0%, #0e7490 100%)",
-                    border: "1px solid rgba(34,211,238,0.2)",
-                    boxShadow: "0 0 0 3px rgba(34,211,238,0.06)",
+                    width: 36,
+                    height: 36,
+                    background: "linear-gradient(135deg, #0e0e10, #18181b)",
+                    border: "1px solid rgba(6,182,212,0.2)",
+                    boxShadow:
+                      "0 0 16px rgba(6,182,212,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
                   }}
                 >
-                  <img src="/logo.png" alt="" className="h-6 invert" />
+                  <img
+                    src="/logo.png"
+                    alt=""
+                    className="h-5 brightness-0 invert"
+                  />
                 </div>
+
                 <div className="sb-label min-w-0">
-                  <p className="text-[15px] font-black tracking-[-0.03em] text-white leading-none">
-                    Graph AI
+                  <p
+                    className="text-[15px] font-extrabold leading-none mb-[3px] text-white"
+                    style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      letterSpacing: "-0.04em",
+                    }}
+                  >
+                    Graphix
                   </p>
                   <span
-                    className="font-mono text-[9px] uppercase tracking-widest mt-0.5 block"
-                    style={{ color: "#22d3ee" }}
+                    className="text-[9px] uppercase tracking-[0.1em] text-white/22 block"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
                   >
                     v2.0 · Studio
                   </span>
                 </div>
               </div>
+
+              {/* Close btn (mobile) */}
               <button
                 onClick={onClose}
                 aria-label="Close sidebar"
-                className="sb-label min-w-[30px] min-h-[30px] flex items-center justify-center rounded-lg transition-all duration-150 flex-shrink-0"
-                style={{
-                  color: "rgba(255,255,255,0.25)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.color =
-                    "rgba(255,255,255,0.75)";
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.06)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.color =
-                    "rgba(255,255,255,0.25)";
-                  (e.currentTarget as HTMLElement).style.background =
-                    "transparent";
-                }}
+                className={`
+                  sb-label flex-shrink-0 flex items-center justify-center
+                  rounded-lg w-[30px] h-[30px]
+                  bg-white/[0.03] border border-white/[0.06]
+                  text-white/25 transition-all duration-150
+                  hover:bg-white/[0.07] hover:text-white/70
+                `}
               >
                 <svg
-                  width="11"
-                  height="11"
+                  width="10"
+                  height="10"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -250,45 +249,26 @@ export default function Sidebar({
 
           {/* Body */}
           <div
-            className="flex-1 flex flex-col gap-px overflow-y-auto"
-            style={{
-              padding: collapsed ? "12px 8px" : "12px 10px",
-              scrollbarWidth: "none",
-            }}
+            className="flex-1 sb-scroll overflow-y-auto overflow-x-hidden flex flex-col gap-px"
+            style={{ padding: collapsed ? "12px 8px" : "12px 8px" }}
           >
-            {/* New conversation */}
-            <div className="relative sb-tip-trigger mb-2">
+            {/* New conversation button */}
+            <div className="relative sb-tip-trigger mb-2.5">
               <button
                 onClick={onNew}
-                className={`w-full flex items-center min-h-[40px] rounded-lg text-[12.5px] font-semibold tracking-tight touch-manipulation transition-all duration-150 ${collapsed ? "justify-center px-0" : "gap-2.5 px-3"}`}
+                className={`
+                  new-btn w-full flex items-center rounded-lg
+                  transition-all duration-150 touch-manipulation
+                  min-h-[38px]
+                  ${collapsed ? "justify-center gap-0 px-0" : "justify-start gap-[9px] px-[10px]"}
+                `}
                 style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  color: "rgba(255,255,255,0.6)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.09)";
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "rgba(255,255,255,0.16)";
-                  (e.currentTarget as HTMLElement).style.color = "white";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.05)";
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "rgba(255,255,255,0.09)";
-                  (e.currentTarget as HTMLElement).style.color =
-                    "rgba(255,255,255,0.6)";
+                  background: "rgba(6,182,212,0.06)",
+                  border: "1px solid rgba(6,182,212,0.18)",
+                  color: "#22d3ee",
                 }}
               >
-                <span
-                  className="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: "rgba(34,211,238,0.12)",
-                    color: "#22d3ee",
-                  }}
-                >
+                <span className="flex items-center justify-center flex-shrink-0 w-5 h-5">
                   <svg
                     width="11"
                     height="11"
@@ -302,124 +282,135 @@ export default function Sidebar({
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                 </span>
-                <span className="sb-label">New conversation</span>
+
+                <span
+                  className="sb-label text-[11px] font-semibold tracking-[0.02em]"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                >
+                  New conversation
+                </span>
+
                 {!collapsed && (
-                  <span
-                    className="ml-auto text-xs"
-                    style={{ color: "rgba(255,255,255,0.18)" }}
+                  <svg
+                    className="sb-label ml-auto flex-shrink-0"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ color: "rgba(34,211,238,0.4)" }}
                   >
-                    ↵
-                  </span>
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
                 )}
               </button>
+
               {collapsed && <span className="sb-tip">New conversation</span>}
             </div>
 
             {/* Divider */}
-            {!collapsed && (
-              <div className="flex items-center gap-2 px-2 pt-1 pb-1.5">
+            {!collapsed ? (
+              <div className="flex items-center gap-2 px-1 pt-0.5 pb-2">
+                <span className="flex-1 h-px bg-white/[0.05]" />
                 <span
-                  className="flex-1 h-px"
-                  style={{ background: "rgba(255,255,255,0.06)" }}
-                />
-                <span
-                  className="font-mono text-[9px] tracking-widest uppercase"
-                  style={{ color: "rgba(255,255,255,0.15)" }}
+                  className="text-[9px] uppercase tracking-[0.12em] text-white/[0.18]"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
                 >
                   Recent
                 </span>
-                <span
-                  className="flex-1 h-px"
-                  style={{ background: "rgba(255,255,255,0.06)" }}
-                />
+                <span className="flex-1 h-px bg-white/[0.05]" />
               </div>
-            )}
-            {collapsed && (
-              <div
-                className="h-px my-1 mx-1"
-                style={{ background: "rgba(255,255,255,0.06)" }}
-              />
+            ) : (
+              <div className="h-px mx-1 my-1 bg-white/[0.05]" />
             )}
 
+            {/* Empty state */}
             {conversations.length === 0 && !collapsed && (
-              <div className="flex flex-col items-center gap-1.5 py-6">
+              <div className="flex flex-col items-center gap-2 py-6">
                 <div
-                  className="grid gap-[3px] mb-1"
-                  style={{
-                    gridTemplateColumns: "repeat(3, 8px)",
-                    gridTemplateRows: "repeat(3, 8px)",
-                  }}
+                  className="grid grid-cols-3 grid-rows-3 gap-[3px]"
+                  style={{ width: "fit-content" }}
                 >
                   {Array.from({ length: 9 }).map((_, i) => (
                     <div
                       key={i}
-                      className="rounded-sm"
+                      className="w-[6px] h-[6px] rounded-[2px] bg-white"
                       style={{
-                        background: "rgba(255,255,255,0.1)",
-                        opacity: i % 3 === 0 ? 1 : i % 2 === 0 ? 0.4 : 0.65,
+                        opacity: i % 3 === 0 ? 0.8 : i % 2 === 0 ? 0.3 : 0.5,
                       }}
                     />
                   ))}
                 </div>
                 <span
-                  className="text-[11.5px] font-medium"
-                  style={{ color: "rgba(255,255,255,0.2)" }}
+                  className="text-[11px] text-white/20"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
                 >
-                  No conversations yet
+                  no conversations yet
                 </span>
               </div>
             )}
 
+            {/* Conversation list */}
             {conversations.map((conv, i) => {
               const isActive = conv.id === activeId;
               const initials = conv.title
                 .split(" ")
-                .map((w: string) => w[0])
+                .map((w) => w[0])
                 .join("")
                 .slice(0, 2)
                 .toUpperCase();
+
               return (
-                <div key={conv.id} className="relative sb-tip-trigger">
+                <div
+                  key={conv.id}
+                  className="relative sb-tip-trigger conv-in"
+                  style={{ animationDelay: `${i * 0.04}s` }}
+                >
                   <button
                     onClick={() => onSelect(conv.id)}
-                    className={`conv-item ${isActive ? "conv-active" : ""} relative w-full text-left flex items-center min-h-[40px] rounded-lg text-[12.5px] font-medium tracking-tight transition-all duration-100 touch-manipulation ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
+                    className={`
+                      w-full text-left flex items-center rounded-lg
+                      transition-all duration-100 touch-manipulation
+                      min-h-[38px]
+                      ${collapsed ? "justify-center gap-0 px-0" : "justify-start gap-[9px] px-[10px]"}
+                    `}
                     style={{
                       background: isActive
-                        ? "rgba(255,255,255,0.07)"
+                        ? "rgba(6,182,212,0.07)"
                         : "transparent",
-                      border: `1px solid ${isActive ? "rgba(255,255,255,0.1)" : "transparent"}`,
-                      color: isActive
-                        ? "rgba(255,255,255,0.9)"
-                        : "rgba(255,255,255,0.35)",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.background =
-                          "rgba(255,255,255,0.05)";
-                        (e.currentTarget as HTMLElement).style.color =
-                          "rgba(255,255,255,0.65)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.background =
-                          "transparent";
-                        (e.currentTarget as HTMLElement).style.color =
-                          "rgba(255,255,255,0.35)";
-                      }
+                      border: `1px solid ${isActive ? "rgba(6,182,212,0.18)" : "transparent"}`,
+                      boxShadow: isActive
+                        ? "0 0 16px rgba(6,182,212,0.06)"
+                        : "none",
                     }}
                   >
+                    {isActive && (
+                      <div
+                        className="absolute left-0 top-[20%] bottom-[20%] w-0.5 rounded-[2px]"
+                        style={{
+                          background: "#06b6d4",
+                          boxShadow: "0 0 8px rgba(6,182,212,0.6)",
+                        }}
+                      />
+                    )}
+
                     {collapsed ? (
                       <span
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0"
+                        className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center flex-shrink-0 text-[9px] font-bold tracking-[0.03em]"
                         style={{
+                          fontFamily: "'DM Mono', monospace",
                           background: isActive
-                            ? "rgba(34,211,238,0.14)"
+                            ? "rgba(6,182,212,0.15)"
                             : "rgba(255,255,255,0.05)",
+                          border: `1px solid ${
+                            isActive
+                              ? "rgba(6,182,212,0.3)"
+                              : "rgba(255,255,255,0.06)"
+                          }`,
                           color: isActive ? "#22d3ee" : "rgba(255,255,255,0.3)",
-                          border: isActive
-                            ? "1px solid rgba(34,211,238,0.22)"
-                            : "1px solid rgba(255,255,255,0.06)",
                         }}
                       >
                         {initials || String(i + 1).padStart(2, "0")}
@@ -427,23 +418,35 @@ export default function Sidebar({
                     ) : (
                       <>
                         <span
-                          className="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${isActive ? "dot-glow" : ""}`}
                           style={{
                             background: isActive
-                              ? "#22d3ee"
+                              ? "#06b6d4"
                               : "rgba(255,255,255,0.15)",
                           }}
                         />
-                        <span className="flex-1 truncate">{conv.title}</span>
                         <span
-                          className="font-mono text-[9px] flex-shrink-0"
-                          style={{ color: "rgba(255,255,255,0.12)" }}
+                          className="flex-1 truncate text-xs transition-colors"
+                          style={{
+                            fontWeight: isActive ? 500 : 400,
+                            color: isActive
+                              ? "rgba(255,255,255,0.85)"
+                              : "rgba(255,255,255,0.38)",
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
+                          {conv.title}
+                        </span>
+                        <span
+                          className="text-[9px] text-white/[0.12] flex-shrink-0"
+                          style={{ fontFamily: "'DM Mono', monospace" }}
                         >
                           {String(i + 1).padStart(2, "0")}
                         </span>
                       </>
                     )}
                   </button>
+
                   {collapsed && <span className="sb-tip">{conv.title}</span>}
                 </div>
               );
@@ -452,29 +455,23 @@ export default function Sidebar({
 
           {/* Footer */}
           <div
-            className="py-3"
-            style={{
-              borderTop: "1px solid rgba(255,255,255,0.07)",
-              paddingBottom: "max(12px, env(safe-area-inset-bottom))",
-            }}
+            className="flex-shrink-0 border-t border-white/[0.05]"
+            style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
           >
             <div
-              className={`flex items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-3.5"}`}
+              className={`
+                flex items-center
+                ${collapsed ? "justify-center gap-0 py-[10px] px-0" : "justify-start gap-[10px] py-[10px] px-[10px]"}
+              `}
             >
               <div className="relative sb-tip-trigger">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: "rgba(255,255,255,0.07)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
+                <div className="flex items-center justify-center flex-shrink-0 rounded-lg w-[30px] h-[30px] bg-white/[0.04] border border-white/[0.07]">
                   <svg
                     width="13"
                     height="13"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="rgba(255,255,255,0.4)"
+                    stroke="rgba(255,255,255,0.35)"
                     strokeWidth="2"
                     strokeLinecap="round"
                   >
@@ -482,32 +479,23 @@ export default function Sidebar({
                     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
                   </svg>
                 </div>
-                {collapsed && (
-                  <span className="sb-tip">Workspace · Free plan</span>
-                )}
+                {collapsed && <span className="sb-tip">Free plan</span>}
               </div>
+
               <div className="sb-label min-w-0">
-                <span
-                  className="block text-[12px] font-bold leading-none tracking-tight"
-                  style={{ color: "rgba(255,255,255,0.8)" }}
-                >
+                <span className="block text-[11px] font-semibold text-white/60 leading-none mb-[3px] tracking-[-0.01em]">
                   Workspace
                 </span>
                 <span
-                  className="block font-mono text-[9.5px] uppercase tracking-widest mt-0.5"
-                  style={{ color: "rgba(255,255,255,0.22)" }}
+                  className="block text-[9px] uppercase tracking-[0.1em] text-white/20"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
                 >
                   Free plan
                 </span>
               </div>
+
               {!collapsed && (
-                <div
-                  className="ml-auto w-2 h-2 rounded-full flex-shrink-0"
-                  style={{
-                    background: "#10b981",
-                    boxShadow: "0 0 0 3px rgba(16,185,129,0.18)",
-                  }}
-                />
+                <div className="ml-auto flex-shrink-0 sb-label w-[7px] h-[7px] rounded-full bg-[#06b6d4] shadow-[0_0_0_3px_rgba(6,182,212,0.15),0_0_8px_rgba(6,182,212,0.4)]" />
               )}
             </div>
           </div>

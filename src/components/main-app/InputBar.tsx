@@ -29,7 +29,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
   const [focused, setFocused] = useState(false);
   const [detectedHint, setDetectedHint] = useState<string | null>(null);
   const [userOverride, setUserOverride] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false); // ← tracks ✕ click
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -40,8 +40,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     try {
       const text = await file.text();
       setFileContent(text);
-      setBannerDismissed(false); // reset on every new file
-
+      setBannerDismissed(false);
       const hint = autoDetectChartHint(text);
       if (hint !== "auto") {
         setDetectedHint(hint);
@@ -72,37 +71,26 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
 
   const send = () => {
     if (!input.trim() || isLoading) return;
-
     if (fileContent) {
-      // Case 1: User manually picked a chart type from selector → AI handles it
       if (userOverride) {
-        let finalPrompt = input.trim();
-        if (chartType) {
-          if (chartType.prompt) {
-            finalPrompt += ` — make this as a "${chartType.prompt}"`;
-          } else {
-            finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-          }
-        }
-        onSend(finalPrompt, fileContent, fileName);
+        let fp = input.trim();
+        if (chartType)
+          fp += chartType.prompt
+            ? ` — make this as a "${chartType.prompt}"`
+            : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+        onSend(fp, fileContent, fileName);
         setInput("");
         clearFile();
         return;
       }
-
-      // Case 2: User clicked ✕ on banner → send to AI, skip csvToPlotly entirely
       if (bannerDismissed) {
-        let finalPrompt = input.trim();
-        if (chartType?.prompt) {
-          finalPrompt += ` — make this as a "${chartType.prompt}"`;
-        }
-        onSend(finalPrompt, fileContent, fileName);
+        let fp = input.trim();
+        if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+        onSend(fp, fileContent, fileName);
         setInput("");
         clearFile();
         return;
       }
-
-      // Case 3: Auto-detection banner still active → build directly without AI
       const autoHint = autoDetectChartHint(fileContent);
       if (autoHint !== "auto") {
         const config = csvToPlotly(fileContent, autoHint, input.trim());
@@ -111,236 +99,285 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
         clearFile();
         return;
       }
-
-      // Case 4: Detection returned "auto" → send to AI normally
-      let finalPrompt = input.trim();
-      if (chartType?.prompt) {
-        finalPrompt += ` — make this as a "${chartType.prompt}"`;
-      }
-      onSend(finalPrompt, fileContent, fileName);
+      let fp = input.trim();
+      if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+      onSend(fp, fileContent, fileName);
       setInput("");
       clearFile();
       return;
     }
-
-    // No file — normal AI path
-    let finalPrompt = input.trim();
-    if (chartType) {
-      if (chartType.prompt) {
-        finalPrompt += ` — make this as a "${chartType.prompt}"`;
-      } else {
-        finalPrompt += ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-      }
-    }
-    onSend(finalPrompt, fileContent, fileName);
+    let fp = input.trim();
+    if (chartType)
+      fp += chartType.prompt
+        ? ` — make this as a "${chartType.prompt}"`
+        : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+    onSend(fp, fileContent, fileName);
     setInput("");
     clearFile();
   };
 
   const canSend = !!input.trim() && !isLoading;
-
-  // Banner shows only when detection is active (not dismissed) OR user has overridden
   const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
 
   return (
-    <div
-      className="sticky bottom-0 z-10 bg-neutral-50/95 backdrop-blur-xl border-t border-neutral-200 px-2 sm:px-3 md:px-5 pt-2 pb-2"
-      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-    >
-      <div className="max-w-[820px] mx-auto flex flex-col gap-1 my-1.5 sm:my-3">
-        {/* Detection / override banner */}
-        {showBanner && (
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
-              userOverride
-                ? "bg-violet-50 border-violet-200 text-violet-700"
-                : "bg-cyan-50 border-cyan-200 text-cyan-700"
-            }`}
-          >
-            <span
-              className={userOverride ? "text-violet-400" : "text-cyan-400"}
-            >
-              ✦
-            </span>
-            <span>
-              {userOverride ? (
-                <>
-                  Using{" "}
-                  <strong>
-                    {chartType?.subLabel === "AI Choice"
-                      ? chartType?.groupLabel
-                      : chartType?.subLabel}
-                  </strong>{" "}
-                  chart — your selection overrides auto-detection
-                </>
-              ) : (
-                <>
-                  Detected <strong>{detectedHint}</strong> chart — will render
-                  directly without AI
-                </>
-              )}
-            </span>
-            <button
-              onClick={() => {
-                // ✕ clicked: hide banner and remember it was dismissed
-                // send() will see bannerDismissed=true and route to AI
-                setDetectedHint(null);
-                setUserOverride(false);
-                setBannerDismissed(true);
-                setChartType(null);
+    <>
+      <style>{`
+        .ib-row {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.09);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .ib-row.ib-focused {
+          border-color: rgba(6,182,212,0.35);
+          box-shadow: 0 0 0 3px rgba(6,182,212,0.05);
+        }
+        .ib-input-field {
+          color: rgba(255,255,255,0.82);
+          background: transparent;
+          border: none;
+          outline: none;
+          caret-color: #06b6d4;
+        }
+        .ib-input-field::placeholder { color: rgba(255,255,255,0.2); }
+      `}</style>
+
+      <div
+        className="flex-shrink-0 px-3 sm:px-4 md:px-6 pt-2 pb-3"
+        style={{
+          background: "rgba(9,9,15,0.9)",
+          backdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="max-w-[820px] mx-auto flex flex-col gap-1.5 my-1">
+          {/* Banner */}
+          {showBanner && (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+              style={{
+                background: userOverride
+                  ? "rgba(139,92,246,0.08)"
+                  : "rgba(6,182,212,0.07)",
+                border: `1px solid ${userOverride ? "rgba(139,92,246,0.2)" : "rgba(6,182,212,0.2)"}`,
+                color: userOverride
+                  ? "rgba(167,139,250,0.9)"
+                  : "rgba(34,211,238,0.9)",
               }}
-              className={`ml-auto ${userOverride ? "text-violet-400 hover:text-violet-600" : "text-cyan-400 hover:text-cyan-600"}`}
             >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* ── Input row ── */}
-        <div
-          className={`flex items-center gap-1 sm:gap-1.5 bg-white border rounded-lg sm:rounded-xl px-2 py-1.5 shadow-sm transition-all duration-150 ${
-            focused ? "ib-focused border-neutral-400" : "border-neutral-200"
-          }`}
-        >
-          {/* Attach */}
-          <label
-            htmlFor="file-upload"
-            className="ib-attach cursor-pointer flex items-center justify-center w-7 h-7 sm:w-7 sm:h-7 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-all duration-150 flex-shrink-0"
-            title="Attach CSV or JSON"
-          >
-            <input
-              id="file-upload"
-              ref={fileRef}
-              type="file"
-              accept=".csv,.json,text/csv,text/plain,application/json"
-              onChange={handleFile}
-              className="hidden"
-            />
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-            </svg>
-          </label>
-
-          {/* Chart type selector */}
-          <ChartTypeSelector
-            onSelect={(ct) => {
-              setChartType(ct);
-              if (fileContent) {
-                // Selecting a chart type while file is loaded = user override
-                setUserOverride(true);
-                setDetectedHint(null);
-                setBannerDismissed(false);
-              }
-            }}
-          />
-
-          {/* Divider */}
-          <div className="w-px h-4 bg-neutral-100 flex-shrink-0" />
-
-          {/* Inline file pill */}
-          {fileName && (
-            <div className="flex items-center gap-1 text-neutral-500 text-[10px] font-mono bg-neutral-50 border border-neutral-200 rounded px-1.5 py-0.5 max-w-[70px] sm:max-w-[96px] flex-shrink-0">
-              {detectedHint && !userOverride && !bannerDismissed && (
-                <span className="text-cyan-400 text-[9px] font-bold uppercase mr-0.5">
-                  {detectedHint}
-                </span>
-              )}
-              <span className="truncate">{fileName}</span>
+              <span style={{ fontSize: 10 }}>✦</span>
+              <span>
+                {userOverride ? (
+                  <>
+                    Using{" "}
+                    <strong>
+                      {chartType?.subLabel === "AI Choice"
+                        ? chartType?.groupLabel
+                        : chartType?.subLabel}
+                    </strong>{" "}
+                    — overrides auto-detection
+                  </>
+                ) : (
+                  <>
+                    Detected <strong>{detectedHint}</strong> — will render
+                    without AI
+                  </>
+                )}
+              </span>
               <button
-                onClick={clearFile}
-                className="text-neutral-300 hover:text-neutral-600 transition-colors flex-shrink-0"
+                onClick={() => {
+                  setDetectedHint(null);
+                  setUserOverride(false);
+                  setBannerDismissed(true);
+                  setChartType(null);
+                }}
+                className="ml-auto transition-opacity hover:opacity-70"
               >
-                <svg
-                  width="8"
-                  height="8"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                ✕
               </button>
             </div>
           )}
 
-          {/* Text input */}
-          <input
-            className="ib-input flex-1 bg-transparent border-none outline-none text-neutral-800 text-[13px] tracking-tight min-w-0"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            placeholder={
-              userOverride && chartType
-                ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
-                : detectedHint && !bannerDismissed
-                  ? `Title for your ${detectedHint} chart…`
-                  : chartType
-                    ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                    : 'e.g. "Monthly sales Q1–Q4"'
-            }
-            disabled={isLoading}
-          />
-
-          {/* Send */}
-          <button
-            onClick={send}
-            disabled={!canSend}
-            className={`ib-send-on w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-all ${
-              canSend
-                ? "bg-neutral-900 text-white cursor-pointer"
-                : "bg-neutral-100 text-neutral-300 cursor-default"
-            }`}
+          {/* Input row */}
+          <div
+            className={`ib-row flex items-center gap-1.5 rounded-xl px-2.5 py-2 ${focused ? "ib-focused" : ""}`}
           >
-            {isLoading ? (
+            {/* Attach */}
+            <label
+              htmlFor="ib-file-upload"
+              className="cursor-pointer flex items-center justify-center w-7 h-7 rounded-lg transition-all flex-shrink-0"
+              style={{ color: "rgba(255,255,255,0.28)" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.color =
+                  "rgba(255,255,255,0.65)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.color =
+                  "rgba(255,255,255,0.28)")
+              }
+              title="Attach CSV or JSON"
+            >
+              <input
+                id="ib-file-upload"
+                ref={fileRef}
+                type="file"
+                accept=".csv,.json,text/csv,text/plain,application/json"
+                onChange={handleFile}
+                className="hidden"
+              />
               <svg
-                className="ib-spinner animate-spin"
-                width="11"
-                height="11"
+                width="13"
+                height="13"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="2"
                 strokeLinecap="round"
               >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
-            ) : (
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            </label>
+
+            {/* Chart type selector */}
+            <ChartTypeSelector
+              onSelect={(ct) => {
+                setChartType(ct);
+                if (fileContent) {
+                  setUserOverride(true);
+                  setDetectedHint(null);
+                  setBannerDismissed(false);
+                }
+              }}
+            />
+
+            {/* Divider */}
+            <div
+              className="w-px h-4 flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.07)" }}
+            />
+
+            {/* File pill */}
+            {fileName && (
+              <div
+                className="flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 max-w-[72px] sm:max-w-[96px] flex-shrink-0"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.38)",
+                  fontFamily: "monospace",
+                }}
               >
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
-              </svg>
+                {detectedHint && !userOverride && !bannerDismissed && (
+                  <span
+                    style={{
+                      color: "#22d3ee",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {detectedHint}
+                  </span>
+                )}
+                <span className="truncate">{fileName}</span>
+                <button
+                  onClick={clearFile}
+                  style={{ color: "rgba(255,255,255,0.22)", flexShrink: 0 }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.55)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.22)")
+                  }
+                >
+                  <svg
+                    width="7"
+                    height="7"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             )}
-          </button>
+
+            {/* Text input */}
+            <input
+              className="ib-input-field flex-1 text-[13px] min-w-0"
+              style={{ letterSpacing: "-0.01em" }}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder={
+                userOverride && chartType
+                  ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
+                  : detectedHint && !bannerDismissed
+                    ? `Title for your ${detectedHint} chart…`
+                    : chartType
+                      ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
+                      : 'e.g. "Monthly sales Q1–Q4"'
+              }
+              disabled={isLoading}
+            />
+
+            {/* Send */}
+            <button
+              onClick={send}
+              disabled={!canSend}
+              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+              style={{
+                background: canSend ? "#06b6d4" : "rgba(255,255,255,0.05)",
+                color: canSend ? "#000" : "rgba(255,255,255,0.18)",
+                boxShadow: canSend ? "0 0 14px rgba(6,182,212,0.25)" : "none",
+                cursor: canSend ? "pointer" : "default",
+              }}
+            >
+              {isLoading ? (
+                <svg
+                  className="animate-spin"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              ) : (
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

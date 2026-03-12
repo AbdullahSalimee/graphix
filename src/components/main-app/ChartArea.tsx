@@ -6,7 +6,6 @@ import ChartEditor from "./ChartEditor";
 
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 640;
 
-// ─── Colour palette (stable per trace index, not randomised on every render) ──
 const PALETTE = [
   "#6366f1",
   "#ec4899",
@@ -27,12 +26,10 @@ const PALETTE = [
   "#7c3aed",
   "#0284c7",
 ];
-
 function stableColor(i: number) {
   return PALETTE[i % PALETTE.length];
 }
 
-// ─── Detect chart type from Plotly trace ─────────────────────────────────────
 function detectType(traces: any[]): string {
   if (!traces?.length) return "bar";
   const t = traces[0];
@@ -61,17 +58,13 @@ function detectType(traces: any[]): string {
   return type || "bar";
 }
 
-// ─── Pre-process traces before handing to Plotly ─────────────────────────────
 function preprocessTraces(
   data: any[],
   layout: any,
 ): { data: any[]; layout: any } {
   if (!data?.length) return { data, layout };
-
   const chartType = detectType(data);
   const mobile = isMobile();
-
-  // ── Scatter: if AI mistakenly put x=id-like column, try to fix ──────────────
   if (chartType === "scatter") {
     return {
       data: data.map((trace, i) => {
@@ -85,7 +78,7 @@ function preprocessTraces(
             color: trace.marker?.color || clr,
             size: mobile ? 6 : trace.marker?.size || 9,
             opacity: 0.82,
-            line: { color: "white", width: 1 },
+            line: { color: "rgba(255,255,255,0.15)", width: 1 },
           },
           line: { color: clr, width: 2 },
         };
@@ -93,40 +86,32 @@ function preprocessTraces(
       layout,
     };
   }
-
-  // ── Heatmap: ensure z is a 2D array ─────────────────────────────────────────
   if (chartType === "heatmap") {
-    const trace = data[0];
-    // If AI returned flat arrays, keep as-is; Plotly handles it
     return {
       data: [
         {
-          ...trace,
+          ...data[0],
           type: "heatmap",
-          colorscale: trace.colorscale || "Viridis",
+          colorscale: data[0].colorscale || "Viridis",
           showscale: true,
           hoverongaps: false,
         },
       ],
-      layout: {
-        ...layout,
-        xaxis: { ...(layout.xaxis || {}), side: "bottom" },
-      },
+      layout: { ...layout, xaxis: { ...(layout.xaxis || {}), side: "bottom" } },
     };
   }
-
-  // ── Waterfall: fix measure array if missing ──────────────────────────────────
   if (chartType === "waterfall") {
     const trace = data[0];
     const yVals: number[] = trace.y || trace.values || [];
-    // Auto-generate measure array if absent
     const measure =
       trace.measure ||
-      yVals.map((_: any, idx: number) => {
-        if (idx === 0) return "absolute";
-        if (idx === yVals.length - 1) return "total";
-        return "relative";
-      });
+      yVals.map((_: any, idx: number) =>
+        idx === 0
+          ? "absolute"
+          : idx === yVals.length - 1
+            ? "total"
+            : "relative",
+      );
     return {
       data: [
         {
@@ -134,7 +119,7 @@ function preprocessTraces(
           type: "waterfall",
           measure,
           connector: {
-            line: { color: "rgba(0,0,0,0.15)", width: 1, dash: "dot" },
+            line: { color: "rgba(255,255,255,0.08)", width: 1, dash: "dot" },
           },
           increasing: { marker: { color: "#10b981" } },
           decreasing: { marker: { color: "#ef4444" } },
@@ -146,8 +131,6 @@ function preprocessTraces(
       layout,
     };
   }
-
-  // ── Radar / Scatterpolar ─────────────────────────────────────────────────────
   if (chartType === "radar") {
     return {
       data: data.map((trace, i) => ({
@@ -171,8 +154,6 @@ function preprocessTraces(
       },
     };
   }
-
-  // ── Default: colour each trace consistently ──────────────────────────────────
   return {
     data: data.map((trace, i) => {
       const clr = stableColor(i);
@@ -185,7 +166,7 @@ function preprocessTraces(
           size: mobile
             ? Math.min(trace.marker?.size || 6, 5)
             : trace.marker?.size || 7,
-          line: { color: "white", width: isPie ? 2 : 1 },
+          line: { color: "rgba(255,255,255,0.1)", width: isPie ? 2 : 1 },
         },
         line: {
           ...(trace.line || {}),
@@ -199,12 +180,10 @@ function preprocessTraces(
   };
 }
 
-// ─── Build Plotly layout ──────────────────────────────────────────────────────
 function buildLayout(baseLayout: any, chartType: string) {
   const mobile = isMobile();
   const isRadar = chartType === "radar";
   const isHeatmap = chartType === "heatmap";
-
   const base: any = {
     ...baseLayout,
     autosize: true,
@@ -212,16 +191,16 @@ function buildLayout(baseLayout: any, chartType: string) {
     plot_bgcolor: "rgba(0,0,0,0)",
     title: undefined,
     font: {
-      color: "#6b7280",
-      size: mobile ? 10 : 12,
-      family: "Inter, DM Sans, sans-serif",
+      color: "rgba(255,255,255,0.45)",
+      size: mobile ? 10 : 11,
+      family: "DM Mono, monospace",
     },
     legend: {
       ...(baseLayout.legend || {}),
-      bgcolor: "rgba(15,15,20,0.85)",
-      bordercolor: "rgba(255,255,255,0.08)",
+      bgcolor: "rgba(0,0,0,0.5)",
+      bordercolor: "rgba(255,255,255,0.07)",
       borderwidth: 1,
-      font: { size: mobile ? 10 : 12, color: "#e5e7eb" },
+      font: { size: mobile ? 10 : 11, color: "rgba(255,255,255,0.6)" },
       orientation: "h",
       x: 0.5,
       y: isRadar ? -0.15 : -0.22,
@@ -231,53 +210,187 @@ function buildLayout(baseLayout: any, chartType: string) {
     margin: mobile
       ? { t: 10, l: 46, r: 12, b: 80 }
       : { t: 10, l: 55, r: 24, b: 72 },
+    hovermode: "closest",
   };
-
-  // Axes only for cartesian charts
   if (!isRadar) {
     base.xaxis = {
       ...(baseLayout.xaxis || {}),
       tickangle: mobile ? -40 : isHeatmap ? -30 : 0,
-      tickfont: { size: mobile ? 9 : 11, color: "#9ca3af" },
-      gridcolor: "rgba(0,0,0,0.05)",
-      linecolor: "rgba(0,0,0,0.08)",
-      zerolinecolor: "rgba(0,0,0,0.08)",
+      tickfont: { size: mobile ? 9 : 10, color: "rgba(255,255,255,0.3)" },
+      gridcolor: "rgba(255,255,255,0.04)",
+      linecolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.06)",
       showgrid: !isHeatmap,
       automargin: true,
     };
     base.yaxis = {
       ...(baseLayout.yaxis || {}),
-      tickfont: { size: mobile ? 9 : 11, color: "#9ca3af" },
-      gridcolor: "rgba(0,0,0,0.05)",
-      linecolor: "rgba(0,0,0,0.08)",
-      zerolinecolor: "rgba(0,0,0,0.08)",
+      tickfont: { size: mobile ? 9 : 10, color: "rgba(255,255,255,0.3)" },
+      gridcolor: "rgba(255,255,255,0.04)",
+      linecolor: "rgba(255,255,255,0.06)",
+      zerolinecolor: "rgba(255,255,255,0.06)",
       showgrid: !isHeatmap,
       automargin: true,
     };
   }
-
-  // Radar polar config
   if (isRadar) {
     base.polar = {
       ...(baseLayout.polar || {}),
       bgcolor: "rgba(0,0,0,0)",
       radialaxis: {
         visible: true,
-        gridcolor: "rgba(0,0,0,0.08)",
-        tickfont: { size: 9, color: "#9ca3af" },
+        gridcolor: "rgba(255,255,255,0.07)",
+        tickfont: { size: 9, color: "rgba(255,255,255,0.3)" },
         ...(baseLayout.polar?.radialaxis || {}),
       },
       angularaxis: {
-        gridcolor: "rgba(0,0,0,0.08)",
-        tickfont: { size: mobile ? 9 : 11, color: "#6b7280" },
+        gridcolor: "rgba(255,255,255,0.07)",
+        tickfont: { size: mobile ? 9 : 10, color: "rgba(255,255,255,0.4)" },
         ...(baseLayout.polar?.angularaxis || {}),
       },
     };
   }
-
   return base;
 }
 
+// ─── Premium Hover Tooltip ────────────────────────────────────────────────────
+interface TooltipData {
+  label: string;
+  value: string | number;
+  seriesName: string;
+  color: string;
+  prevValue?: number | null;
+}
+
+function PremiumTooltip({
+  dataRef,
+  tooltipRef,
+}: {
+  dataRef: React.RefObject<TooltipData | null>;
+  tooltipRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const formatVal = (v: string | number) => {
+    const n = Number(v);
+    if (isNaN(n)) return String(v);
+    if (Math.abs(n) >= 1_000_000)
+      return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (Math.abs(n) >= 1_000)
+      return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
+    return n % 1 === 0 ? n.toLocaleString() : n.toFixed(2);
+  };
+
+  // We render always but hide via display:none — position is set via DOM directly
+  return (
+    <div
+      ref={tooltipRef}
+      style={{
+        position: "absolute",
+        zIndex: 99999,
+        pointerEvents: "none",
+        width: 210,
+        display: "none",
+      }}
+    >
+      <style>{`@keyframes ttIn { from { opacity:0; transform:scale(0.93) translateY(4px); } to { opacity:1; transform:scale(1) translateY(0); } }`}</style>
+      <div
+        id="tt-inner"
+        style={{
+          background: "#ffffff",
+          borderRadius: 14,
+          boxShadow:
+            "0 8px 32px rgba(0,0,0,0.18), 0 1.5px 6px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.07)",
+          overflow: "hidden",
+          fontFamily: "'Inter','DM Sans',system-ui,sans-serif",
+          animation: "ttIn 0.13s cubic-bezier(0.16,1,0.3,1) both",
+        }}
+      >
+        <div id="tt-bar" style={{ height: 3 }} />
+        <div style={{ padding: "11px 13px 12px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 7,
+            }}
+          >
+            <span
+              id="tt-dot"
+              style={{
+                display: "inline-block",
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              id="tt-name"
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: "#9ca3af",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            />
+          </div>
+          <div
+            id="tt-val"
+            style={{
+              fontSize: 28,
+              fontWeight: 800,
+              color: "#111827",
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              marginBottom: 8,
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 6,
+            }}
+          >
+            <span
+              id="tt-delta"
+              style={{
+                display: "none",
+                alignItems: "center",
+                gap: 3,
+                fontSize: 11,
+                fontWeight: 700,
+                borderRadius: 6,
+                padding: "2px 7px",
+              }}
+            />
+            <span
+              id="tt-label"
+              style={{
+                fontSize: 11,
+                color: "#9ca3af",
+                fontWeight: 500,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 85,
+                textAlign: "right",
+                marginLeft: "auto",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
   id: string;
   from: "user" | "ai";
@@ -286,41 +399,56 @@ interface Message {
   hasFile?: boolean;
   fileName?: string;
 }
-
 interface ChatAreaProps {
   messages: Message[];
 }
-
 interface PlotlyHTMLElement extends HTMLDivElement {
   data?: any[];
   layout?: any;
+  on(event: string, handler: (data: any) => void): void;
+  removeAllListeners?(event: string): void;
 }
-
 interface ChartBlockProps {
   message: Message;
 }
 
+// ─── ChatArea ─────────────────────────────────────────────────────────────────
 export default function ChatArea({ messages }: ChatAreaProps) {
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-5 md:gap-6 px-2 md:px-4 py-5 md:py-6">
+    <div className="max-w-4xl mx-auto flex flex-col gap-4 md:gap-5 px-2 md:px-4 py-4 md:py-5">
       {messages.map((msg, idx) => (
         <div
           key={msg.id}
-          className="msg-row animate-fade-up"
-          style={{ animationDelay: `${idx * 30}ms` }}
+          style={{ animation: `fadeUp 0.25s ease ${idx * 30}ms both` }}
         >
+          <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
           {msg.from === "user" ? (
             <div className="flex justify-end">
-              <div className="max-w-[85%] sm:max-w-[75%] bg-cyan-300 border border-white rounded-2xl rounded-tr-sm px-3 py-2 sm:px-4 sm:py-2.5">
+              <div
+                className="max-w-[85%] sm:max-w-[72%] px-4 py-2.5 rounded-2xl rounded-tr-sm"
+                style={{
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                }}
+              >
                 {msg.hasFile && (
-                  <div className="mb-1.5 flex items-center gap-1.5 text-neutral-400 text-xs">
+                  <div
+                    className="mb-1.5 flex items-center gap-1.5 text-[11px]"
+                    style={{
+                      color: "rgba(255,255,255,0.3)",
+                      fontFamily: "monospace",
+                    }}
+                  >
                     <span>📎</span>
-                    <span className="font-mono truncate max-w-[180px]">
+                    <span className="truncate max-w-[160px]">
                       {msg.fileName || "Attached file"}
                     </span>
                   </div>
                 )}
-                <p className="text-neutral-700 text-sm leading-relaxed">
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ color: "rgba(255,255,255,0.78)" }}
+                >
                   {msg.content}
                 </p>
               </div>
@@ -336,17 +464,113 @@ export default function ChatArea({ messages }: ChatAreaProps) {
   );
 }
 
+// ─── ChartBlock ───────────────────────────────────────────────────────────────
 function ChartBlock({ message }: ChartBlockProps) {
   const divRef = useRef<PlotlyHTMLElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const rendered = useRef(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [toolbarOpen, setToolbarOpen] = useState(false);
 
+  // ── Pure DOM tooltip helpers ─────────────────────────────────────────────
+  const showTooltip = (mx: number, my: number, data: TooltipData, pt?: any) => {
+    const el = tooltipRef.current;
+    if (!el) return;
+
+    const CARD_W = 210;
+    const CARD_H = 120;
+    const GAP = 12;
+
+    // Convert viewport mouse coords → relative to chart card
+    const cardRect = cardRef.current?.getBoundingClientRect();
+    const rx = cardRect ? mx - cardRect.left : mx;
+    const ry = cardRect ? my - cardRect.top : my;
+
+    let left = rx - CARD_W - GAP;
+    let top = ry - CARD_H / 2;
+
+    // Flip right if too close to left edge of card
+    if (left < 8) left = rx + GAP;
+    // Clamp right edge
+    if (cardRect && left + CARD_W > cardRect.width - 8)
+      left = cardRect.width - CARD_W - 8;
+    // Clamp vertical
+    if (top < 8) top = 8;
+    if (cardRect && top + CARD_H > cardRect.height - 8)
+      top = cardRect.height - CARD_H - 8;
+
+    el.style.left = left + "px";
+    el.style.top = top + "px";
+    el.style.display = "block";
+
+    // Update DOM content
+    const bar = el.querySelector("#tt-bar") as HTMLElement;
+    const dot = el.querySelector("#tt-dot") as HTMLElement;
+    const name = el.querySelector("#tt-name") as HTMLElement;
+    const val = el.querySelector("#tt-val") as HTMLElement;
+    const delta = el.querySelector("#tt-delta") as HTMLElement;
+    const label = el.querySelector("#tt-label") as HTMLElement;
+
+    if (bar) bar.style.background = data.color;
+    if (dot) dot.style.background = data.color;
+    if (name) name.textContent = data.seriesName;
+
+    const n = Number(data.value);
+    let valStr: string;
+    if (!isNaN(n)) {
+      if (Math.abs(n) >= 1_000_000)
+        valStr = (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+      else if (Math.abs(n) >= 1_000)
+        valStr = (n / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
+      else valStr = n % 1 === 0 ? n.toLocaleString() : n.toFixed(2);
+    } else {
+      valStr = String(data.value);
+    }
+    if (val) val.textContent = valStr;
+
+    if (label) label.textContent = data.label;
+
+    if (delta) {
+      const hasDelta = data.prevValue != null && data.prevValue !== 0;
+      if (hasDelta) {
+        const pct = ((n - data.prevValue!) / Math.abs(data.prevValue!)) * 100;
+        const pos = pct >= 0;
+        delta.style.display = "inline-flex";
+        delta.style.color = pos ? "#10b981" : "#ef4444";
+        delta.style.background = pos
+          ? "rgba(16,185,129,0.09)"
+          : "rgba(239,68,68,0.09)";
+        delta.innerHTML = `${pos ? "▲" : "▼"} ${Math.abs(pct).toFixed(2)}% <span style="font-weight:400;color:#9ca3af;font-size:10px;margin-left:2px">vs prev</span>`;
+      } else {
+        delta.style.display = "none";
+      }
+    }
+  };
+
+  const hideTooltip = () => {
+    if (tooltipRef.current) tooltipRef.current.style.display = "none";
+  };
+
+  // ── Track mouse and reposition tooltip ───────────────────────────────────
+  useEffect(() => {
+    let lastData: TooltipData | null = null;
+    const track = (e: MouseEvent) => {
+      if (tooltipRef.current?.style.display !== "none" && lastData) {
+        showTooltip(e.clientX, e.clientY, lastData);
+      }
+    };
+    // Expose setter so plotly_hover can set lastData
+    (tooltipRef as any)._setData = (d: TooltipData) => {
+      lastData = d;
+    };
+    window.addEventListener("mousemove", track, { passive: true });
+    return () => window.removeEventListener("mousemove", track);
+  }, []);
+
   useEffect(() => {
     if (message.status !== "success" || rendered.current || !divRef.current)
       return;
-
     const tryRender = () => {
       if (!("Plotly" in window)) {
         setTimeout(tryRender, 100);
@@ -354,31 +578,74 @@ function ChartBlock({ message }: ChartBlockProps) {
       }
       if (rendered.current || !divRef.current) return;
       rendered.current = true;
-
       try {
         const rawData = message.content?.data || [];
         const rawLayout = message.content?.layout || {};
         const chartType = detectType(rawData);
-
         const { data, layout: processedLayout } = preprocessTraces(
           rawData,
           rawLayout,
         );
         const layout = buildLayout(processedLayout, chartType);
 
+        // Hide native Plotly tooltip
+        layout.hoverlabel = {
+          bgcolor: "rgba(0,0,0,0)",
+          bordercolor: "rgba(0,0,0,0)",
+          font: { color: "rgba(0,0,0,0)", size: 1 },
+        };
+
         window.Plotly.newPlot(divRef.current, data, layout, {
           responsive: true,
           displayModeBar: false,
           scrollZoom: false,
         });
+
+        divRef.current!.on("plotly_hover", (eventData: any) => {
+          const pt = eventData?.points?.[0];
+          if (!pt) return;
+
+          const traceIdx = pt.curveNumber ?? 0;
+          const ptIdx = pt.pointNumber ?? pt.pointIndex ?? 0;
+          const traceColor = pt.data?.marker?.color;
+          const color =
+            typeof traceColor === "string"
+              ? traceColor
+              : Array.isArray(traceColor)
+                ? traceColor[ptIdx] || stableColor(traceIdx)
+                : pt.data?.line?.color || stableColor(traceIdx);
+
+          const xVal = pt.x !== undefined ? String(pt.x) : "";
+          const val =
+            pt.z !== undefined
+              ? pt.z
+              : pt.y !== undefined
+                ? pt.y
+                : (pt.value ?? "");
+          const yArr: number[] = pt.data?.y || [];
+          const prevValue = ptIdx > 0 ? yArr[ptIdx - 1] : null;
+
+          const tooltipData: TooltipData = {
+            label: xVal,
+            value: val,
+            seriesName: pt.data?.name || "Value",
+            color: typeof color === "string" ? color : stableColor(traceIdx),
+            prevValue,
+          };
+
+          // Store for mousemove reuse
+          (tooltipRef as any)._setData?.(tooltipData);
+
+          // Use the native mouse event from Plotly — it's on eventData.event
+          const e = eventData.event as MouseEvent;
+          showTooltip(e.clientX, e.clientY, tooltipData, pt);
+        });
+
+        divRef.current!.on("plotly_unhover", hideTooltip);
       } catch (e) {
         console.error("Plotly render error:", e);
-        // Show fallback error inside chart area
         if (divRef.current) {
-          divRef.current.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444;font-size:13px;gap:8px;padding:24px;text-align:center;">
-              <span>⚠</span><span>Chart render failed — try a different chart type or check your data format.</span>
-            </div>`;
+          divRef.current.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444;font-size:13px;gap:8px;padding:24px;text-align:center;"><span>⚠</span><span>Chart render failed — try a different chart type.</span></div>`;
         }
       }
     };
@@ -401,17 +668,26 @@ function ChartBlock({ message }: ChartBlockProps) {
 
   if (message.status === "loading") {
     return (
-      <div className="flex flex-col items-start gap-3 py-6 px-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col items-start gap-3 py-5 px-2">
+        <div className="flex items-center gap-1.5">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="w-2 h-2 rounded-full bg-neutral-300 animate-bounce"
-              style={{ animationDelay: `${i * 150}ms` }}
+              className="w-1.5 h-1.5 rounded-full animate-bounce"
+              style={{
+                background: "rgba(6,182,212,0.6)",
+                animationDelay: `${i * 150}ms`,
+              }}
             />
           ))}
         </div>
-        <p className="text-neutral-400 text-xs tracking-wide">
+        <p
+          style={{
+            fontSize: 11,
+            color: "rgba(255,255,255,0.25)",
+            fontFamily: "monospace",
+          }}
+        >
           Generating visualization…
         </p>
       </div>
@@ -420,7 +696,14 @@ function ChartBlock({ message }: ChartBlockProps) {
 
   if (message.status === "error") {
     return (
-      <div className="p-4 text-red-500 text-sm bg-red-50 border border-red-100 rounded-xl">
+      <div
+        className="p-4 text-sm rounded-xl"
+        style={{
+          background: "rgba(239,68,68,0.08)",
+          border: "1px solid rgba(239,68,68,0.2)",
+          color: "#f87171",
+        }}
+      >
         ⚠ {message.content}
       </div>
     );
@@ -431,7 +714,6 @@ function ChartBlock({ message }: ChartBlockProps) {
     (typeof message.content?.layout?.title === "string"
       ? message.content.layout.title
       : "Chart");
-
   const chartType = detectType(message.content?.data || []);
 
   return (
@@ -446,17 +728,44 @@ function ChartBlock({ message }: ChartBlockProps) {
 
       <div
         ref={cardRef}
-        className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-visible w-full"
+        className="rounded-2xl overflow-visible w-full"
+        style={{
+          position: "relative",
+          background: "rgba(255,255,255,0.035)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+        }}
       >
         {/* Card header */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-neutral-100">
+        <div
+          className="flex items-center justify-between px-4 py-2.5"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-2 h-2 rounded-full bg-neutral-300 flex-shrink-0" />
-            <span className="text-neutral-500 text-xs font-medium tracking-wide truncate">
+            <div
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{
+                background: "#06b6d4",
+                boxShadow: "0 0 6px rgba(6,182,212,0.5)",
+              }}
+            />
+            <span
+              className="text-xs font-medium truncate"
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                letterSpacing: "-0.01em",
+              }}
+            >
               {chartTitle}
             </span>
-            {/* Chart type badge */}
-            <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-neutral-100 text-neutral-400 flex-shrink-0">
+            <span
+              className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider flex-shrink-0"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.22)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
               {chartType}
             </span>
           </div>
@@ -464,17 +773,21 @@ function ChartBlock({ message }: ChartBlockProps) {
             <button
               onClick={() => {
                 if (!divRef.current || !("Plotly" in window)) return;
-                const name = chartTitle
-                  .replace(/[^a-z0-9]/gi, "_")
-                  .toLowerCase();
                 window.Plotly.downloadImage(divRef.current, {
                   format: "png",
                   width: 1400,
                   height: 800,
-                  filename: name,
+                  filename: chartTitle
+                    .replace(/[^a-z0-9]/gi, "_")
+                    .toLowerCase(),
                 });
               }}
-              className="text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all bg-neutral-900 text-white sm:hidden"
+              className="sm:hidden text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide"
+              style={{
+                background: "rgba(6,182,212,0.15)",
+                color: "#22d3ee",
+                border: "1px solid rgba(6,182,212,0.2)",
+              }}
             >
               PNG
             </button>
@@ -483,28 +796,60 @@ function ChartBlock({ message }: ChartBlockProps) {
                 key={fmt}
                 onClick={() => {
                   if (!divRef.current || !("Plotly" in window)) return;
-                  const name = chartTitle
-                    .replace(/[^a-z0-9]/gi, "_")
-                    .toLowerCase();
                   window.Plotly.downloadImage(divRef.current, {
                     format: fmt.toLowerCase() as any,
                     width: 1400,
                     height: 800,
-                    filename: name,
+                    filename: chartTitle
+                      .replace(/[^a-z0-9]/gi, "_")
+                      .toLowerCase(),
                   });
                 }}
-                className={`hidden sm:block text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all ${i === 2 ? "bg-neutral-900 text-white" : "text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"}`}
+                className="hidden sm:block text-[10px] font-semibold px-2.5 py-1 rounded-md tracking-wide transition-all"
+                style={
+                  i === 2
+                    ? {
+                        background: "rgba(6,182,212,0.12)",
+                        color: "#22d3ee",
+                        border: "1px solid rgba(6,182,212,0.18)",
+                      }
+                    : {
+                        color: "rgba(255,255,255,0.3)",
+                        border: "1px solid transparent",
+                      }
+                }
+                onMouseEnter={(e) => {
+                  if (i !== 2) {
+                    (e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.65)";
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "rgba(255,255,255,0.1)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (i !== 2) {
+                    (e.currentTarget as HTMLElement).style.color =
+                      "rgba(255,255,255,0.3)";
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "transparent";
+                  }
+                }}
               >
                 {fmt}
               </button>
             ))}
             <button
               onClick={() => setToolbarOpen((v) => !v)}
-              className="sm:hidden w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-900 text-white ml-1"
+              className="sm:hidden w-7 h-7 flex items-center justify-center rounded-lg ml-1 transition-all"
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.4)",
+              }}
             >
               <svg
-                width="13"
-                height="13"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -525,9 +870,15 @@ function ChartBlock({ message }: ChartBlockProps) {
           className="w-full h-[260px] sm:h-[320px] md:h-[380px] lg:h-[440px] px-1 sm:px-2"
         />
 
-        {/* Mobile inline toolbar */}
+        {/* Mobile toolbar */}
         {toolbarOpen && (
-          <div className="sm:hidden border-t border-neutral-100 px-3 py-2.5 bg-neutral-50 rounded-b-2xl">
+          <div
+            className="sm:hidden px-3 py-2.5 rounded-b-2xl"
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.02)",
+            }}
+          >
             <MobileToolbarInline
               divRef={divRef}
               cardRef={cardRef}
@@ -541,7 +892,6 @@ function ChartBlock({ message }: ChartBlockProps) {
           </div>
         )}
 
-        {/* Desktop toolbar */}
         <div className="hidden sm:block">
           <ChartToolbar
             divRef={divRef}
@@ -550,11 +900,15 @@ function ChartBlock({ message }: ChartBlockProps) {
             onOpenEditor={() => setEditorOpen(true)}
           />
         </div>
+
+        {/* Premium tooltip — absolute inside card */}
+        <PremiumTooltip dataRef={{ current: null }} tooltipRef={tooltipRef} />
       </div>
     </>
   );
 }
 
+// ─── MobileToolbarInline ──────────────────────────────────────────────────────
 function MobileToolbarInline({
   divRef,
   cardRef,
@@ -570,7 +924,6 @@ function MobileToolbarInline({
 }) {
   const [gridOn, setGridOn] = useState(true);
   const [legendOn, setLegendOn] = useState(true);
-  const [bgDark, setBgDark] = useState(false);
 
   const toggleGrid = () => {
     if (!divRef.current || !("Plotly" in window)) return;
@@ -589,35 +942,6 @@ function MobileToolbarInline({
     setLegendOn(n);
     window.Plotly.relayout(divRef.current, { showlegend: n } as any);
   };
-  const toggleBg = () => {
-    if (!cardRef.current) return;
-    const n = !bgDark;
-    setBgDark(n);
-    cardRef.current.style.background = n ? "#111212" : "#ffffff";
-    cardRef.current.style.borderColor = n
-      ? "rgba(255,255,255,0.08)"
-      : "#e5e7eb";
-    if (divRef.current && "Plotly" in window) {
-      window.Plotly.relayout(
-        divRef.current,
-        n
-          ? {
-              "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-              "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-              "xaxis.gridcolor": "rgba(255,255,255,0.08)",
-              "yaxis.gridcolor": "rgba(255,255,255,0.08)",
-              "font.color": "rgba(255,255,255,0.7)",
-            }
-          : ({
-              "xaxis.tickfont": { color: "#666" },
-              "yaxis.tickfont": { color: "#666" },
-              "xaxis.gridcolor": "rgba(0,0,0,0.08)",
-              "yaxis.gridcolor": "rgba(0,0,0,0.08)",
-              "font.color": "#333",
-            } as any),
-      );
-    }
-  };
   const resetZoom = () => {
     if (!divRef.current || !("Plotly" in window)) return;
     window.Plotly.relayout(divRef.current, {
@@ -627,24 +951,51 @@ function MobileToolbarInline({
   };
 
   const actions = [
-    { label: "Edit", onClick: onOpenEditor, active: false, accent: true },
-    { label: gridOn ? "Grid ✓" : "Grid", onClick: toggleGrid, active: gridOn },
+    { label: "Edit", onClick: onOpenEditor, accent: true, active: false },
+    {
+      label: gridOn ? "Grid ✓" : "Grid",
+      onClick: toggleGrid,
+      active: gridOn,
+      accent: false,
+    },
     {
       label: legendOn ? "Legend ✓" : "Legend",
       onClick: toggleLegend,
       active: legendOn,
+      accent: false,
     },
-    { label: bgDark ? "Dark ✓" : "Dark", onClick: toggleBg, active: bgDark },
-    { label: "Reset", onClick: resetZoom, active: false },
+    { label: "Reset", onClick: resetZoom, active: false, accent: false },
   ];
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+    <div
+      className="flex items-center gap-2 overflow-x-auto"
+      style={{ scrollbarWidth: "none" }}
+    >
       {actions.map((a) => (
         <button
           key={a.label}
           onClick={a.onClick}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all ${a.accent ? "bg-cyan-500 text-white" : a.active ? "bg-neutral-900 text-white" : "bg-white border border-neutral-200 text-neutral-600"}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all"
+          style={
+            a.accent
+              ? {
+                  background: "rgba(6,182,212,0.15)",
+                  color: "#22d3ee",
+                  border: "1px solid rgba(6,182,212,0.2)",
+                }
+              : a.active
+                ? {
+                    background: "rgba(255,255,255,0.1)",
+                    color: "rgba(255,255,255,0.75)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }
+                : {
+                    background: "rgba(255,255,255,0.04)",
+                    color: "rgba(255,255,255,0.4)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }
+          }
         >
           {a.label}
         </button>

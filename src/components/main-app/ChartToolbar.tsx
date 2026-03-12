@@ -353,20 +353,8 @@ export default function ChartToolbar({
     const n = !bgDark;
     setBgDark(n);
     if (n) {
-      cardRef.current.style.background = "#111212";
-      cardRef.current.style.borderColor = "rgba(255,255,255,0.08)";
-      if (divRef.current && "Plotly" in window) {
-        window.Plotly.relayout(divRef.current, {
-          "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-          "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
-          "xaxis.gridcolor": "rgba(255,255,255,0.08)",
-          "yaxis.gridcolor": "rgba(255,255,255,0.08)",
-          "font.color": "rgba(255,255,255,0.7)",
-        } as any);
-      }
-    } else {
       cardRef.current.style.background = "#ffffff";
-      cardRef.current.style.borderColor = "#e5e7eb";
+      cardRef.current.style.borderColor = "#111212";
       if (divRef.current && "Plotly" in window) {
         window.Plotly.relayout(divRef.current, {
           "xaxis.tickfont": { color: "#666" },
@@ -374,6 +362,18 @@ export default function ChartToolbar({
           "xaxis.gridcolor": "rgba(0,0,0,0.08)",
           "yaxis.gridcolor": "rgba(0,0,0,0.08)",
           "font.color": "#333",
+        } as any);
+      }
+    } else {
+      cardRef.current.style.background = "black";
+      cardRef.current.style.borderColor = "#e5e7eb";
+      if (divRef.current && "Plotly" in window) {
+        window.Plotly.relayout(divRef.current, {
+          "xaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "yaxis.tickfont": { color: "rgba(255,255,255,0.5)" },
+          "xaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "yaxis.gridcolor": "rgba(255,255,255,0.08)",
+          "font.color": "rgba(255,255,255,0.7)",
         } as any);
       }
     }

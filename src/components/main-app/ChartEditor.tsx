@@ -19,51 +19,1491 @@ interface ChartEditorProps {
   onClose: () => void;
 }
 
-const ALL_2D = [
-  "bar",
-  "hbar",
-  "stacked",
-  "stacked100",
-  "grouped",
-  "line",
-  "area",
-  "stackedarea",
-  "scatter",
-  "bubble",
-  "pie",
-  "donut",
-  "histogram",
-  "heatmap",
-  "box",
-  "violin",
-  "funnel",
-  "waterfall",
-];
-const ALL_3D = ["scatter3d", "line3d", "mesh3d", "surface3d"];
-const CROSS_2D_TO_3D = [
-  "scatter",
-  "line",
-  "area",
-  "bubble",
-  "bar",
-  "grouped",
-  "stacked",
-  "histogram",
-];
-const CROSS_3D_TO_2D = ["scatter3d", "line3d"];
+// ── Chart Type Definitions ────────────────────────────────────────────────────
+type ChartTypeId =
+  | "line"
+  | "scatter"
+  | "line-scatter"
+  | "named-lines"
+  | "line-dash"
+  | "line-shape"
+  | "connect-gaps"
+  | "annotated-lines"
+  | "styled-line"
+  | "colored-scatter"
+  | "data-labels-hover"
+  | "line-data-labels"
+  | "scatter-color"
+  | "grouped-scatter"
+  | "bar"
+  | "hbar"
+  | "stacked"
+  | "stacked100"
+  | "grouped"
+  | "bar-hover"
+  | "bar-direct-labels"
+  | "grouped-direct-labels"
+  | "bar-rotated"
+  | "bar-colors"
+  | "bar-styled"
+  | "bar-relative"
+  | "pie"
+  | "donut"
+  | "bubble"
+  | "bubble-size"
+  | "bubble-size-color"
+  | "bubble-hover"
+  | "bubble-scaling"
+  | "marker-array"
+  | "error-bars"
+  | "bar-error"
+  | "horizontal-error"
+  | "asymmetric-error"
+  | "box"
+  | "box-data"
+  | "hbox"
+  | "grouped-box"
+  | "box-outliers"
+  | "box-styled"
+  | "rainbow-box"
+  | "histogram"
+  | "overlaid-histogram"
+  | "stacked-histogram"
+  | "styled-histogram"
+  | "cumulative-histogram"
+  | "normalized-histogram"
+  | "2d-histogram-contour"
+  | "2d-histogram-slider"
+  | "filled-lines"
+  | "continuous-error-filled"
+  | "asymmetric-offset"
+  | "continuous-error"
+  | "contour-simple"
+  | "contour-basic"
+  | "contour-lines"
+  | "contour-labels"
+  | "heatmap"
+  | "heatmap-categorical"
+  | "heatmap-annotated"
+  | "ternary"
+  | "soil-ternary"
+  | "parallel-basic"
+  | "parallel-coords"
+  | "parallel-advanced"
+  | "log-plots"
+  | "log-axes"
+  | "waterfall"
+  | "waterfall-multi"
+  | "candlestick"
+  | "candlestick-no-slider"
+  | "candlestick-annotated"
+  | "funnel"
+  | "funnel-stacked"
+  | "time-series-slider"
+  | "time-series"
+  | "scatter3d"
+  | "ribbon3d"
+  | "surface3d"
+  | "surface3d-multi"
+  | "mesh3d"
+  | "line3d"
+  | "line3d-plot"
+  | "line3d-markers"
+  | "line3d-spiral"
+  | "random-walk3d"
+  | "violin";
 
-function canConvert(from: string, to: string): boolean {
-  if (from === to) return true;
-  const from2d = ALL_2D.includes(from),
-    from3d = ALL_3D.includes(from);
-  const to2d = ALL_2D.includes(to),
-    to3d = ALL_3D.includes(to);
-  if (from2d && to2d) return true;
-  if (from3d && to3d) return true;
-  if (CROSS_2D_TO_3D.includes(from) && to3d) return true;
-  if (CROSS_3D_TO_2D.includes(from) && to2d) return true;
-  return false;
+interface ChartTypeDef {
+  id: ChartTypeId;
+  label: string;
+  plotlyType: string;
+  group: string;
+  category: string;
+  icon: React.ReactNode;
+  barmode?: string;
+  orientation?: string;
+  mode?: string;
+  fill?: string;
+  hole?: number;
+  bubble?: boolean;
+  mode3d?: string;
 }
+
+const Icon = {
+  line: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <polyline
+        points="2,24 7,15 12,18 18,9 23,13 26,5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  bar: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect
+        x="2"
+        y="14"
+        width="6"
+        height="12"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".4"
+      />
+      <rect
+        x="11"
+        y="8"
+        width="6"
+        height="18"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".7"
+      />
+      <rect x="20" y="3" width="6" height="23" rx="1.5" fill="currentColor" />
+    </svg>
+  ),
+  hbar: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect
+        x="2"
+        y="3"
+        width="12"
+        height="6"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".4"
+      />
+      <rect
+        x="2"
+        y="11"
+        width="19"
+        height="6"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".7"
+      />
+      <rect x="2" y="19" width="24" height="6" rx="1.5" fill="currentColor" />
+    </svg>
+  ),
+  scatter: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <circle cx="5" cy="22" r="2.5" fill="currentColor" />
+      <circle cx="11" cy="14" r="2.5" fill="currentColor" opacity=".8" />
+      <circle cx="17" cy="18" r="2.5" fill="currentColor" opacity=".6" />
+      <circle cx="22" cy="8" r="2.5" fill="currentColor" />
+    </svg>
+  ),
+  area: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path
+        d="M2 24 L7 15 L12 18 L18 9 L23 13 L26 5 L26 26 L2 26 Z"
+        fill="currentColor"
+        opacity=".25"
+      />
+      <polyline
+        points="2,24 7,15 12,18 18,9 23,13 26,5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  pie: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path d="M14 14 L14 2 A12 12 0 0 1 26 14 Z" fill="currentColor" />
+      <path
+        d="M14 14 L26 14 A12 12 0 0 1 7 24 Z"
+        fill="currentColor"
+        opacity=".6"
+      />
+      <path
+        d="M14 14 L7 24 A12 12 0 0 1 14 2 Z"
+        fill="currentColor"
+        opacity=".3"
+      />
+    </svg>
+  ),
+  donut: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path d="M14 14 L14 3 A11 11 0 0 1 25 14 Z" fill="currentColor" />
+      <path
+        d="M14 14 L25 14 A11 11 0 0 1 6 22 Z"
+        fill="currentColor"
+        opacity=".6"
+      />
+      <path
+        d="M14 14 L6 22 A11 11 0 0 1 14 3 Z"
+        fill="currentColor"
+        opacity=".3"
+      />
+      <circle cx="14" cy="14" r="5" fill="white" />
+    </svg>
+  ),
+  bubble: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <circle cx="7" cy="20" r="5" fill="currentColor" opacity=".45" />
+      <circle cx="20" cy="11" r="7" fill="currentColor" opacity=".3" />
+      <circle cx="12" cy="17" r="3" fill="currentColor" opacity=".75" />
+    </svg>
+  ),
+  box: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <line
+        x1="7"
+        y1="3"
+        x2="7"
+        y2="8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <rect
+        x="3"
+        y="8"
+        width="8"
+        height="12"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <line
+        x1="3"
+        y1="14"
+        x2="11"
+        y2="14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <line
+        x1="7"
+        y1="20"
+        x2="7"
+        y2="25"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+  histogram: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect
+        x="1"
+        y="18"
+        width="4"
+        height="8"
+        rx="1"
+        fill="currentColor"
+        opacity=".3"
+      />
+      <rect
+        x="6"
+        y="12"
+        width="4"
+        height="14"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+      <rect x="11" y="5" width="5" height="21" rx="1" fill="currentColor" />
+      <rect
+        x="17"
+        y="9"
+        width="4"
+        height="17"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+      <rect
+        x="22"
+        y="14"
+        width="5"
+        height="12"
+        rx="1"
+        fill="currentColor"
+        opacity=".3"
+      />
+    </svg>
+  ),
+  heatmap: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect
+        x="2"
+        y="2"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".12"
+      />
+      <rect
+        x="11"
+        y="2"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".5"
+      />
+      <rect
+        x="20"
+        y="2"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".9"
+      />
+      <rect
+        x="2"
+        y="11"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+      <rect x="11" y="11" width="7" height="7" rx="1" fill="currentColor" />
+      <rect
+        x="20"
+        y="11"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".3"
+      />
+    </svg>
+  ),
+  contour: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <ellipse
+        cx="14"
+        cy="14"
+        rx="11"
+        ry="5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <ellipse
+        cx="14"
+        cy="14"
+        rx="7"
+        ry="3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+        opacity=".6"
+      />
+      <circle cx="14" cy="14" r="2" fill="currentColor" opacity=".8" />
+    </svg>
+  ),
+  waterfall: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect x="1" y="15" width="6" height="11" rx="1" fill="currentColor" />
+      <rect
+        x="8"
+        y="9"
+        width="5"
+        height="6"
+        rx="1"
+        fill="currentColor"
+        opacity=".5"
+      />
+      <rect
+        x="14"
+        y="12"
+        width="5"
+        height="9"
+        rx="1"
+        fill="#f87171"
+        opacity=".75"
+      />
+      <rect
+        x="20"
+        y="5"
+        width="7"
+        height="7"
+        rx="1"
+        fill="currentColor"
+        opacity=".8"
+      />
+    </svg>
+  ),
+  funnel: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect x="1" y="2" width="26" height="5" rx="1.5" fill="currentColor" />
+      <rect
+        x="4"
+        y="9"
+        width="20"
+        height="5"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".75"
+      />
+      <rect
+        x="8"
+        y="16"
+        width="12"
+        height="5"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".5"
+      />
+      <rect
+        x="11"
+        y="23"
+        width="6"
+        height="4"
+        rx="1.5"
+        fill="currentColor"
+        opacity=".3"
+      />
+    </svg>
+  ),
+  candlestick: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <line
+        x1="5"
+        y1="3"
+        x2="5"
+        y2="25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <rect x="3" y="8" width="4" height="10" rx="1" fill="currentColor" />
+      <line
+        x1="14"
+        y1="5"
+        x2="14"
+        y2="23"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <rect x="12" y="10" width="4" height="8" rx="1" fill="#f87171" />
+      <line
+        x1="23"
+        y1="4"
+        x2="23"
+        y2="24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <rect x="21" y="7" width="4" height="11" rx="1" fill="currentColor" />
+    </svg>
+  ),
+  scatter3d: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path
+        d="M14 3 L4 9 L4 21 L14 27 L24 21 L24 9 Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+        opacity=".4"
+      />
+      <circle cx="8" cy="12" r="2.5" fill="currentColor" />
+      <circle cx="19" cy="9" r="2" fill="currentColor" opacity=".7" />
+      <circle cx="14" cy="19" r="3" fill="currentColor" opacity=".85" />
+    </svg>
+  ),
+  surface3d: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path
+        d="M3 20 Q7 10 14 12 Q21 14 25 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M3 24 Q7 16 14 17 Q21 18 25 12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        fill="none"
+        opacity=".55"
+      />
+    </svg>
+  ),
+  violin: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <path
+        d="M9 3 Q14 7 14 14 Q14 21 9 25 L19 25 Q14 21 14 14 Q14 7 19 3 Z"
+        fill="currentColor"
+        opacity=".55"
+      />
+    </svg>
+  ),
+  error: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <line
+        x1="7"
+        y1="4"
+        x2="7"
+        y2="24"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="4"
+        y1="4"
+        x2="10"
+        y2="4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="4"
+        y1="24"
+        x2="10"
+        y2="24"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="7" cy="14" r="3" fill="currentColor" />
+    </svg>
+  ),
+  ternary: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <polygon
+        points="14,2 26,24 2,24"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="currentColor"
+        opacity=".1"
+      />
+      <circle cx="14" cy="15" r="2" fill="currentColor" />
+      <circle cx="8" cy="20" r="1.5" fill="currentColor" opacity=".6" />
+      <circle cx="20" cy="20" r="1.5" fill="currentColor" opacity=".6" />
+    </svg>
+  ),
+  parallel: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <line
+        x1="5"
+        y1="3"
+        x2="5"
+        y2="25"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <line
+        x1="14"
+        y1="3"
+        x2="14"
+        y2="25"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <line
+        x1="23"
+        y1="3"
+        x2="23"
+        y2="25"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5 8 Q14 6 23 12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+        opacity=".7"
+      />
+      <path
+        d="M5 18 Q14 14 23 20"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+        opacity=".5"
+      />
+    </svg>
+  ),
+  timeseries: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <polyline
+        points="2,20 6,15 10,17 14,12 18,14 22,8 26,10"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <line
+        x1="2"
+        y1="24"
+        x2="26"
+        y2="24"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        opacity=".4"
+      />
+    </svg>
+  ),
+  stacked: (
+    <svg viewBox="0 0 28 28" fill="none" width="20" height="20">
+      <rect x="2" y="18" width="6" height="8" rx="1" fill="currentColor" />
+      <rect
+        x="2"
+        y="11"
+        width="6"
+        height="6"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+      <rect x="11" y="13" width="6" height="13" rx="1" fill="currentColor" />
+      <rect
+        x="11"
+        y="6"
+        width="6"
+        height="6"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+      <rect x="20" y="9" width="6" height="17" rx="1" fill="currentColor" />
+      <rect
+        x="20"
+        y="3"
+        width="6"
+        height="5"
+        rx="1"
+        fill="currentColor"
+        opacity=".55"
+      />
+    </svg>
+  ),
+};
+
+const CHART_TYPES: ChartTypeDef[] = [
+  // ── Line & Scatter ─────────────────────────────────────────────────────────
+  {
+    id: "line",
+    label: "Line",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "scatter",
+    label: "Scatter",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.scatter,
+  },
+  {
+    id: "line-scatter",
+    label: "Line & Scatter",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "data-labels-hover",
+    label: "Data Labels Hover",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.scatter,
+  },
+  {
+    id: "line-data-labels",
+    label: "Line Data Labels",
+    plotlyType: "scatter",
+    mode: "lines+text",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "scatter-color",
+    label: "Scatter + Color Dim",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.scatter,
+  },
+  {
+    id: "grouped-scatter",
+    label: "Grouped Scatter",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.scatter,
+  },
+  {
+    id: "named-lines",
+    label: "Named Lines",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "styled-line",
+    label: "Styled Line",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "colored-scatter",
+    label: "Colored Scatter",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.scatter,
+  },
+  {
+    id: "line-shape",
+    label: "Line Shape Interp.",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "line-dash",
+    label: "Line Dash",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "connect-gaps",
+    label: "Connect Gaps",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+  {
+    id: "annotated-lines",
+    label: "Annotated Lines",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "line-scatter",
+    category: "Line & Scatter",
+    icon: Icon.line,
+  },
+
+  // ── Bar Charts ─────────────────────────────────────────────────────────────
+  {
+    id: "bar",
+    label: "Column",
+    plotlyType: "bar",
+    orientation: "v",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "hbar",
+    label: "Horizontal Bar",
+    plotlyType: "bar",
+    orientation: "h",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.hbar,
+  },
+  {
+    id: "grouped",
+    label: "Grouped Bar",
+    plotlyType: "bar",
+    barmode: "group",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "stacked",
+    label: "Stacked Bar",
+    plotlyType: "bar",
+    barmode: "stack",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.stacked,
+  },
+  {
+    id: "stacked100",
+    label: "100% Stacked",
+    plotlyType: "bar",
+    barmode: "relative",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.stacked,
+  },
+  {
+    id: "bar-hover",
+    label: "Bar with Hover",
+    plotlyType: "bar",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "bar-direct-labels",
+    label: "Bar Direct Labels",
+    plotlyType: "bar",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "grouped-direct-labels",
+    label: "Grouped Labels",
+    plotlyType: "bar",
+    barmode: "group",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "bar-rotated",
+    label: "Rotated Labels",
+    plotlyType: "bar",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "bar-colors",
+    label: "Custom Colors",
+    plotlyType: "bar",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "bar-styled",
+    label: "Styled Bar",
+    plotlyType: "bar",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+  {
+    id: "bar-relative",
+    label: "Relative Barmode",
+    plotlyType: "bar",
+    barmode: "relative",
+    group: "bar",
+    category: "Bar Charts",
+    icon: Icon.bar,
+  },
+
+  // ── Pie & Bubble ───────────────────────────────────────────────────────────
+  {
+    id: "pie",
+    label: "Pie Chart",
+    plotlyType: "pie",
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.pie,
+  },
+  {
+    id: "donut",
+    label: "Donut Chart",
+    plotlyType: "pie",
+    hole: 0.45,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.donut,
+  },
+  {
+    id: "bubble",
+    label: "Bubble Chart",
+    plotlyType: "scatter",
+    mode: "markers",
+    bubble: true,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.bubble,
+  },
+  {
+    id: "bubble-size",
+    label: "Bubble Marker Size",
+    plotlyType: "scatter",
+    mode: "markers",
+    bubble: true,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.bubble,
+  },
+  {
+    id: "bubble-size-color",
+    label: "Bubble Size + Color",
+    plotlyType: "scatter",
+    mode: "markers",
+    bubble: true,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.bubble,
+  },
+  {
+    id: "bubble-hover",
+    label: "Bubble Hover Text",
+    plotlyType: "scatter",
+    mode: "markers",
+    bubble: true,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.bubble,
+  },
+  {
+    id: "bubble-scaling",
+    label: "Bubble Scaling",
+    plotlyType: "scatter",
+    mode: "markers",
+    bubble: true,
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.bubble,
+  },
+  {
+    id: "marker-array",
+    label: "Marker Array",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "pie-bubble",
+    category: "Pie & Bubble",
+    icon: Icon.scatter,
+  },
+
+  // ── Statistical ────────────────────────────────────────────────────────────
+  {
+    id: "error-bars",
+    label: "Symmetric Error Bars",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.error,
+  },
+  {
+    id: "bar-error",
+    label: "Bar with Error Bars",
+    plotlyType: "bar",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.error,
+  },
+  {
+    id: "horizontal-error",
+    label: "Horizontal Error Bars",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.error,
+  },
+  {
+    id: "asymmetric-error",
+    label: "Asymmetric Error Bars",
+    plotlyType: "scatter",
+    mode: "markers",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.error,
+  },
+  {
+    id: "box",
+    label: "Box Plot",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "box-data",
+    label: "Box + Underlying Data",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "hbox",
+    label: "Horizontal Box Plot",
+    plotlyType: "box",
+    orientation: "h",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "grouped-box",
+    label: "Grouped Box Plot",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "box-outliers",
+    label: "Box Styled Outliers",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "box-styled",
+    label: "Fully Styled Box",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "rainbow-box",
+    label: "Rainbow Box Plot",
+    plotlyType: "box",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.box,
+  },
+  {
+    id: "violin",
+    label: "Violin Plot",
+    plotlyType: "violin",
+    group: "statistical",
+    category: "Statistical",
+    icon: Icon.violin,
+  },
+
+  // ── Histograms ─────────────────────────────────────────────────────────────
+  {
+    id: "histogram",
+    label: "Basic Histogram",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "overlaid-histogram",
+    label: "Overlaid Histogram",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "stacked-histogram",
+    label: "Stacked Histograms",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "styled-histogram",
+    label: "Styled Histogram",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "cumulative-histogram",
+    label: "Cumulative Histogram",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "normalized-histogram",
+    label: "Normalized Histogram",
+    plotlyType: "histogram",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.histogram,
+  },
+  {
+    id: "2d-histogram-contour",
+    label: "2D Histogram Contour",
+    plotlyType: "histogram2dcontour",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.contour,
+  },
+  {
+    id: "2d-histogram-slider",
+    label: "2D Histogram + Slider",
+    plotlyType: "histogram2dcontour",
+    group: "histogram",
+    category: "Histograms",
+    icon: Icon.contour,
+  },
+
+  // ── Filled & Error ─────────────────────────────────────────────────────────
+  {
+    id: "filled-lines",
+    label: "Filled Lines",
+    plotlyType: "scatter",
+    mode: "lines",
+    fill: "tozeroy",
+    group: "filled-error",
+    category: "Filled & Error",
+    icon: Icon.area,
+  },
+  {
+    id: "continuous-error-filled",
+    label: "Continuous Error Filled",
+    plotlyType: "scatter",
+    mode: "lines",
+    fill: "tonexty",
+    group: "filled-error",
+    category: "Filled & Error",
+    icon: Icon.area,
+  },
+  {
+    id: "asymmetric-offset",
+    label: "Asymmetric + Offset",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "filled-error",
+    category: "Filled & Error",
+    icon: Icon.error,
+  },
+  {
+    id: "continuous-error",
+    label: "Continuous Error Bars",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "filled-error",
+    category: "Filled & Error",
+    icon: Icon.error,
+  },
+
+  // ── Contour & Heatmap ──────────────────────────────────────────────────────
+  {
+    id: "contour-simple",
+    label: "Simple Contour",
+    plotlyType: "contour",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.contour,
+  },
+  {
+    id: "contour-basic",
+    label: "Basic Contour",
+    plotlyType: "contour",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.contour,
+  },
+  {
+    id: "contour-lines",
+    label: "Contour Lines",
+    plotlyType: "contour",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.contour,
+  },
+  {
+    id: "contour-labels",
+    label: "Contour Labels",
+    plotlyType: "contour",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.contour,
+  },
+  {
+    id: "heatmap",
+    label: "Basic Heatmap",
+    plotlyType: "heatmap",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.heatmap,
+  },
+  {
+    id: "heatmap-categorical",
+    label: "Categorical Heatmap",
+    plotlyType: "heatmap",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.heatmap,
+  },
+  {
+    id: "heatmap-annotated",
+    label: "Annotated Heatmap",
+    plotlyType: "heatmap",
+    group: "contour-heat",
+    category: "Contour & Heat",
+    icon: Icon.heatmap,
+  },
+
+  // ── Scientific ─────────────────────────────────────────────────────────────
+  {
+    id: "ternary",
+    label: "Ternary + Markers",
+    plotlyType: "scatterternary",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.ternary,
+  },
+  {
+    id: "soil-ternary",
+    label: "Soil Types Ternary",
+    plotlyType: "scatterternary",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.ternary,
+  },
+  {
+    id: "parallel-basic",
+    label: "Basic Parallel Coords",
+    plotlyType: "parcoords",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.parallel,
+  },
+  {
+    id: "parallel-coords",
+    label: "Parallel Coordinates",
+    plotlyType: "parcoords",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.parallel,
+  },
+  {
+    id: "parallel-advanced",
+    label: "Advanced Parallel",
+    plotlyType: "parcoords",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.parallel,
+  },
+  {
+    id: "log-plots",
+    label: "Log Plots",
+    plotlyType: "scatter",
+    mode: "lines+markers",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.line,
+  },
+  {
+    id: "log-axes",
+    label: "Logarithmic Axes",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "scientific",
+    category: "Scientific",
+    icon: Icon.line,
+  },
+
+  // ── Financial ──────────────────────────────────────────────────────────────
+  {
+    id: "waterfall",
+    label: "Basic Waterfall",
+    plotlyType: "waterfall",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.waterfall,
+  },
+  {
+    id: "waterfall-multi",
+    label: "Multi-Category Waterfall",
+    plotlyType: "waterfall",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.waterfall,
+  },
+  {
+    id: "candlestick",
+    label: "Candlestick",
+    plotlyType: "candlestick",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.candlestick,
+  },
+  {
+    id: "candlestick-no-slider",
+    label: "Candlestick No Slider",
+    plotlyType: "candlestick",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.candlestick,
+  },
+  {
+    id: "candlestick-annotated",
+    label: "Candlestick Annotated",
+    plotlyType: "candlestick",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.candlestick,
+  },
+  {
+    id: "funnel",
+    label: "Basic Funnel",
+    plotlyType: "funnel",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.funnel,
+  },
+  {
+    id: "funnel-stacked",
+    label: "Stacked Funnel",
+    plotlyType: "funnel",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.funnel,
+  },
+  {
+    id: "time-series-slider",
+    label: "Time Series + Slider",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.timeseries,
+  },
+  {
+    id: "time-series",
+    label: "Basic Time Series",
+    plotlyType: "scatter",
+    mode: "lines",
+    group: "financial",
+    category: "Financial",
+    icon: Icon.timeseries,
+  },
+
+  // ── 3D Charts ──────────────────────────────────────────────────────────────
+  {
+    id: "scatter3d",
+    label: "3D Scatter",
+    plotlyType: "scatter3d",
+    mode3d: "markers",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "ribbon3d",
+    label: "Ribbon Plot",
+    plotlyType: "scatter3d",
+    mode3d: "lines",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "surface3d",
+    label: "3D Surface",
+    plotlyType: "surface",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.surface3d,
+  },
+  {
+    id: "surface3d-multi",
+    label: "Multiple 3D Surfaces",
+    plotlyType: "surface",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.surface3d,
+  },
+  {
+    id: "mesh3d",
+    label: "3D Mesh",
+    plotlyType: "mesh3d",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "line3d",
+    label: "3D Line Chart",
+    plotlyType: "scatter3d",
+    mode3d: "lines+markers",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "line3d-plot",
+    label: "3D Line Plot",
+    plotlyType: "scatter3d",
+    mode3d: "lines",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "line3d-markers",
+    label: "3D Line + Markers",
+    plotlyType: "scatter3d",
+    mode3d: "lines+markers",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "line3d-spiral",
+    label: "3D Line Spiral",
+    plotlyType: "scatter3d",
+    mode3d: "lines",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+  {
+    id: "random-walk3d",
+    label: "3D Random Walk",
+    plotlyType: "scatter3d",
+    mode3d: "lines+markers",
+    group: "3d",
+    category: "3D Charts",
+    icon: Icon.scatter3d,
+  },
+];
+
+const CHART_GROUPS_ORDER = [
+  { id: "line-scatter", label: "Line & Scatter", color: "#3b82f6" },
+  { id: "bar", label: "Bar Charts", color: "#10b981" },
+  { id: "pie-bubble", label: "Pie & Bubble", color: "#ec4899" },
+  { id: "statistical", label: "Statistical", color: "#f59e0b" },
+  { id: "histogram", label: "Histograms", color: "#8b5cf6" },
+  { id: "filled-error", label: "Filled & Error", color: "#ef4444" },
+  { id: "contour-heat", label: "Contour & Heat", color: "#06b6d4" },
+  { id: "scientific", label: "Scientific", color: "#4ade80" },
+  { id: "financial", label: "Financial", color: "#f97316" },
+  { id: "3d", label: "3D Charts", color: "#a855f7" },
+];
 
 function detectChartTypeId(traces: any[]): ChartTypeId {
   if (!traces || traces.length === 0) return "bar";
@@ -75,26 +1515,33 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   if (type === "scatter3d" || (type === "scatter" && t0.z)) return "scatter3d";
   if (type === "mesh3d") return "mesh3d";
   if (type === "surface") return "surface3d";
+  if (type === "waterfall") return "waterfall";
+  if (type === "funnel") return "funnel";
+  if (type === "candlestick") return "candlestick";
+  if (type === "box") return orient === "h" ? "hbox" : "box";
+  if (type === "violin") return "violin";
+  if (type === "histogram") return "histogram";
+  if (type === "heatmap") return "heatmap";
+  if (type === "contour") return "contour-basic";
+  if (type === "parcoords") return "parallel-coords";
+  if (type === "scatterternary") return "ternary";
+  if (type === "pie" && t0.hole && t0.hole > 0) return "donut";
+  if (type === "pie") return "pie";
   if (type === "scatter" && mode.includes("lines") && fill === "tonexty")
-    return "stackedarea";
-  if (type === "scatter" && mode.includes("lines") && fill) return "area";
+    return "filled-lines";
+  if (type === "scatter" && mode.includes("lines") && fill)
+    return "filled-lines";
+  if (type === "scatter" && mode.includes("lines") && mode.includes("markers"))
+    return "line-scatter";
   if (type === "scatter" && mode.includes("lines")) return "line";
-  if (type === "scatter" && mode.includes("markers") && t0.marker?.sizeref)
-    return "bubble";
+  if (type === "scatter" && t0.marker?.sizeref) return "bubble";
   if (type === "scatter") return "scatter";
   if (type === "bar" && orient === "h") return "hbar";
   if (type === "bar") return "bar";
-  if (type === "pie" && t0.hole && t0.hole > 0) return "donut";
-  if (type === "pie") return "pie";
-  if (type === "histogram") return "histogram";
-  if (type === "box") return "box";
-  if (type === "violin") return "violin";
-  if (type === "heatmap") return "heatmap";
-  if (type === "funnel") return "funnel";
-  if (type === "waterfall") return "waterfall";
   return "bar";
 }
 
+// ── Palettes & Fonts ──────────────────────────────────────────────────────────
 const PALETTES = [
   {
     id: "vivid",
@@ -283,7 +1730,6 @@ const FONTS = [
   "Roboto",
   "Roboto Mono",
 ];
-
 const BG_PRESETS = [
   { id: "white", label: "White", hex: "#ffffff" },
   { id: "paper", label: "Paper", hex: "#fafaf9" },
@@ -295,741 +1741,17 @@ const BG_PRESETS = [
   { id: "green", label: "Forest", hex: "#052e16" },
 ];
 
-const CHART_TYPES = [
-  {
-    id: "bar",
-    label: "Column",
-    plotlyType: "bar",
-    orientation: "v",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect
-          x="2"
-          y="14"
-          width="6"
-          height="12"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".4"
-        />
-        <rect
-          x="11"
-          y="8"
-          width="6"
-          height="18"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".7"
-        />
-        <rect x="20" y="3" width="6" height="23" rx="1.5" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: "hbar",
-    label: "Bar",
-    plotlyType: "bar",
-    orientation: "h",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect
-          x="2"
-          y="3"
-          width="12"
-          height="6"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".4"
-        />
-        <rect
-          x="2"
-          y="11"
-          width="19"
-          height="6"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".7"
-        />
-        <rect x="2" y="19" width="24" height="6" rx="1.5" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: "stacked",
-    label: "Stacked",
-    plotlyType: "bar",
-    barmode: "stack",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect x="2" y="18" width="6" height="8" rx="1" fill="currentColor" />
-        <rect
-          x="2"
-          y="11"
-          width="6"
-          height="6"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-        <rect x="11" y="13" width="6" height="13" rx="1" fill="currentColor" />
-        <rect
-          x="11"
-          y="6"
-          width="6"
-          height="6"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-        <rect x="20" y="9" width="6" height="17" rx="1" fill="currentColor" />
-        <rect
-          x="20"
-          y="3"
-          width="6"
-          height="5"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "stacked100",
-    label: "100% Stack",
-    plotlyType: "bar",
-    barmode: "relative",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect
-          x="2"
-          y="2"
-          width="6"
-          height="24"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-        <rect
-          x="2"
-          y="14"
-          width="6"
-          height="12"
-          rx="1"
-          fill="currentColor"
-          opacity=".7"
-        />
-        <rect x="2" y="20" width="6" height="6" rx="1" fill="currentColor" />
-        <rect
-          x="11"
-          y="2"
-          width="6"
-          height="24"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-        <rect
-          x="11"
-          y="10"
-          width="6"
-          height="16"
-          rx="1"
-          fill="currentColor"
-          opacity=".7"
-        />
-        <rect x="11" y="18" width="6" height="8" rx="1" fill="currentColor" />
-        <rect
-          x="20"
-          y="2"
-          width="6"
-          height="24"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-        <rect
-          x="20"
-          y="8"
-          width="6"
-          height="18"
-          rx="1"
-          fill="currentColor"
-          opacity=".7"
-        />
-        <rect x="20" y="16" width="6" height="10" rx="1" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: "grouped",
-    label: "Grouped",
-    plotlyType: "bar",
-    barmode: "group",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect x="2" y="12" width="5" height="14" rx="1" fill="currentColor" />
-        <rect
-          x="8"
-          y="7"
-          width="5"
-          height="19"
-          rx="1"
-          fill="currentColor"
-          opacity=".5"
-        />
-        <rect x="16" y="9" width="5" height="17" rx="1" fill="currentColor" />
-        <rect
-          x="22"
-          y="3"
-          width="5"
-          height="23"
-          rx="1"
-          fill="currentColor"
-          opacity=".5"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "line",
-    label: "Line",
-    plotlyType: "scatter",
-    mode: "lines",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <polyline
-          points="2,24 7,15 12,18 18,9 23,13 26,5"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "area",
-    label: "Area",
-    plotlyType: "scatter",
-    mode: "lines",
-    fill: "tozeroy",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M2 24 L7 15 L12 18 L18 9 L23 13 L26 5 L26 26 L2 26 Z"
-          fill="currentColor"
-          opacity=".25"
-        />
-        <polyline
-          points="2,24 7,15 12,18 18,9 23,13 26,5"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "stackedarea",
-    label: "Stk. Area",
-    plotlyType: "scatter",
-    mode: "lines",
-    fill: "tonexty",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M2 26 L26 26 L26 16 L18 20 L10 15 Z"
-          fill="currentColor"
-          opacity=".5"
-        />
-        <path
-          d="M2 26 L26 26 L26 8 L18 12 L10 7 Z"
-          fill="currentColor"
-          opacity=".25"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "scatter",
-    label: "Scatter",
-    plotlyType: "scatter",
-    mode: "markers",
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <circle cx="5" cy="22" r="2.5" fill="currentColor" />
-        <circle cx="11" cy="14" r="2.5" fill="currentColor" opacity=".8" />
-        <circle cx="17" cy="18" r="2.5" fill="currentColor" opacity=".6" />
-        <circle cx="22" cy="8" r="2.5" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: "bubble",
-    label: "Bubble",
-    plotlyType: "scatter",
-    mode: "markers",
-    bubble: true,
-    group: "2d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <circle cx="7" cy="20" r="5" fill="currentColor" opacity=".45" />
-        <circle cx="20" cy="11" r="7" fill="currentColor" opacity=".3" />
-        <circle cx="12" cy="17" r="3" fill="currentColor" opacity=".75" />
-      </svg>
-    ),
-  },
-  {
-    id: "pie",
-    label: "Pie",
-    plotlyType: "pie",
-    group: "pie",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path d="M14 14 L14 2 A12 12 0 0 1 26 14 Z" fill="currentColor" />
-        <path
-          d="M14 14 L26 14 A12 12 0 0 1 7 24 Z"
-          fill="currentColor"
-          opacity=".6"
-        />
-        <path
-          d="M14 14 L7 24 A12 12 0 0 1 14 2 Z"
-          fill="currentColor"
-          opacity=".3"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "donut",
-    label: "Donut",
-    plotlyType: "pie",
-    hole: 0.45,
-    group: "pie",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path d="M14 14 L14 3 A11 11 0 0 1 25 14 Z" fill="currentColor" />
-        <path
-          d="M14 14 L25 14 A11 11 0 0 1 6 22 Z"
-          fill="currentColor"
-          opacity=".6"
-        />
-        <path
-          d="M14 14 L6 22 A11 11 0 0 1 14 3 Z"
-          fill="currentColor"
-          opacity=".3"
-        />
-        <circle cx="14" cy="14" r="5" fill="white" />
-      </svg>
-    ),
-  },
-  {
-    id: "histogram",
-    label: "Histogram",
-    plotlyType: "histogram",
-    group: "stat",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect
-          x="1"
-          y="18"
-          width="4"
-          height="8"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-        <rect
-          x="6"
-          y="12"
-          width="4"
-          height="14"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-        <rect x="11" y="5" width="5" height="21" rx="1" fill="currentColor" />
-        <rect
-          x="17"
-          y="9"
-          width="4"
-          height="17"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-        <rect
-          x="22"
-          y="14"
-          width="5"
-          height="12"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "heatmap",
-    label: "Heatmap",
-    plotlyType: "heatmap",
-    group: "stat",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect
-          x="2"
-          y="2"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".12"
-        />
-        <rect
-          x="11"
-          y="2"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".5"
-        />
-        <rect
-          x="20"
-          y="2"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".9"
-        />
-        <rect
-          x="2"
-          y="11"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".55"
-        />
-        <rect x="11" y="11" width="7" height="7" rx="1" fill="currentColor" />
-        <rect
-          x="20"
-          y="11"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".3"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "box",
-    label: "Box Plot",
-    plotlyType: "box",
-    group: "stat",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <line
-          x1="7"
-          y1="3"
-          x2="7"
-          y2="8"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-        <rect
-          x="3"
-          y="8"
-          width="8"
-          height="12"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          fill="none"
-        />
-        <line
-          x1="3"
-          y1="14"
-          x2="11"
-          y2="14"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
-        <line
-          x1="7"
-          y1="20"
-          x2="7"
-          y2="25"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "violin",
-    label: "Violin",
-    plotlyType: "violin",
-    group: "stat",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M9 3 Q14 7 14 14 Q14 21 9 25 L19 25 Q14 21 14 14 Q14 7 19 3 Z"
-          fill="currentColor"
-          opacity=".55"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "funnel",
-    label: "Funnel",
-    plotlyType: "funnel",
-    group: "financial",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect x="1" y="2" width="26" height="5" rx="1.5" fill="currentColor" />
-        <rect
-          x="4"
-          y="9"
-          width="20"
-          height="5"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".75"
-        />
-        <rect
-          x="8"
-          y="16"
-          width="12"
-          height="5"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".5"
-        />
-        <rect
-          x="11"
-          y="23"
-          width="6"
-          height="4"
-          rx="1.5"
-          fill="currentColor"
-          opacity=".3"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "waterfall",
-    label: "Waterfall",
-    plotlyType: "waterfall",
-    group: "financial",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <rect x="1" y="15" width="6" height="11" rx="1" fill="currentColor" />
-        <rect
-          x="8"
-          y="9"
-          width="5"
-          height="6"
-          rx="1"
-          fill="currentColor"
-          opacity=".5"
-        />
-        <rect
-          x="14"
-          y="12"
-          width="5"
-          height="9"
-          rx="1"
-          fill="#f87171"
-          opacity=".75"
-        />
-        <rect
-          x="20"
-          y="5"
-          width="7"
-          height="7"
-          rx="1"
-          fill="currentColor"
-          opacity=".8"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "scatter3d",
-    label: "3D Scatter",
-    plotlyType: "scatter3d",
-    mode3d: "markers",
-    group: "3d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M14 3 L4 9 L4 21 L14 27 L24 21 L24 9 Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-          opacity=".4"
-        />
-        <circle cx="8" cy="12" r="2.5" fill="currentColor" />
-        <circle cx="19" cy="9" r="2" fill="currentColor" opacity=".7" />
-        <circle cx="14" cy="19" r="3" fill="currentColor" opacity=".85" />
-      </svg>
-    ),
-  },
-  {
-    id: "line3d",
-    label: "3D Line",
-    plotlyType: "scatter3d",
-    mode3d: "lines+markers",
-    group: "3d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M14 3 L4 9 L4 21 L14 27 L24 21 L24 9 Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-          opacity=".4"
-        />
-        <polyline
-          points="5,20 10,13 16,17 23,8"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "mesh3d",
-    label: "3D Mesh",
-    plotlyType: "mesh3d",
-    group: "3d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <polygon
-          points="14,3 24,20 4,20"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="currentColor"
-          opacity=".15"
-        />
-        <line
-          x1="14"
-          y1="3"
-          x2="4"
-          y2="20"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <line
-          x1="14"
-          y1="3"
-          x2="24"
-          y2="20"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <line
-          x1="4"
-          y1="20"
-          x2="24"
-          y2="20"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "surface3d",
-    label: "3D Surface",
-    plotlyType: "surface",
-    group: "3d",
-    icon: (
-      <svg viewBox="0 0 28 28" fill="none" width="22" height="22">
-        <path
-          d="M3 20 Q7 10 14 12 Q21 14 25 6"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M3 24 Q7 16 14 17 Q21 18 25 12"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          fill="none"
-          opacity=".55"
-        />
-      </svg>
-    ),
-  },
-] as const;
-
-type ChartTypeId = (typeof CHART_TYPES)[number]["id"];
-
-const CHART_GROUPS = [
-  {
-    id: "2d",
-    label: "2D Charts",
-    types: CHART_TYPES.filter((c) => c.group === "2d"),
-  },
-  {
-    id: "pie",
-    label: "Pie / Donut",
-    types: CHART_TYPES.filter((c) => c.group === "pie"),
-  },
-  {
-    id: "stat",
-    label: "Statistical",
-    types: CHART_TYPES.filter((c) => c.group === "stat"),
-  },
-  {
-    id: "financial",
-    label: "Financial",
-    types: CHART_TYPES.filter((c) => c.group === "financial"),
-  },
-  {
-    id: "3d",
-    label: "3D Charts",
-    types: CHART_TYPES.filter((c) => c.group === "3d"),
-  },
-];
-
-// ── Mini UI Components (unchanged) ──────────────────────────────────────────
-
+// ── Mini UI ───────────────────────────────────────────────────────────────────
 function Sec({
   title,
   children,
-  open: defaultOpen = true,
+  open: d = true,
 }: {
   title: string;
   children: React.ReactNode;
   open?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(d);
   return (
     <div style={{ borderBottom: "1px solid #f0f0f0" }}>
       <button
@@ -1083,32 +1805,6 @@ function Sec({
         </svg>
       </button>
       {open && <div style={{ padding: "2px 16px 14px" }}>{children}</div>}
-    </div>
-  );
-}
-
-function LRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 8,
-      }}
-    >
-      <span
-        style={{ fontSize: 11, color: "#9ca3af", flexShrink: 0, width: 74 }}
-      >
-        {label}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -1197,8 +1893,6 @@ function Slider({
             color: "#06b6d4",
             fontFamily: "monospace",
             fontWeight: 700,
-            minWidth: 32,
-            textAlign: "right",
           }}
         >
           {value}
@@ -1212,14 +1906,11 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
         style={{
           width: "100%",
           accentColor: "#06b6d4",
           cursor: "pointer",
           height: 4,
-          touchAction: "none",
         }}
       />
     </div>
@@ -1288,8 +1979,33 @@ function NumInput({
   );
 }
 
-// ── Main Editor ──────────────────────────────────────────────────────────────
+function LRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 8,
+      }}
+    >
+      <span
+        style={{ fontSize: 11, color: "#9ca3af", flexShrink: 0, width: 74 }}
+      >
+        {label}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+    </div>
+  );
+}
 
+// ── Main Editor ───────────────────────────────────────────────────────────────
 export default function ChartEditor({
   message,
   divRef,
@@ -1298,11 +2014,9 @@ export default function ChartEditor({
   const plotRef = useRef<PlotlyHTMLElement>(null);
   const [mounted, setMounted] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false); // mobile: panel drawer open
-  const [incompatWarning, setIncompatWarning] = useState<{
-    from: string;
-    to: string;
-  } | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const check = () => setIsMobileLayout(window.innerWidth < 640);
@@ -1311,7 +2025,6 @@ export default function ChartEditor({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Lock body scroll on mobile when editor is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -1387,13 +2100,8 @@ export default function ChartEditor({
     setYLabel(liveLayout.yaxis?.title?.text || liveLayout.yaxis?.title || "");
     const detectedId = detectChartTypeId(liveData);
     setChartTypeId(detectedId);
-    const barmode =
-      liveLayout.barmode || (liveData[0] as any)?.barmode || "group";
-    if (detectedId === "bar" && barmode === "stack") setChartTypeId("stacked");
-    if (detectedId === "bar" && barmode === "relative")
-      setChartTypeId("stacked100");
-    if (detectedId === "bar" && barmode === "group" && liveData.length > 1)
-      setChartTypeId("grouped");
+    const grp = CHART_TYPES.find((c) => c.id === detectedId)?.group || "bar";
+    setActiveGroup(grp);
     if (liveData.length > 0) {
       const firstColor = (liveData[0] as any)?.marker?.color;
       const firstLineColor = (liveData[0] as any)?.line?.color;
@@ -1407,18 +2115,6 @@ export default function ChartEditor({
     setShowZero(liveLayout.xaxis?.zeroline !== false);
     setMounted(true);
   }, [getLiveData]);
-
-  const handleChartTypeChange = useCallback(
-    (newId: ChartTypeId) => {
-      if (!canConvert(chartTypeId, newId)) {
-        setIncompatWarning({ from: chartTypeId, to: newId });
-        return;
-      }
-      setIncompatWarning(null);
-      setChartTypeId(newId);
-    },
-    [chartTypeId],
-  );
 
   const buildPieData = useCallback((rawData: any[], pal: string[]) => {
     if (rawData.length === 0) return [];
@@ -1457,21 +2153,36 @@ export default function ChartEditor({
     const gridClr = isLightBg ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.08)";
     const lineClr = isLightBg ? "#e5e7eb" : "rgba(255,255,255,0.1)";
     const is3D = ct.group === "3d";
-    const isPieType = ct.group === "pie";
+    const isPie =
+      ct.group === "pie-bubble" && (ct.id === "pie" || ct.id === "donut");
+    const isSpecial = [
+      "contour-simple",
+      "contour-basic",
+      "contour-lines",
+      "contour-labels",
+      "2d-histogram-contour",
+      "2d-histogram-slider",
+      "parallel-basic",
+      "parallel-coords",
+      "parallel-advanced",
+      "ternary",
+      "soil-ternary",
+    ].includes(ct.id);
+
     let data: any[];
 
-    if (isPieType) {
+    if (isPie) {
       const existing0 = liveData[0];
       if (existing0?.type === "pie") {
         data = liveData.map((t: any) => ({
           ...t,
           type: "pie",
-          hole: (ct as any).hole || 0,
+          hole: ct.hole || 0,
           marker: { ...t.marker, colors: pal },
         }));
       } else {
         data = buildPieData(liveData, pal);
-        if ((ct as any).hole) data[0].hole = (ct as any).hole;
+        if (ct.hole) data[0].hole = ct.hole;
       }
     } else if (is3D) {
       data = liveData.map((trace: any, i: number) => {
@@ -1492,17 +2203,26 @@ export default function ChartEditor({
           base.opacity = opacity / 100;
         } else {
           base.type = "scatter3d";
-          base.mode = (ct as any).mode3d || "markers";
+          base.mode = ct.mode3d || "markers";
           base.marker = {
             ...(trace.marker || {}),
             color: clr,
             size: Math.max(markerSize - 2, 3),
-            symbol: markerSymbol,
             opacity: opacity / 100,
           };
           base.line = { color: clr, width: lineWidth };
         }
         return base;
+      });
+    } else if (isSpecial) {
+      // For special types just re-type existing traces and apply palette
+      data = liveData.map((trace: any, i: number) => {
+        const clr = pal[i % pal.length];
+        return {
+          ...trace,
+          type: ct.plotlyType,
+          marker: { ...(trace.marker || {}), color: clr },
+        };
       });
     } else {
       data = liveData.map((trace: any, i: number) => {
@@ -1513,9 +2233,7 @@ export default function ChartEditor({
         base.marker = {
           ...(trace.marker || {}),
           color: clr,
-          size: (ct as any).bubble
-            ? (trace.marker?.size ?? markerSize)
-            : markerSize,
+          size: ct.bubble ? (trace.marker?.size ?? markerSize) : markerSize,
           opacity: opacity / 100,
           symbol: markerSymbol,
           line: { color: "rgba(255,255,255,0.3)", width: borderWidth },
@@ -1525,27 +2243,26 @@ export default function ChartEditor({
           width: lineWidth,
           shape: smooth ? "spline" : "linear",
         };
-        if ((ct as any).mode) {
+        if (ct.mode) {
           base.mode =
-            (ct as any).mode +
-            (showMarkers && (ct as any).mode === "lines" ? "+markers" : "");
+            ct.mode + (showMarkers && ct.mode === "lines" ? "+markers" : "");
         } else if (ct.plotlyType === "scatter") {
           base.mode = "markers";
         } else {
           delete base.mode;
         }
-        if ((ct as any).fill) {
-          base.fill = (ct as any).fill;
-          const fillAlpha = Math.round(fillOpacity * 2.55)
+        if (ct.fill) {
+          base.fill = ct.fill;
+          const fa = Math.round(fillOpacity * 2.55)
             .toString(16)
             .padStart(2, "0");
-          base.fillcolor = clr + fillAlpha;
+          base.fillcolor = clr + fa;
         } else {
           delete base.fill;
         }
-        if ((ct as any).hole) base.hole = (ct as any).hole;
+        if (ct.hole) base.hole = ct.hole;
         else delete base.hole;
-        if ((ct as any).orientation) base.orientation = (ct as any).orientation;
+        if (ct.orientation) base.orientation = ct.orientation;
         else delete base.orientation;
         if (showLabels && ct.plotlyType !== "heatmap") {
           base.texttemplate = "%{y}";
@@ -1559,6 +2276,11 @@ export default function ChartEditor({
         } else {
           base.texttemplate = undefined;
           base.text = undefined;
+        }
+        // Log scale tweaks
+        if (ct.id === "log-plots" || ct.id === "log-axes") {
+          base.type = "scatter";
+          base.mode = "lines+markers";
         }
         return base;
       });
@@ -1605,8 +2327,13 @@ export default function ChartEditor({
         r: 20,
       },
       bargap: barGap / 100,
-      barmode: (ct as any).barmode || liveLayout?.barmode || "group",
+      barmode: ct.barmode || liveLayout?.barmode || "group",
     };
+
+    if (logX || ct.id === "log-plots" || ct.id === "log-axes")
+      layout.xaxis = { ...(layout.xaxis || {}), type: "log" };
+    if (logY || ct.id === "log-plots" || ct.id === "log-axes")
+      layout.yaxis = { ...(layout.yaxis || {}), type: "log" };
 
     if (is3D) {
       layout.scene = {
@@ -1629,7 +2356,8 @@ export default function ChartEditor({
         bgcolor: "rgba(0,0,0,0)",
       };
     }
-    if (!is3D && !isPieType) {
+
+    if (!is3D && !isPie) {
       layout.xaxis = {
         ...(liveLayout?.xaxis || {}),
         title: xLabel
@@ -1650,6 +2378,7 @@ export default function ChartEditor({
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
+        ...layout.xaxis,
       };
       layout.yaxis = {
         ...(liveLayout?.yaxis || {}),
@@ -1669,6 +2398,7 @@ export default function ChartEditor({
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
+        ...layout.yaxis,
       };
     }
 
@@ -1820,195 +2550,266 @@ export default function ChartEditor({
     },
   ] as const;
 
-  // Render panel content as a function call (NOT a component) to prevent input focus loss
+  // Filtered chart types for search
+  const filteredTypes = searchQuery.trim()
+    ? CHART_TYPES.filter(
+        (ct) =>
+          ct.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ct.category.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : activeGroup
+      ? CHART_TYPES.filter((ct) => ct.group === activeGroup)
+      : [];
+
+  const renderGraphTab = () => (
+    <>
+      {/* Search */}
+      <div style={{ padding: "10px 16px 6px" }}>
+        <div style={{ position: "relative" }}>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#9ca3af"
+            strokeWidth="2"
+            strokeLinecap="round"
+            style={{
+              position: "absolute",
+              left: 9,
+              top: "50%",
+              transform: "translateY(-50%)",
+              pointerEvents: "none",
+            }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (e.target.value) setActiveGroup(null);
+            }}
+            placeholder="Search chart types…"
+            style={{
+              width: "100%",
+              padding: "7px 10px 7px 30px",
+              fontSize: 11,
+              border: "1.5px solid #e5e7eb",
+              borderRadius: 8,
+              background: "#f9fafb",
+              color: "#111827",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Category pills */}
+      {!searchQuery && (
+        <div
+          style={{
+            display: "flex",
+            gap: 5,
+            padding: "4px 16px 8px",
+            overflowX: "auto",
+            scrollbarWidth: "none",
+          }}
+        >
+          {CHART_GROUPS_ORDER.map((g) => {
+            const isActive = activeGroup === g.id;
+            return (
+              <button
+                key={g.id}
+                onClick={() => setActiveGroup(isActive ? null : g.id)}
+                style={{
+                  flexShrink: 0,
+                  padding: "4px 10px",
+                  borderRadius: 20,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  border: isActive
+                    ? `1.5px solid ${g.color}`
+                    : "1.5px solid #e5e7eb",
+                  background: isActive ? `${g.color}18` : "#fafafa",
+                  color: isActive ? g.color : "#9ca3af",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.12s",
+                }}
+              >
+                {g.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Chart type grid */}
+      {(searchQuery || activeGroup) && (
+        <div style={{ padding: "0 16px 14px" }}>
+          {searchQuery && (
+            <p
+              style={{
+                fontSize: 10,
+                color: "#9ca3af",
+                margin: "0 0 8px",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {filteredTypes.length} result
+              {filteredTypes.length !== 1 ? "s" : ""}
+            </p>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3,1fr)",
+              gap: 6,
+            }}
+          >
+            {filteredTypes.map((ct) => {
+              const isActive = chartTypeId === ct.id;
+              const grpColor =
+                CHART_GROUPS_ORDER.find((g) => g.id === ct.group)?.color ||
+                "#06b6d4";
+              return (
+                <button
+                  key={ct.id}
+                  onClick={() => setChartTypeId(ct.id)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "10px 4px 8px",
+                    borderRadius: 10,
+                    border: isActive
+                      ? `2px solid ${grpColor}`
+                      : "1.5px solid #e5e7eb",
+                    background: isActive ? `${grpColor}0f` : "#fafafa",
+                    cursor: "pointer",
+                    color: isActive ? grpColor : "#6b7280",
+                    transition: "all 0.12s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        grpColor + "60";
+                      (e.currentTarget as HTMLElement).style.color = grpColor;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "#e5e7eb";
+                      (e.currentTarget as HTMLElement).style.color = "#6b7280";
+                    }
+                  }}
+                >
+                  {ct.icon}
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 600,
+                      textAlign: "center",
+                      lineHeight: 1.3,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {ct.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!searchQuery && !activeGroup && (
+        <div style={{ padding: "20px 16px", textAlign: "center" }}>
+          <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>
+            Select a category above or search to browse all {CHART_TYPES.length}{" "}
+            chart types
+          </p>
+        </div>
+      )}
+
+      <Sec title="Data Labels" open={false}>
+        <Toggle
+          label="Show values on chart"
+          value={showLabels}
+          onChange={setShowLabels}
+        />
+        <Toggle
+          label="Show markers on lines"
+          value={showMarkers}
+          onChange={setShowMarkers}
+        />
+      </Sec>
+      <Sec title="Legend" open={false}>
+        <Toggle
+          label="Show legend"
+          value={showLegend}
+          onChange={setShowLegend}
+        />
+        {showLegend && (
+          <div>
+            <p style={{ fontSize: 11, color: "#9ca3af", margin: "4px 0 6px" }}>
+              Position
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: 4,
+              }}
+            >
+              {(["top", "bottom", "left", "right"] as const).map((pos) => (
+                <button
+                  key={pos}
+                  onClick={() => setLegendPos(pos)}
+                  style={{
+                    padding: "5px 2px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    borderRadius: 7,
+                    border:
+                      legendPos === pos
+                        ? "1.5px solid #06b6d4"
+                        : "1.5px solid #e5e7eb",
+                    background:
+                      legendPos === pos ? "rgba(6,182,212,0.07)" : "#fafafa",
+                    color: legendPos === pos ? "#06b6d4" : "#9ca3af",
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </Sec>
+      <Sec title="Watermark" open={false}>
+        <Toggle
+          label="Show Graphix branding"
+          value={showWatermark}
+          onChange={setShowWatermark}
+        />
+      </Sec>
+    </>
+  );
+
   const renderPanel = () => (
     <div
       style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}
     >
-      {tab === "graph" && (
-        <>
-          {incompatWarning && (
-            <div
-              style={{
-                margin: "8px 16px",
-                padding: "8px 12px",
-                background: "#fef3c7",
-                border: "1px solid #fcd34d",
-                borderRadius: 8,
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 14 }}>⚠️</span>
-              <div style={{ flex: 1 }}>
-                <p
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#92400e",
-                    margin: "0 0 2px",
-                  }}
-                >
-                  Incompatible Conversion
-                </p>
-                <p style={{ fontSize: 10, color: "#b45309", margin: 0 }}>
-                  Try converting to 3D Scatter first.
-                </p>
-              </div>
-              <button
-                onClick={() => setIncompatWarning(null)}
-                style={{
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  color: "#d97706",
-                  fontSize: 14,
-                  padding: 0,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-          {CHART_GROUPS.map((group) => (
-            <Sec
-              key={group.id}
-              title={`${group.label}${group.types.some((t) => t.id === chartTypeId) ? " · Active" : ""}`}
-              open={group.types.some((t) => t.id === chartTypeId)}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3,1fr)",
-                  gap: 7,
-                }}
-              >
-                {group.types.map((ct) => {
-                  const compatible = canConvert(chartTypeId, ct.id);
-                  const isActive = chartTypeId === ct.id;
-                  return (
-                    <button
-                      key={ct.id}
-                      onClick={() => handleChartTypeChange(ct.id)}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "10px 4px 8px",
-                        borderRadius: 10,
-                        border: isActive
-                          ? "2px solid #06b6d4"
-                          : compatible
-                            ? "1.5px solid #e5e7eb"
-                            : "1.5px solid #fcd34d",
-                        background: isActive
-                          ? "rgba(6,182,212,0.06)"
-                          : compatible
-                            ? "#fafafa"
-                            : "#fffbeb",
-                        cursor: compatible ? "pointer" : "not-allowed",
-                        color: isActive
-                          ? "#06b6d4"
-                          : compatible
-                            ? "#6b7280"
-                            : "#d97706",
-                        opacity: compatible ? 1 : 0.5,
-                        position: "relative",
-                      }}
-                    >
-                      {ct.icon}
-                      <span
-                        style={{
-                          fontSize: 9.5,
-                          fontWeight: 600,
-                          textAlign: "center",
-                          lineHeight: 1.25,
-                        }}
-                      >
-                        {ct.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </Sec>
-          ))}
-          <Sec title="Data Labels">
-            <Toggle
-              label="Show values on chart"
-              value={showLabels}
-              onChange={setShowLabels}
-            />
-            <Toggle
-              label="Show markers on lines"
-              value={showMarkers}
-              onChange={setShowMarkers}
-            />
-          </Sec>
-          <Sec title="Legend" open={false}>
-            <Toggle
-              label="Show legend"
-              value={showLegend}
-              onChange={setShowLegend}
-            />
-            {showLegend && (
-              <div>
-                <p
-                  style={{
-                    fontSize: 11,
-                    color: "#9ca3af",
-                    margin: "4px 0 6px",
-                  }}
-                >
-                  Position
-                </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4,1fr)",
-                    gap: 4,
-                  }}
-                >
-                  {(["top", "bottom", "left", "right"] as const).map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => setLegendPos(pos)}
-                      style={{
-                        padding: "5px 2px",
-                        fontSize: 10,
-                        fontWeight: 600,
-                        borderRadius: 7,
-                        border:
-                          legendPos === pos
-                            ? "1.5px solid #06b6d4"
-                            : "1.5px solid #e5e7eb",
-                        background:
-                          legendPos === pos
-                            ? "rgba(6,182,212,0.07)"
-                            : "#fafafa",
-                        color: legendPos === pos ? "#06b6d4" : "#9ca3af",
-                        cursor: "pointer",
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Sec>
-          <Sec title="Watermark" open={false}>
-            <Toggle
-              label="Show Graphix branding"
-              value={showWatermark}
-              onChange={setShowWatermark}
-            />
-          </Sec>
-        </>
-      )}
+      {tab === "graph" && renderGraphTab()}
+
       {tab === "style" && (
         <>
           <Sec title="Color Palette">
@@ -2256,6 +3057,7 @@ export default function ChartEditor({
           </Sec>
         </>
       )}
+
       {tab === "axes" && (
         <>
           <Sec title="Axis Labels">
@@ -2331,6 +3133,7 @@ export default function ChartEditor({
           </Sec>
         </>
       )}
+
       {tab === "annotate" && (
         <>
           <Sec title="Title & Subtitle">
@@ -2433,6 +3236,7 @@ export default function ChartEditor({
           </Sec>
         </>
       )}
+
       {tab === "export" && (
         <>
           <Sec title="Dimensions">
@@ -2580,6 +3384,117 @@ export default function ChartEditor({
     </div>
   );
 
+  const chartCanvas = (isMobile: boolean) => {
+    const { data: liveData, layout: liveLayout } = getLiveData();
+    const chartTitle =
+      title ||
+      (typeof liveLayout.title === "string"
+        ? liveLayout.title
+        : liveLayout.title?.text || "");
+    return (
+      <div
+        style={{
+          background: bgHex,
+          borderRadius,
+          boxShadow: isLightBg
+            ? "0 8px 48px rgba(0,0,0,0.13)"
+            : "0 28px 70px rgba(0,0,0,0.75)",
+          width: isMobile ? "100%" : "min(100%,880px)",
+          overflow: "hidden",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {(chartTitle || subtitle || showWatermark) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              padding: "18px 22px 10px",
+              borderBottom: chartTitle
+                ? `1px solid ${isLightBg ? "#f3f4f6" : "rgba(255,255,255,0.05)"}`
+                : "none",
+            }}
+          >
+            <div>
+              {chartTitle && (
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: isMobile ? Math.min(titleSize, 20) : titleSize,
+                    fontWeight: 700,
+                    color: isLightBg ? "#111827" : "#fff",
+                    fontFamily,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {chartTitle}
+                </h3>
+              )}
+              {subtitle && (
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12,
+                    color: isLightBg ? "#9ca3af" : "rgba(255,255,255,0.4)",
+                    fontFamily,
+                  }}
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
+            {showWatermark && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: isLightBg ? "#d1d5db" : "rgba(255,255,255,0.15)",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  marginTop: 2,
+                }}
+              >
+                ✦ Graphix
+              </span>
+            )}
+          </div>
+        )}
+        {annotations.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 5,
+              padding: "8px 22px 0",
+            }}
+          >
+            {annotations.map((a, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 10,
+                  padding: "2px 9px",
+                  borderRadius: 20,
+                  background: "rgba(6,182,212,0.1)",
+                  color: "#06b6d4",
+                  border: "1px solid rgba(6,182,212,0.25)",
+                  fontFamily: "monospace",
+                }}
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        )}
+        <div
+          ref={plotRef}
+          style={{ width: "100%", minHeight: isMobile ? 260 : 380 }}
+        />
+      </div>
+    );
+  };
+
   return createPortal(
     <div
       style={{
@@ -2592,7 +3507,7 @@ export default function ChartEditor({
         fontFamily: "'Inter',-apple-system,sans-serif",
       }}
     >
-      {/* ─── TOP BAR ─── */}
+      {/* Top bar */}
       <div
         style={{
           display: "flex",
@@ -2687,7 +3602,6 @@ export default function ChartEditor({
             flexShrink: 0,
           }}
         >
-          {/* On mobile: just show one export button + panel toggle */}
           {isMobileLayout ? (
             <>
               <button
@@ -2713,9 +3627,7 @@ export default function ChartEditor({
                   fontWeight: 700,
                   borderRadius: 8,
                   border: "none",
-                  background: panelOpen
-                    ? "#06b6d4"
-                    : "linear-gradient(135deg,#06b6d4,#0891b2)",
+                  background: "linear-gradient(135deg,#06b6d4,#0891b2)",
                   color: "#fff",
                   cursor: "pointer",
                   display: "flex",
@@ -2796,9 +3708,8 @@ export default function ChartEditor({
         </div>
       </div>
 
-      {/* ─── BODY ─── */}
+      {/* Body */}
       {isMobileLayout ? (
-        // MOBILE LAYOUT: chart fills screen, panel is bottom sheet
         <div
           style={{
             flex: 1,
@@ -2808,7 +3719,6 @@ export default function ChartEditor({
             position: "relative",
           }}
         >
-          {/* Chart canvas */}
           <div
             style={{
               flex: 1,
@@ -2833,54 +3743,8 @@ export default function ChartEditor({
                 opacity: 0.4,
               }}
             />
-            <div
-              style={{
-                background: bgHex,
-                borderRadius,
-                boxShadow: isLightBg
-                  ? "0 8px 48px rgba(0,0,0,0.13)"
-                  : "0 28px 70px rgba(0,0,0,0.75)",
-                width: "100%",
-                overflow: "hidden",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              {(title || subtitle) && (
-                <div style={{ padding: "14px 16px 8px" }}>
-                  {title && (
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: Math.min(titleSize, 20),
-                        fontWeight: 700,
-                        color: isLightBg ? "#111827" : "#fff",
-                        fontFamily,
-                        lineHeight: 1.25,
-                      }}
-                    >
-                      {title}
-                    </h3>
-                  )}
-                  {subtitle && (
-                    <p
-                      style={{
-                        margin: "4px 0 0",
-                        fontSize: 11,
-                        color: isLightBg ? "#9ca3af" : "rgba(255,255,255,0.4)",
-                        fontFamily,
-                      }}
-                    >
-                      {subtitle}
-                    </p>
-                  )}
-                </div>
-              )}
-              <div ref={plotRef} style={{ width: "100%", minHeight: 260 }} />
-            </div>
+            {chartCanvas(true)}
           </div>
-
-          {/* Bottom sheet panel */}
           {panelOpen && (
             <>
               <div
@@ -2909,7 +3773,6 @@ export default function ChartEditor({
                 }}
               >
                 <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-                {/* Handle */}
                 <div
                   style={{
                     display: "flex",
@@ -2926,7 +3789,6 @@ export default function ChartEditor({
                     }}
                   />
                 </div>
-                {/* Tab bar */}
                 <div
                   style={{
                     display: "flex",
@@ -2975,9 +3837,7 @@ export default function ChartEditor({
           )}
         </div>
       ) : (
-        // DESKTOP LAYOUT: original two-column split
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-          {/* Chart canvas */}
           <div
             style={{
               flex: 1,
@@ -3002,105 +3862,7 @@ export default function ChartEditor({
                 opacity: 0.4,
               }}
             />
-            <div
-              style={{
-                background: bgHex,
-                borderRadius,
-                boxShadow: isLightBg
-                  ? "0 8px 48px rgba(0,0,0,0.13),0 1px 4px rgba(0,0,0,0.05)"
-                  : "0 0 0 1px rgba(255,255,255,0.07),0 28px 70px rgba(0,0,0,0.75)",
-                width: "min(100%,880px)",
-                overflow: "hidden",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              {(title || subtitle || showWatermark) && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    padding: "18px 22px 10px",
-                    borderBottom: title
-                      ? `1px solid ${isLightBg ? "#f3f4f6" : "rgba(255,255,255,0.05)"}`
-                      : "none",
-                  }}
-                >
-                  <div>
-                    {title && (
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: titleSize,
-                          fontWeight: 700,
-                          color: isLightBg ? "#111827" : "#fff",
-                          fontFamily,
-                          lineHeight: 1.25,
-                        }}
-                      >
-                        {title}
-                      </h3>
-                    )}
-                    {subtitle && (
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          fontSize: 12,
-                          color: isLightBg
-                            ? "#9ca3af"
-                            : "rgba(255,255,255,0.4)",
-                          fontFamily,
-                        }}
-                      >
-                        {subtitle}
-                      </p>
-                    )}
-                  </div>
-                  {showWatermark && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: isLightBg ? "#d1d5db" : "rgba(255,255,255,0.15)",
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
-                        marginTop: 2,
-                      }}
-                    >
-                      ✦ Graphix
-                    </span>
-                  )}
-                </div>
-              )}
-              {annotations.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 5,
-                    padding: "8px 22px 0",
-                  }}
-                >
-                  {annotations.map((a, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 9px",
-                        borderRadius: 20,
-                        background: "rgba(6,182,212,0.1)",
-                        color: "#06b6d4",
-                        border: "1px solid rgba(6,182,212,0.25)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div ref={plotRef} style={{ width: "100%", minHeight: 380 }} />
-            </div>
+            {chartCanvas(false)}
             <p
               style={{
                 marginTop: 14,
@@ -3112,8 +3874,6 @@ export default function ChartEditor({
               Drag to zoom · Double-click to reset · Scroll to pan
             </p>
           </div>
-
-          {/* Right panel */}
           <div
             style={{
               width: 308,

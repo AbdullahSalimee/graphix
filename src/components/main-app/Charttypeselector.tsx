@@ -6,7 +6,6 @@ interface ChartSubtype {
   label: string;
   prompt: string | null;
 }
-
 interface ChartGroup {
   id: string;
   label: string;
@@ -16,14 +15,12 @@ interface ChartGroup {
   subtypes: ChartSubtype[];
   noAiChoice?: boolean;
 }
-
 interface SelectedChart {
   groupLabel: string;
   subLabel: string;
   prompt: string | null;
   group?: string;
 }
-
 interface ChartTypeSelectorProps {
   onSelect: (selection: SelectedChart | null) => void;
 }
@@ -31,8 +28,8 @@ interface ChartTypeSelectorProps {
 const Icons = {
   line: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -45,8 +42,8 @@ const Icons = {
   ),
   bar: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -61,8 +58,8 @@ const Icons = {
   ),
   pie: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -76,8 +73,8 @@ const Icons = {
   ),
   statistical: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -91,8 +88,8 @@ const Icons = {
   ),
   histogram: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -108,8 +105,8 @@ const Icons = {
   ),
   filled: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -123,8 +120,8 @@ const Icons = {
   ),
   contour: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -139,8 +136,8 @@ const Icons = {
   ),
   scientific: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -154,8 +151,8 @@ const Icons = {
   ),
   financial: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -169,8 +166,8 @@ const Icons = {
   ),
   threeD: (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -447,6 +444,7 @@ export default function ChartTypeSelector({
 }: ChartTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<ChartGroup | null>(null);
+  const [hoveredGroup, setHoveredGroup] = useState<ChartGroup | null>(null);
   const [selected, setSelected] = useState<SelectedChart | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -463,19 +461,16 @@ export default function ChartTypeSelector({
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
         setActiveGroup(null);
+        setHoveredGroup(null);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Lock body scroll on mobile when open
   useEffect(() => {
-    if (isMobile && open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (isMobile && open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -490,6 +485,7 @@ export default function ChartTypeSelector({
     onSelect(sel);
     setOpen(false);
     setActiveGroup(null);
+    setHoveredGroup(null);
   };
 
   const clearSelection = (e: MouseEvent) => {
@@ -498,27 +494,28 @@ export default function ChartTypeSelector({
     onSelect(null);
   };
 
+  const displayGroup = hoveredGroup || activeGroup;
   const selectedGroup = CHART_GROUPS.find(
     (g) => g.label === selected?.groupLabel,
   );
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className="relative inline-block flex-shrink-0">
       <style>{`
-        @keyframes dropUp {
+        @keyframes cts-up {
           from { opacity: 0; transform: translateY(6px) scale(0.98); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes slideUp {
+        @keyframes cts-slideup {
           from { opacity: 0; transform: translateY(100%); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-4px); }
+        @keyframes cts-fadein {
+          from { opacity: 0; transform: translateX(-3px); }
           to   { opacity: 1; transform: translateX(0); }
         }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .cts-no-sb::-webkit-scrollbar { display: none; }
+        .cts-no-sb { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* Trigger */}
@@ -526,24 +523,61 @@ export default function ChartTypeSelector({
         onClick={() => {
           setOpen((p) => !p);
           setActiveGroup(null);
+          setHoveredGroup(null);
         }}
-        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap flex-shrink-0 ${
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap text-xs font-medium"
+        style={
           selected
-            ? "bg-cyan-100 border border-cyan-300 text-cyan-700"
-            : "bg-transparent border border-cyan-200 text-black hover:border-cyan-300 hover:text-neutral-700"
-        }`}
+            ? {
+                background: "rgba(6,182,212,0.1)",
+                border: "1px solid rgba(6,182,212,0.25)",
+                color: "#22d3ee",
+              }
+            : {
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                color: "rgba(255,255,255,0.45)",
+              }
+        }
+        onMouseEnter={(e) => {
+          if (!selected) {
+            (e.currentTarget as HTMLElement).style.borderColor =
+              "rgba(255,255,255,0.16)";
+            (e.currentTarget as HTMLElement).style.color =
+              "rgba(255,255,255,0.7)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!selected) {
+            (e.currentTarget as HTMLElement).style.borderColor =
+              "rgba(255,255,255,0.09)";
+            (e.currentTarget as HTMLElement).style.color =
+              "rgba(255,255,255,0.45)";
+          }
+        }}
       >
         {selected ? (
           <>
-            <span className="text-cyan-400">{selectedGroup?.icon}</span>
-            <span className="max-w-[60px] sm:max-w-[90px] truncate text-[11px] sm:text-xs">
+            <span style={{ color: selectedGroup?.color || "#22d3ee" }}>
+              {selectedGroup?.icon}
+            </span>
+            <span
+              className="max-w-[60px] sm:max-w-[90px] truncate"
+              style={{ fontSize: 11 }}
+            >
               {selected.subLabel === "AI Choice"
                 ? selected.groupLabel
                 : selected.subLabel}
             </span>
             <span
               onClick={clearSelection}
-              className="ml-0.5 text-cyan-500 hover:text-cyan-700 cursor-pointer"
+              style={{ marginLeft: 2, opacity: 0.6 }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "1")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "0.6")
+              }
             >
               ✕
             </span>
@@ -551,32 +585,30 @@ export default function ChartTypeSelector({
         ) : (
           <>
             <svg
-              width="13"
-              height="13"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-neutral-400"
             >
               <rect x="3" y="12" width="4" height="9" rx="1" />
               <rect x="10" y="7" width="4" height="14" rx="1" />
               <rect x="17" y="3" width="4" height="18" rx="1" />
             </svg>
-            <span className="hidden xs:inline">Chart Type</span>
-            <span className="xs:hidden">Type</span>
+            <span>Chart Type</span>
             <svg
-              width="9"
-              height="9"
+              width="8"
+              height="8"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-neutral-300"
+              style={{ opacity: 0.4 }}
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -584,33 +616,43 @@ export default function ChartTypeSelector({
         )}
       </button>
 
-      {/* MOBILE: Full-screen bottom sheet */}
+      {/* MOBILE bottom sheet */}
       {open && isMobile && (
         <>
           <div
-            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[9998]"
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(4px)",
+            }}
             onClick={() => {
               setOpen(false);
               setActiveGroup(null);
             }}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-2xl shadow-2xl"
+            className="fixed bottom-0 left-0 right-0 z-[9999] rounded-t-2xl flex flex-col"
             style={{
-              animation: "slideUp 0.25s cubic-bezier(0.16,1,0.3,1) both",
+              animation: "cts-slideup 0.25s cubic-bezier(0.16,1,0.3,1) both",
               maxHeight: "80vh",
-              display: "flex",
-              flexDirection: "column",
+              background: "#0e0e14",
+              border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            {/* Handle bar */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-neutral-200" />
+              <div
+                className="w-10 h-1 rounded-full"
+                style={{ background: "rgba(255,255,255,0.12)" }}
+              />
             </div>
-
-            {/* Header */}
-            <div className="px-4 py-2.5 border-b border-neutral-100 flex items-center justify-between flex-shrink-0">
-              <span className="text-sm font-bold text-neutral-800">
+            <div
+              className="px-4 py-2.5 flex items-center justify-between flex-shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <span
+                className="text-sm font-bold"
+                style={{ color: "rgba(255,255,255,0.8)" }}
+              >
                 Chart Type
               </span>
               <button
@@ -618,24 +660,28 @@ export default function ChartTypeSelector({
                   setOpen(false);
                   setActiveGroup(null);
                 }}
-                className="text-neutral-400 text-sm"
+                style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}
               >
                 ✕
               </button>
             </div>
-
             {activeGroup ? (
-              /* Subtypes view */
               <div className="flex flex-col flex-1 min-h-0">
-                {/* Back + group header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-neutral-100 flex-shrink-0">
+                <div
+                  className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                >
                   <button
                     onClick={() => setActiveGroup(null)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-100 text-neutral-500"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg"
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      color: "rgba(255,255,255,0.4)",
+                    }}
                   >
                     <svg
-                      width="12"
-                      height="12"
+                      width="11"
+                      height="11"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -645,36 +691,57 @@ export default function ChartTypeSelector({
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </button>
-                  <span className="text-cyan-400">{activeGroup.icon}</span>
+                  <span style={{ color: activeGroup.color }}>
+                    {activeGroup.icon}
+                  </span>
                   <div>
-                    <div className="text-sm font-semibold text-neutral-800">
+                    <div
+                      className="text-xs font-semibold"
+                      style={{ color: "rgba(255,255,255,0.75)" }}
+                    >
                       {activeGroup.label}
                     </div>
-                    <div className="text-xs text-neutral-400">
+                    <div
+                      className="text-[10px]"
+                      style={{ color: "rgba(255,255,255,0.3)" }}
+                    >
                       {activeGroup.description}
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto px-3 py-2">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="flex-1 overflow-y-auto cts-no-sb px-3 py-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {activeGroup.subtypes.map((sub, i) => (
                       <button
                         key={i}
                         onClick={() => handleSubSelect(activeGroup, sub)}
-                        className={`text-left px-3 py-2.5 rounded-xl text-xs border transition-all ${
+                        className={`text-left px-3 py-2.5 rounded-xl text-xs transition-all ${sub.prompt === null ? "col-span-2" : ""}`}
+                        style={
                           sub.prompt === null
-                            ? "col-span-2 border-cyan-200 bg-cyan-50 text-cyan-700 font-semibold"
-                            : "border-neutral-200 text-neutral-600 bg-neutral-50 active:bg-neutral-100"
-                        }`}
+                            ? {
+                                background: "rgba(6,182,212,0.07)",
+                                border: "1px solid rgba(6,182,212,0.18)",
+                                color: "#22d3ee",
+                                fontWeight: 600,
+                              }
+                            : {
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                                color: "rgba(255,255,255,0.5)",
+                              }
+                        }
                       >
                         {sub.prompt === null ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-cyan-400">✦</span>Let AI
-                            choose the best
+                            <span style={{ color: "#06b6d4" }}>✦</span>Let AI
+                            choose
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-300 flex-shrink-0" />
+                            <span
+                              className="w-1 h-1 rounded-full flex-shrink-0"
+                              style={{ background: "rgba(255,255,255,0.2)" }}
+                            />
                             {sub.label}
                           </div>
                         )}
@@ -684,23 +751,40 @@ export default function ChartTypeSelector({
                 </div>
               </div>
             ) : (
-              /* Groups view */
-              <div className="flex-1 overflow-y-auto px-3 py-2">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="flex-1 overflow-y-auto cts-no-sb px-3 py-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {CHART_GROUPS.map((group) => (
                     <button
                       key={group.id}
                       onClick={() => setActiveGroup(group)}
-                      className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-neutral-200 bg-neutral-50 active:bg-neutral-100 text-left transition-all"
+                      className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-left transition-all"
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                      }}
+                      onMouseEnter={(e) =>
+                        ((e.currentTarget as HTMLElement).style.background =
+                          "rgba(255,255,255,0.07)")
+                      }
+                      onMouseLeave={(e) =>
+                        ((e.currentTarget as HTMLElement).style.background =
+                          "rgba(255,255,255,0.03)")
+                      }
                     >
-                      <span className="text-cyan-400 flex-shrink-0">
+                      <span style={{ color: group.color, flexShrink: 0 }}>
                         {group.icon}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-neutral-700 truncate">
+                        <div
+                          className="text-xs font-semibold truncate"
+                          style={{ color: "rgba(255,255,255,0.65)" }}
+                        >
                           {group.label}
                         </div>
-                        <div className="text-[10px] text-neutral-400">
+                        <div
+                          className="text-[10px]"
+                          style={{ color: "rgba(255,255,255,0.25)" }}
+                        >
                           {
                             group.subtypes.filter((s) => s.prompt !== null)
                               .length
@@ -713,25 +797,44 @@ export default function ChartTypeSelector({
                 </div>
               </div>
             )}
-
-            {/* Safe area padding */}
             <div style={{ height: "max(0px, env(safe-area-inset-bottom))" }} />
           </div>
         </>
       )}
 
-      {/* DESKTOP: Original popup dropdown */}
+      {/* DESKTOP popup */}
       {open && !isMobile && (
         <div
-          className="absolute bottom-full left-0 z-[9999] w-[600px] max-w-[calc(100vw-2rem)] bg-white border border-white rounded-2xl shadow-2xl overflow-hidden"
-          style={{ animation: "dropUp 0.15s cubic-bezier(0.16,1,0.3,1) both" }}
+          className="absolute bottom-full left-0 z-[9999] rounded-2xl overflow-hidden"
+          style={{
+            width: 560,
+            maxWidth: "calc(100vw - 2rem)",
+            animation: "cts-up 0.15s cubic-bezier(0.16,1,0.3,1) both",
+            marginBottom: 6,
+            background: "#0e0e14",
+            border: "1px solid rgba(255,255,255,0.09)",
+            boxShadow:
+              "0 24px 64px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04)",
+          }}
         >
           {/* Header */}
-          <div className="px-4 py-3 border-b border-neutral-300 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider">
+          <div
+            className="px-4 py-2.5 flex items-center justify-between flex-shrink-0"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+            >
               Select Chart Type
             </span>
-            <span className="text-xs text-neutral-400">
+            <span
+              className="text-[10px]"
+              style={{
+                color: "rgba(255,255,255,0.2)",
+                fontFamily: "monospace",
+              }}
+            >
               {CHART_GROUPS.length} categories ·{" "}
               {CHART_GROUPS.reduce(
                 (s, g) =>
@@ -742,114 +845,194 @@ export default function ChartTypeSelector({
             </span>
           </div>
 
-          <div className="flex h-[300px]">
-            {/* Left — groups */}
-            <div className="w-[190px] flex-shrink-0 border-r border-neutral-300 overflow-y-auto py-1.5">
-              {CHART_GROUPS.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() =>
-                    setActiveGroup(activeGroup?.id === group.id ? null : group)
-                  }
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 transition-all duration-100 border-l-2 text-left ${
-                    activeGroup?.id === group.id
-                      ? "bg-cyan-500 border-l-black rounded-r-xl"
-                      : "border-l-transparent hover:bg-cyan-100 rounded-r-xl"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex-shrink-0 ${activeGroup?.id === group.id ? "text-white" : "text-cyan-300"}`}
-                    >
-                      {group.icon}
-                    </span>
-                    <div>
-                      <div
-                        className={`text-xs font-medium ${activeGroup?.id === group.id ? "text-white" : "text-neutral-500"}`}
+          <div className="flex" style={{ height: 300 }}>
+            {/* Left: groups */}
+            <div
+              className="flex-shrink-0 overflow-y-auto cts-no-sb py-1.5"
+              style={{
+                width: 180,
+                borderRight: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              {CHART_GROUPS.map((group) => {
+                const isActive =
+                  activeGroup?.id === group.id || hoveredGroup?.id === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() =>
+                      setActiveGroup(
+                        activeGroup?.id === group.id ? null : group,
+                      )
+                    }
+                    onMouseEnter={() => setHoveredGroup(group)}
+                    onMouseLeave={() => setHoveredGroup(null)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left transition-all duration-100"
+                    style={{
+                      borderLeft: `2px solid ${isActive ? group.color : "transparent"}`,
+                      background: isActive
+                        ? "rgba(255,255,255,0.05)"
+                        : "transparent",
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        style={{
+                          color: isActive
+                            ? group.color
+                            : "rgba(255,255,255,0.25)",
+                          flexShrink: 0,
+                        }}
                       >
-                        {group.label}
-                      </div>
-                      <div className="text-[10px] text-neutral-300 mt-0.5">
-                        {group.subtypes.filter((s) => s.prompt !== null).length}{" "}
-                        types
+                        {group.icon}
+                      </span>
+                      <div>
+                        <div
+                          className="text-xs font-medium"
+                          style={{
+                            color: isActive
+                              ? "rgba(255,255,255,0.85)"
+                              : "rgba(255,255,255,0.4)",
+                          }}
+                        >
+                          {group.label}
+                        </div>
+                        <div
+                          className="text-[9px]"
+                          style={{
+                            color: "rgba(255,255,255,0.18)",
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {
+                            group.subtypes.filter((s) => s.prompt !== null)
+                              .length
+                          }{" "}
+                          types
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <svg
-                    className={`transition-transform duration-150 flex-shrink-0 ${activeGroup?.id === group.id ? "rotate-90" : ""}`}
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#d1d5db"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-
-            {/* Right — subtypes */}
-            <div className="flex-1 overflow-y-auto p-2.5">
-              {!activeGroup ? (
-                <div className="h-full flex flex-col items-center justify-center gap-2 text-neutral-300">
-                  <span className="text-neutral-200">
                     <svg
-                      width="32"
-                      height="32"
+                      width="8"
+                      height="8"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="1.5"
+                      strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
+                      style={{ color: "rgba(255,255,255,0.15)", flexShrink: 0 }}
                     >
-                      <rect x="3" y="12" width="4" height="9" rx="1" />
-                      <rect x="10" y="7" width="4" height="14" rx="1" />
-                      <rect x="17" y="3" width="4" height="18" rx="1" />
+                      <polyline points="9 18 15 12 9 6" />
                     </svg>
-                  </span>
-                  <span className="text-xs text-center leading-relaxed">
-                    Select a category
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right: subtypes */}
+            <div className="flex-1 overflow-y-auto cts-no-sb p-2.5">
+              {!displayGroup ? (
+                <div className="h-full flex flex-col items-center justify-center gap-2">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    style={{ color: "rgba(255,255,255,0.1)" }}
+                  >
+                    <rect x="3" y="12" width="4" height="9" rx="1" />
+                    <rect x="10" y="7" width="4" height="14" rx="1" />
+                    <rect x="17" y="3" width="4" height="18" rx="1" />
+                  </svg>
+                  <span
+                    className="text-xs text-center leading-relaxed"
+                    style={{ color: "rgba(255,255,255,0.2)" }}
+                  >
+                    Hover a category
                     <br />
-                    to see chart types
+                    to preview types
                   </span>
                 </div>
               ) : (
-                <div style={{ animation: "slideIn 0.12s ease both" }}>
-                  <div className="px-1 pb-2.5 mb-1 border-b border-neutral-100 flex items-center gap-2">
-                    <span className="text-cyan-400">{activeGroup.icon}</span>
+                <div style={{ animation: "cts-fadein 0.12s ease both" }}>
+                  <div
+                    className="px-1 pb-2 mb-1 flex items-center gap-2"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <span style={{ color: displayGroup.color }}>
+                      {displayGroup.icon}
+                    </span>
                     <div>
-                      <div className="text-xs font-semibold text-neutral-700">
-                        {activeGroup.label}
+                      <div
+                        className="text-xs font-semibold"
+                        style={{ color: "rgba(255,255,255,0.7)" }}
+                      >
+                        {displayGroup.label}
                       </div>
-                      <div className="text-[11px] text-neutral-400">
-                        {activeGroup.description}
+                      <div
+                        className="text-[10px]"
+                        style={{ color: "rgba(255,255,255,0.28)" }}
+                      >
+                        {displayGroup.description}
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    {activeGroup.subtypes.map((sub, i) => (
+                    {displayGroup.subtypes.map((sub, i) => (
                       <button
                         key={i}
-                        onClick={() => handleSubSelect(activeGroup, sub)}
-                        className={`text-left px-3 py-2 rounded-lg transition-all duration-100 text-xs border ${
+                        onClick={() => handleSubSelect(displayGroup, sub)}
+                        className={`text-left px-2.5 py-2 rounded-lg transition-all duration-100 text-xs ${sub.prompt === null ? "col-span-2" : ""}`}
+                        style={
                           sub.prompt === null
-                            ? "col-span-2 border-cyan-200 bg-neutral-50 text-neutral-600 font-medium hover:bg-neutral-100"
-                            : "border-transparent text-neutral-500 hover:bg-neutral-50 hover:border-neutral-200 hover:text-neutral-800"
-                        }`}
+                            ? {
+                                background: "rgba(6,182,212,0.07)",
+                                border: "1px solid rgba(6,182,212,0.16)",
+                                color: "#22d3ee",
+                                fontWeight: 500,
+                              }
+                            : {
+                                background: "rgba(255,255,255,0.025)",
+                                border: "1px solid transparent",
+                                color: "rgba(255,255,255,0.45)",
+                              }
+                        }
+                        onMouseEnter={(e) => {
+                          if (sub.prompt !== null) {
+                            (e.currentTarget as HTMLElement).style.background =
+                              "rgba(255,255,255,0.07)";
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "rgba(255,255,255,0.08)";
+                            (e.currentTarget as HTMLElement).style.color =
+                              "rgba(255,255,255,0.8)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (sub.prompt !== null) {
+                            (e.currentTarget as HTMLElement).style.background =
+                              "rgba(255,255,255,0.025)";
+                            (e.currentTarget as HTMLElement).style.borderColor =
+                              "transparent";
+                            (e.currentTarget as HTMLElement).style.color =
+                              "rgba(255,255,255,0.45)";
+                          }
+                        }}
                       >
                         {sub.prompt === null ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-cyan-400">✦</span>Let AI
-                            choose the best {activeGroup.label} type
+                            <span style={{ color: "#06b6d4" }}>✦</span>Let AI
+                            choose the best {displayGroup.label}
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="w-1 h-1 rounded-full bg-neutral-300 flex-shrink-0" />
+                            <span
+                              className="w-1 h-1 rounded-full flex-shrink-0"
+                              style={{ background: "rgba(255,255,255,0.18)" }}
+                            />
                             {sub.label}
                           </div>
                         )}
@@ -862,18 +1045,29 @@ export default function ChartTypeSelector({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2.5 border-t border-neutral-100 flex items-center justify-between">
-            <span className="text-[11px] text-cyan-300/60">
-              Select category → pick type → AI generates it
+          <div
+            className="px-4 py-2 flex items-center justify-between"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <span
+              className="text-[10px]"
+              style={{
+                color: "rgba(255,255,255,0.18)",
+                fontFamily: "monospace",
+              }}
+            >
+              hover category → pick type → AI generates it
             </span>
             <button
               onClick={() => {
                 setOpen(false);
                 setActiveGroup(null);
+                setHoveredGroup(null);
               }}
-              className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors"
+              className="text-[10px] transition-opacity hover:opacity-80"
+              style={{ color: "rgba(255,255,255,0.25)" }}
             >
-              Close ✕
+              close ✕
             </button>
           </div>
         </div>

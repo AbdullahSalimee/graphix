@@ -26,8 +26,28 @@ const PALETTE = [
   "#7c3aed",
   "#0284c7",
 ];
+
 function stableColor(i: number) {
   return PALETTE[i % PALETTE.length];
+}
+
+// Derive a stable offset from chart data so each chart gets a distinct starting color.
+// Uses trace name + data length + first y value so it's deterministic per chart.
+function getPaletteOffset(data: any[]): number {
+  try {
+    const name = data[0]?.name || "";
+    const firstY = data[0]?.y?.[0] ?? data[0]?.x?.[0] ?? 0;
+    const len = data[0]?.y?.length ?? data[0]?.x?.length ?? 1;
+    let hash = len + Math.round(Math.abs(Number(firstY)));
+    for (let k = 0; k < name.length; k++) hash += name.charCodeAt(k);
+    return hash % PALETTE.length;
+  } catch {
+    return 0;
+  }
+}
+
+function paletteColor(traceIndex: number, offset: number) {
+  return PALETTE[(traceIndex + offset) % PALETTE.length];
 }
 
 function detectType(traces: any[]): string {
@@ -65,27 +85,42 @@ function preprocessTraces(
   if (!data?.length) return { data, layout };
   const chartType = detectType(data);
   const mobile = isMobile();
-  if (chartType === "scatter") {
+  const offset = getPaletteOffset(data);
+
+  // ── Line / Area / Scatter ────────────────────────────────────────────────
+  if (chartType === "line" || chartType === "area" || chartType === "scatter") {
     return {
       data: data.map((trace, i) => {
-        const clr = stableColor(i);
+        // Always override with our palette — ignore server-sent colors entirely
+        const clr = paletteColor(i, offset);
         return {
           ...trace,
           type: "scatter",
-          mode: trace.mode || "markers",
+          mode:
+            trace.mode ||
+            (chartType === "scatter" ? "markers" : "lines+markers"),
           marker: {
             ...(trace.marker || {}),
-            color: trace.marker?.color || clr,
-            size: mobile ? 6 : trace.marker?.size || 9,
-            opacity: 0.82,
+            color: clr,
+            size: mobile
+              ? 6
+              : trace.marker?.size || (chartType === "scatter" ? 9 : 7),
+            opacity: 0.9,
             line: { color: "rgba(255,255,255,0.15)", width: 1 },
           },
-          line: { color: clr, width: 2 },
+          line: {
+            ...(trace.line || {}),
+            color: clr, // ← always forced, never from server
+            width: mobile ? 1.5 : trace.line?.width || 2.5,
+          },
+          fillcolor: trace.fill ? clr + "22" : undefined,
         };
       }),
       layout,
     };
   }
+
+  // ── Heatmap ───────────────────────────────────────────────────────────────
   if (chartType === "heatmap") {
     return {
       data: [
@@ -100,6 +135,8 @@ function preprocessTraces(
       layout: { ...layout, xaxis: { ...(layout.xaxis || {}), side: "bottom" } },
     };
   }
+
+  // ── Waterfall ─────────────────────────────────────────────────────────────
   if (chartType === "waterfall") {
     const trace = data[0];
     const yVals: number[] = trace.y || trace.values || [];
@@ -131,15 +168,20 @@ function preprocessTraces(
       layout,
     };
   }
+
+  // ── Radar ─────────────────────────────────────────────────────────────────
   if (chartType === "radar") {
     return {
-      data: data.map((trace, i) => ({
-        ...trace,
-        type: "scatterpolar",
-        fill: trace.fill || "toself",
-        marker: { color: stableColor(i), size: 5 },
-        line: { color: stableColor(i), width: 2 },
-      })),
+      data: data.map((trace, i) => {
+        const clr = paletteColor(i, offset);
+        return {
+          ...trace,
+          type: "scatterpolar",
+          fill: trace.fill || "toself",
+          marker: { color: clr, size: 5 },
+          line: { color: clr, width: 2 },
+        };
+      }),
       layout: {
         ...layout,
         polar: {
@@ -154,15 +196,28 @@ function preprocessTraces(
       },
     };
   }
+
+  // ── Everything else (bar, pie, donut, histogram, box, violin, funnel…) ───
   return {
     data: data.map((trace, i) => {
-      const clr = stableColor(i);
+      const clr = paletteColor(i, offset);
       const isPie = trace.type === "pie" || trace.type === "donut";
+
+      // Single-trace bar: color each bar with a different palette color
+      const isBar = trace.type === "bar";
+      const isSingleTrace = data.length === 1;
+      const barColors =
+        isBar && isSingleTrace
+          ? (trace.x || trace.y || []).map((_: any, idx: number) =>
+              paletteColor(idx, offset),
+            )
+          : undefined;
+
       return {
         ...trace,
         marker: {
           ...(trace.marker || {}),
-          color: isPie ? PALETTE : trace.marker?.color || clr,
+          color: isPie ? PALETTE : barColors || trace.marker?.color || clr,
           size: mobile
             ? Math.min(trace.marker?.size || 6, 5)
             : trace.marker?.size || 7,

@@ -30,12 +30,15 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const [input, setInput] = useState("");
-  const [chartType, setChartType] = useState<SelectedChart | null>(null);
   const [focused, setFocused] = useState(false);
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
+
+  // Persistent user chart type — never overwritten by CSV detection
+  const [chartType, setChartType] = useState<SelectedChart | null>(null);
+
+  // CSV-only state
   const [detectedHint, setDetectedHint] = useState<string | null>(null);
-  const [userOverride, setUserOverride] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -60,18 +63,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
       setFileContent(text);
       setBannerDismissed(false);
       const hint = autoDetectChartHint(text);
-      if (hint !== "auto") {
-        setDetectedHint(hint);
-        setUserOverride(false);
-        setChartType({
-          groupLabel: hint.charAt(0).toUpperCase() + hint.slice(1),
-          subLabel: "AI Choice",
-          prompt: null,
-        });
-      } else {
-        setDetectedHint(null);
-        setUserOverride(false);
-      }
+      setDetectedHint(hint !== "auto" ? hint : null);
+      // Never touch chartType here
     } catch (err) {
       console.error("Failed to read file:", err);
     }
@@ -81,61 +74,61 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
     setFileContent("");
     setFileName("");
     setDetectedHint(null);
-    setUserOverride(false);
     setBannerDismissed(false);
-    setChartType(null);
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const afterSend = () => {
+    setInput("");
+    clearFile();
   };
 
   const send = () => {
     if (!input.trim() || isLoading) return;
+
     if (fileContent) {
-      if (userOverride) {
-        let fp = input.trim();
-        if (chartType)
-          fp += chartType.prompt
-            ? ` — make this as a "${chartType.prompt}"`
-            : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-        onSend(fp, fileContent, fileName);
-        setInput("");
-        clearFile();
-        return;
-      }
-      if (bannerDismissed) {
-        let fp = input.trim();
-        if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
-        onSend(fp, fileContent, fileName);
-        setInput("");
-        clearFile();
-        return;
-      }
-      const autoHint = autoDetectChartHint(fileContent);
-      if (autoHint !== "auto") {
-        const config = csvToPlotly(fileContent, autoHint, input.trim());
+      // CSV fast-path: banner visible and not dismissed
+      if (detectedHint && !bannerDismissed) {
+        const config = csvToPlotly(
+          fileContent,
+          detectedHint as any,
+          input.trim(),
+        );
         onSend(input.trim(), fileContent, fileName, config);
-        setInput("");
-        clearFile();
+        afterSend();
         return;
       }
+
+      // Banner dismissed → send to AI with persistent chartType
       let fp = input.trim();
-      if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+      if (chartType)
+        fp += chartType.prompt
+          ? ` — make this as a "${chartType.prompt}"`
+          : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
       onSend(fp, fileContent, fileName);
-      setInput("");
-      clearFile();
+      afterSend();
       return;
     }
+
+    // No file — always use persistent chartType
     let fp = input.trim();
     if (chartType)
       fp += chartType.prompt
         ? ` — make this as a "${chartType.prompt}"`
         : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-    onSend(fp, fileContent, fileName);
-    setInput("");
-    clearFile();
+    onSend(fp, "", "");
+    afterSend();
   };
 
   const canSend = !!input.trim() && !isLoading;
-  const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
+  const showBanner = !!fileContent && !!detectedHint && !bannerDismissed;
+
+  const getPlaceholder = () => {
+    if (showBanner) return `Title for your ${detectedHint} chart…`;
+    if (chartType)
+      return `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`;
+    return 'e.g. "Monthly sales Q1–Q4 2024"';
+  };
 
   return (
     <>
@@ -154,7 +147,6 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
         .hero-word-hidden { opacity: 0; transform: translateY(4px); }
         .hero-word-visible { opacity: 1; transform: translateY(0); }
 
-        /* Dark input */
         .hero-input-row {
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.1);
@@ -243,46 +235,23 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
 
         {/* Input section */}
         <div className="hero-fade-2 w-full" style={{ maxWidth: 600 }}>
-          {/* Banner */}
+          {/* CSV banner */}
           {showBanner && (
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs mb-2"
               style={{
-                background: userOverride
-                  ? "rgba(139,92,246,0.08)"
-                  : "rgba(6,182,212,0.07)",
-                border: `1px solid ${userOverride ? "rgba(139,92,246,0.2)" : "rgba(6,182,212,0.2)"}`,
-                color: userOverride
-                  ? "rgba(167,139,250,0.9)"
-                  : "rgba(34,211,238,0.9)",
+                background: "rgba(6,182,212,0.07)",
+                border: "1px solid rgba(6,182,212,0.2)",
+                color: "rgba(34,211,238,0.9)",
               }}
             >
               <span style={{ fontSize: 10 }}>✦</span>
               <span>
-                {userOverride ? (
-                  <>
-                    Using{" "}
-                    <strong>
-                      {chartType?.subLabel === "AI Choice"
-                        ? chartType?.groupLabel
-                        : chartType?.subLabel}
-                    </strong>{" "}
-                    — overrides auto-detection
-                  </>
-                ) : (
-                  <>
-                    Detected <strong>{detectedHint}</strong> — will render
-                    without AI
-                  </>
-                )}
+                Detected <strong>{detectedHint}</strong> — will render without
+                AI
               </span>
               <button
-                onClick={() => {
-                  setDetectedHint(null);
-                  setUserOverride(false);
-                  setBannerDismissed(true);
-                  setChartType(null);
-                }}
+                onClick={() => setBannerDismissed(true)}
                 className="ml-auto transition-opacity hover:opacity-70"
               >
                 ✕
@@ -328,17 +297,8 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
               </svg>
             </label>
 
-            {/* Chart type selector */}
-            <ChartTypeSelector
-              onSelect={(ct) => {
-                setChartType(ct);
-                if (fileContent) {
-                  setUserOverride(true);
-                  setDetectedHint(null);
-                  setBannerDismissed(false);
-                }
-              }}
-            />
+            {/* Chart type selector — user-controlled only */}
+            <ChartTypeSelector onSelect={(ct) => setChartType(ct)} />
 
             {/* Divider */}
             <div
@@ -357,7 +317,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
                   fontFamily: "monospace",
                 }}
               >
-                {detectedHint && !userOverride && !bannerDismissed && (
+                {showBanner && (
                   <span
                     style={{
                       color: "#22d3ee",
@@ -412,15 +372,7 @@ export default function WaveHero({ onSend, isLoading }: WaveHeroProps) {
                   send();
                 }
               }}
-              placeholder={
-                userOverride && chartType
-                  ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
-                  : detectedHint && !bannerDismissed
-                    ? `Title for your ${detectedHint} chart…`
-                    : chartType
-                      ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                      : 'e.g. "Monthly sales Q1–Q4 2024"'
-              }
+              placeholder={getPlaceholder()}
               disabled={isLoading}
             />
 

@@ -25,14 +25,20 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
   const [input, setInput] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
+
+  // --- Persistent user selection from the chart type selector ---
+  // This NEVER gets overwritten by CSV detection. Only the user can change it.
   const [chartType, setChartType] = useState<SelectedChart | null>(null);
-  const [focused, setFocused] = useState(false);
+
+  // --- CSV-only state ---
+  // These only exist while a CSV is attached and the auto-detect banner is showing.
   const [detectedHint, setDetectedHint] = useState<string | null>(null);
-  const [userOverride, setUserOverride] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  const [focused, setFocused] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // When a file is attached, detect chart type for the banner — but NEVER touch chartType
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -42,40 +48,22 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
       setFileContent(text);
       setBannerDismissed(false);
       const hint = autoDetectChartHint(text);
-      if (hint !== "auto") {
-        setDetectedHint(hint);
-        setUserOverride(false);
-        setChartType({
-          groupLabel: hint.charAt(0).toUpperCase() + hint.slice(1),
-          subLabel: "AI Choice",
-          prompt: null,
-        });
-      } else {
-        setDetectedHint(null);
-        setUserOverride(false);
-      }
+      setDetectedHint(hint !== "auto" ? hint : null);
     } catch (err) {
       console.error("Failed to read file:", err);
     }
   };
 
-  // Clears only the file attachment — does NOT reset chartType
+  // Clears file + CSV detection state. Does NOT touch chartType.
   const clearFile = () => {
     setFileContent("");
     setFileName("");
     setDetectedHint(null);
-    setUserOverride(false);
     setBannerDismissed(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // Full reset including chartType — only used when user explicitly clears
-  const clearAll = () => {
-    clearFile();
-    setChartType(null);
-  };
-
-  // Post-send cleanup: clears input + file but keeps chartType selected
+  // After send: clear input and file. chartType stays persistent.
   const afterSend = () => {
     setInput("");
     clearFile();
@@ -83,48 +71,56 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
 
   const send = () => {
     if (!input.trim() || isLoading) return;
+
     if (fileContent) {
-      if (userOverride) {
-        let fp = input.trim();
-        if (chartType)
-          fp += chartType.prompt
-            ? ` — make this as a "${chartType.prompt}"`
-            : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-        onSend(fp, fileContent, fileName);
-        afterSend();
-        return;
-      }
-      if (bannerDismissed) {
-        let fp = input.trim();
-        if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
-        onSend(fp, fileContent, fileName);
-        afterSend();
-        return;
-      }
-      const autoHint = autoDetectChartHint(fileContent);
-      if (autoHint !== "auto") {
-        const config = csvToPlotly(fileContent, autoHint, input.trim());
+      // --- CSV path ---
+
+      // Banner is showing and user hasn't dismissed it → use CSV fast-path
+      if (detectedHint && !bannerDismissed) {
+        const config = csvToPlotly(
+          fileContent,
+          detectedHint as any,
+          input.trim(),
+        );
         onSend(input.trim(), fileContent, fileName, config);
         afterSend();
         return;
       }
+
+      // Banner was dismissed (or no hint detected) → send to AI
+      // Use the persistent chartType from the selector if set
       let fp = input.trim();
-      if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
+      if (chartType)
+        fp += chartType.prompt
+          ? ` — make this as a "${chartType.prompt}"`
+          : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
       onSend(fp, fileContent, fileName);
       afterSend();
       return;
     }
+
+    // --- No file path — always use persistent chartType ---
     let fp = input.trim();
     if (chartType)
       fp += chartType.prompt
         ? ` — make this as a "${chartType.prompt}"`
         : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
-    onSend(fp, fileContent, fileName);
+    onSend(fp, "", "");
     afterSend();
   };
 
   const canSend = !!input.trim() && !isLoading;
-  const showBanner = (!!detectedHint && !bannerDismissed) || userOverride;
+
+  // Banner shows only when: file attached + hint detected + not dismissed
+  const showBanner = !!fileContent && !!detectedHint && !bannerDismissed;
+
+  // Placeholder reflects context clearly
+  const getPlaceholder = () => {
+    if (showBanner) return `Title for your ${detectedHint} chart…`;
+    if (chartType)
+      return `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`;
+    return 'e.g. "Monthly sales Q1–Q4"';
+  };
 
   return (
     <>
@@ -158,46 +154,23 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
         }}
       >
         <div className="max-w-[820px] mx-auto flex flex-col gap-1.5 my-1">
-          {/* Banner */}
+          {/* CSV auto-detect banner */}
           {showBanner && (
             <div
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
               style={{
-                background: userOverride
-                  ? "rgba(139,92,246,0.08)"
-                  : "rgba(6,182,212,0.07)",
-                border: `1px solid ${userOverride ? "rgba(139,92,246,0.2)" : "rgba(6,182,212,0.2)"}`,
-                color: userOverride
-                  ? "rgba(167,139,250,0.9)"
-                  : "rgba(34,211,238,0.9)",
+                background: "rgba(6,182,212,0.07)",
+                border: "1px solid rgba(6,182,212,0.2)",
+                color: "rgba(34,211,238,0.9)",
               }}
             >
               <span style={{ fontSize: 10 }}>✦</span>
               <span>
-                {userOverride ? (
-                  <>
-                    Using{" "}
-                    <strong>
-                      {chartType?.subLabel === "AI Choice"
-                        ? chartType?.groupLabel
-                        : chartType?.subLabel}
-                    </strong>{" "}
-                    — overrides auto-detection
-                  </>
-                ) : (
-                  <>
-                    Detected <strong>{detectedHint}</strong> — will render
-                    without AI
-                  </>
-                )}
+                Detected <strong>{detectedHint}</strong> — will render without
+                AI
               </span>
               <button
-                onClick={() => {
-                  setDetectedHint(null);
-                  setUserOverride(false);
-                  setBannerDismissed(true);
-                  setChartType(null);
-                }}
+                onClick={() => setBannerDismissed(true)}
                 className="ml-auto transition-opacity hover:opacity-70"
               >
                 ✕
@@ -245,20 +218,10 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
               </svg>
             </label>
 
-            {/* Chart type selector — passes clearAll so ✕ still fully resets */}
+            {/* Chart type selector — only the user can change this */}
             <ChartTypeSelector
               onSelect={(ct) => {
                 setChartType(ct);
-                if (ct === null) {
-                  // User explicitly cleared via ✕
-                  setUserOverride(false);
-                  setDetectedHint(null);
-                  setBannerDismissed(false);
-                } else if (fileContent) {
-                  setUserOverride(true);
-                  setDetectedHint(null);
-                  setBannerDismissed(false);
-                }
               }}
             />
 
@@ -279,7 +242,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
                   fontFamily: "monospace",
                 }}
               >
-                {detectedHint && !userOverride && !bannerDismissed && (
+                {showBanner && (
                   <span
                     style={{
                       color: "#22d3ee",
@@ -334,15 +297,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
                   send();
                 }
               }}
-              placeholder={
-                userOverride && chartType
-                  ? `Title for your ${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel} chart…`
-                  : detectedHint && !bannerDismissed
-                    ? `Title for your ${detectedHint} chart…`
-                    : chartType
-                      ? `${chartType.subLabel === "AI Choice" ? chartType.groupLabel : chartType.subLabel}…`
-                      : 'e.g. "Monthly sales Q1–Q4"'
-              }
+              placeholder={getPlaceholder()}
               disabled={isLoading}
             />
 

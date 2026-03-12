@@ -150,6 +150,20 @@ export default function GraphApp() {
         throw new Error(err.error || `Server error ${res.status}`);
       }
       const config = await res.json();
+
+      // If AI returned error message instead of chart
+      if (config.error) {
+        updateMessages(convId, (msgs) =>
+          msgs.map((m) =>
+            m.id === aiMsg.id
+              ? { ...m, content: { error: config.error }, status: "success" }
+              : m,
+          ),
+        );
+        setIsLoading(false);
+        return;
+      }
+
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
           m.id === aiMsg.id ? { ...m, content: config, status: "success" } : m,

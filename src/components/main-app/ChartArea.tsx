@@ -269,17 +269,6 @@ function PremiumTooltip({
   dataRef: React.RefObject<TooltipData | null>;
   tooltipRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const formatVal = (v: string | number) => {
-    const n = Number(v);
-    if (isNaN(n)) return String(v);
-    if (Math.abs(n) >= 1_000_000)
-      return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    if (Math.abs(n) >= 1_000)
-      return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
-    return n % 1 === 0 ? n.toLocaleString() : n.toFixed(2);
-  };
-
-  // We render always but hide via display:none — position is set via DOM directly
   return (
     <div
       ref={tooltipRef}
@@ -473,8 +462,13 @@ function ChartBlock({ message }: ChartBlockProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [toolbarOpen, setToolbarOpen] = useState(false);
 
+  // Check if message is text error/response
+  const isTextResponse =
+    message.content?.error ||
+    (typeof message.content === "string" && message.status === "success");
+
   // ── Pure DOM tooltip helpers ─────────────────────────────────────────────
-  const showTooltip = (mx: number, my: number, data: TooltipData, pt?: any) => {
+  const showTooltip = (mx: number, my: number, data: TooltipData) => {
     const el = tooltipRef.current;
     if (!el) return;
 
@@ -482,7 +476,6 @@ function ChartBlock({ message }: ChartBlockProps) {
     const CARD_H = 120;
     const GAP = 12;
 
-    // Convert viewport mouse coords → relative to chart card
     const cardRect = cardRef.current?.getBoundingClientRect();
     const rx = cardRect ? mx - cardRect.left : mx;
     const ry = cardRect ? my - cardRect.top : my;
@@ -490,12 +483,9 @@ function ChartBlock({ message }: ChartBlockProps) {
     let left = rx - CARD_W - GAP;
     let top = ry - CARD_H / 2;
 
-    // Flip right if too close to left edge of card
     if (left < 8) left = rx + GAP;
-    // Clamp right edge
     if (cardRect && left + CARD_W > cardRect.width - 8)
       left = cardRect.width - CARD_W - 8;
-    // Clamp vertical
     if (top < 8) top = 8;
     if (cardRect && top + CARD_H > cardRect.height - 8)
       top = cardRect.height - CARD_H - 8;
@@ -504,7 +494,6 @@ function ChartBlock({ message }: ChartBlockProps) {
     el.style.top = top + "px";
     el.style.display = "block";
 
-    // Update DOM content
     const bar = el.querySelector("#tt-bar") as HTMLElement;
     const dot = el.querySelector("#tt-dot") as HTMLElement;
     const name = el.querySelector("#tt-name") as HTMLElement;
@@ -560,7 +549,6 @@ function ChartBlock({ message }: ChartBlockProps) {
         showTooltip(e.clientX, e.clientY, lastData);
       }
     };
-    // Expose setter so plotly_hover can set lastData
     (tooltipRef as any)._setData = (d: TooltipData) => {
       lastData = d;
     };
@@ -571,6 +559,8 @@ function ChartBlock({ message }: ChartBlockProps) {
   useEffect(() => {
     if (message.status !== "success" || rendered.current || !divRef.current)
       return;
+    if (isTextResponse) return;
+
     const tryRender = () => {
       if (!("Plotly" in window)) {
         setTimeout(tryRender, 100);
@@ -588,12 +578,17 @@ function ChartBlock({ message }: ChartBlockProps) {
         );
         const layout = buildLayout(processedLayout, chartType);
 
-        // Hide native Plotly tooltip
-        layout.hoverlabel = {
-          bgcolor: "rgba(0,0,0,0)",
-          bordercolor: "rgba(0,0,0,0)",
-          font: { color: "rgba(0,0,0,0)", size: 1 },
-        };
+        // 3D chart types: keep native Plotly hoverlabel and interaction intact
+        const is3D = chartType === "scatter3d" || chartType === "surface";
+
+        if (!is3D) {
+          // Suppress native Plotly tooltip for all 2D chart types
+          layout.hoverlabel = {
+            bgcolor: "rgba(0,0,0,0)",
+            bordercolor: "rgba(0,0,0,0)",
+            font: { color: "rgba(0,0,0,0)", size: 1 },
+          };
+        }
 
         window.Plotly.newPlot(divRef.current, data, layout, {
           responsive: true,
@@ -601,47 +596,59 @@ function ChartBlock({ message }: ChartBlockProps) {
           scrollZoom: false,
         });
 
-        divRef.current!.on("plotly_hover", (eventData: any) => {
-          const pt = eventData?.points?.[0];
-          if (!pt) return;
+        if (!is3D) {
+          divRef.current!.on("plotly_hover", (eventData: any) => {
+            const pt = eventData?.points?.[0];
+            if (!pt) return;
 
-          const traceIdx = pt.curveNumber ?? 0;
-          const ptIdx = pt.pointNumber ?? pt.pointIndex ?? 0;
-          const traceColor = pt.data?.marker?.color;
-          const color =
-            typeof traceColor === "string"
-              ? traceColor
-              : Array.isArray(traceColor)
-                ? traceColor[ptIdx] || stableColor(traceIdx)
-                : pt.data?.line?.color || stableColor(traceIdx);
+            const traceIdx = pt.curveNumber ?? 0;
+            const ptIdx = pt.pointNumber ?? pt.pointIndex ?? 0;
+            const traceColor = pt.data?.marker?.color;
+            const color =
+              typeof traceColor === "string"
+                ? traceColor
+                : Array.isArray(traceColor)
+                  ? traceColor[ptIdx] || stableColor(traceIdx)
+                  : pt.data?.line?.color || stableColor(traceIdx);
 
-          const xVal = pt.x !== undefined ? String(pt.x) : "";
-          const val =
-            pt.z !== undefined
-              ? pt.z
-              : pt.y !== undefined
-                ? pt.y
-                : (pt.value ?? "");
-          const yArr: number[] = pt.data?.y || [];
-          const prevValue = ptIdx > 0 ? yArr[ptIdx - 1] : null;
+            // pie / donut expose pt.label + pt.value instead of pt.x / pt.y
+            const isPieLike =
+              pt.data?.type === "pie" ||
+              chartType === "pie" ||
+              chartType === "donut";
 
-          const tooltipData: TooltipData = {
-            label: xVal,
-            value: val,
-            seriesName: pt.data?.name || "Value",
-            color: typeof color === "string" ? color : stableColor(traceIdx),
-            prevValue,
-          };
+            const xVal = isPieLike
+              ? String(pt.label ?? "")
+              : pt.x !== undefined
+                ? String(pt.x)
+                : "";
 
-          // Store for mousemove reuse
-          (tooltipRef as any)._setData?.(tooltipData);
+            const val = isPieLike
+              ? (pt.value ?? pt.y ?? "")
+              : pt.z !== undefined
+                ? pt.z
+                : pt.y !== undefined
+                  ? pt.y
+                  : (pt.value ?? "");
 
-          // Use the native mouse event from Plotly — it's on eventData.event
-          const e = eventData.event as MouseEvent;
-          showTooltip(e.clientX, e.clientY, tooltipData, pt);
-        });
+            const yArr: number[] = pt.data?.y || [];
+            const prevValue = ptIdx > 0 ? yArr[ptIdx - 1] : null;
 
-        divRef.current!.on("plotly_unhover", hideTooltip);
+            const tooltipData: TooltipData = {
+              label: xVal,
+              value: val,
+              seriesName: pt.data?.name || "Value",
+              color: typeof color === "string" ? color : stableColor(traceIdx),
+              prevValue,
+            };
+
+            (tooltipRef as any)._setData?.(tooltipData);
+            const e = eventData.event as MouseEvent;
+            showTooltip(e.clientX, e.clientY, tooltipData);
+          });
+
+          divRef.current!.on("plotly_unhover", hideTooltip);
+        }
       } catch (e) {
         console.error("Plotly render error:", e);
         if (divRef.current) {
@@ -650,7 +657,7 @@ function ChartBlock({ message }: ChartBlockProps) {
       }
     };
     tryRender();
-  }, [message.status, message.content]);
+  }, [message.status, message.content, isTextResponse]);
 
   useEffect(() => {
     const onResize = () => {
@@ -705,6 +712,22 @@ function ChartBlock({ message }: ChartBlockProps) {
         }}
       >
         ⚠ {message.content}
+      </div>
+    );
+  }
+
+  if (isTextResponse && message.status === "success") {
+    const text = message.content?.error || message.content;
+    return (
+      <div
+        className="p-4 text-sm rounded-xl"
+        style={{
+          background: "rgba(255,255,255,0.035)",
+          border: "1px solid red",
+          color: "red",
+        }}
+      >
+        {text}
       </div>
     );
   }

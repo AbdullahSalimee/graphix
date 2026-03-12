@@ -59,14 +59,26 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     }
   };
 
+  // Clears only the file attachment — does NOT reset chartType
   const clearFile = () => {
     setFileContent("");
     setFileName("");
     setDetectedHint(null);
     setUserOverride(false);
     setBannerDismissed(false);
-    setChartType(null);
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // Full reset including chartType — only used when user explicitly clears
+  const clearAll = () => {
+    clearFile();
+    setChartType(null);
+  };
+
+  // Post-send cleanup: clears input + file but keeps chartType selected
+  const afterSend = () => {
+    setInput("");
+    clearFile();
   };
 
   const send = () => {
@@ -79,31 +91,27 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
             ? ` — make this as a "${chartType.prompt}"`
             : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
         onSend(fp, fileContent, fileName);
-        setInput("");
-        clearFile();
+        afterSend();
         return;
       }
       if (bannerDismissed) {
         let fp = input.trim();
         if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
         onSend(fp, fileContent, fileName);
-        setInput("");
-        clearFile();
+        afterSend();
         return;
       }
       const autoHint = autoDetectChartHint(fileContent);
       if (autoHint !== "auto") {
         const config = csvToPlotly(fileContent, autoHint, input.trim());
         onSend(input.trim(), fileContent, fileName, config);
-        setInput("");
-        clearFile();
+        afterSend();
         return;
       }
       let fp = input.trim();
       if (chartType?.prompt) fp += ` — make this as a "${chartType.prompt}"`;
       onSend(fp, fileContent, fileName);
-      setInput("");
-      clearFile();
+      afterSend();
       return;
     }
     let fp = input.trim();
@@ -112,8 +120,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
         ? ` — make this as a "${chartType.prompt}"`
         : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
     onSend(fp, fileContent, fileName);
-    setInput("");
-    clearFile();
+    afterSend();
   };
 
   const canSend = !!input.trim() && !isLoading;
@@ -238,11 +245,16 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
               </svg>
             </label>
 
-            {/* Chart type selector */}
+            {/* Chart type selector — passes clearAll so ✕ still fully resets */}
             <ChartTypeSelector
               onSelect={(ct) => {
                 setChartType(ct);
-                if (fileContent) {
+                if (ct === null) {
+                  // User explicitly cleared via ✕
+                  setUserOverride(false);
+                  setDetectedHint(null);
+                  setBannerDismissed(false);
+                } else if (fileContent) {
                   setUserOverride(true);
                   setDetectedHint(null);
                   setBannerDismissed(false);

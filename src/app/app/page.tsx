@@ -1,5 +1,12 @@
-import AppPage from "@/components/main-app/GraphApp";
+import RouteGuard from "@/components/RouteGuard";
+import GraphApp from "@/components/main-app/GraphApp";
 
-export default function Home() {
-  return <AppPage/>;
+export const metadata = { title: "App — Graphix" };
+
+export default function AppPage() {
+  return (
+    <RouteGuard>
+      <GraphApp />
+    </RouteGuard>
+  );
 }

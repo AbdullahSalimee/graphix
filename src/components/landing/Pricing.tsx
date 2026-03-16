@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const FEATURES = [
@@ -352,16 +353,17 @@ export default function PricingSection() {
                     </div>
 
                     {/* CTA */}
-                    <button
-                      className="w-full py-3 rounded-xl font-mono text-sm font-bold tracking-wide transition-all hover:scale-[1.03] active:scale-[0.98]"
+                    <Link
+                      href="/dashboard"
+                      className="w-full py-3 rounded-xl font-mono hover:cursor-pointer text-sm font-bold text-center tracking-wide transition-all hover:scale-[1.03] active:scale-[0.98]"
                       style={{
                         background: "linear-gradient(135deg, #06b6d4, #0891b2)",
                         color: "#000",
                         boxShadow: "0 0 24px rgba(6,182,212,0.3)",
                       }}
                     >
-                      Start free → sign up
-                    </button>
+                      Start free
+                    </Link>
                     <p className="font-mono text-[9px] text-zinc-400 text-center">
                       No card required · 30 sec setup
                     </p>

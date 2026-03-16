@@ -744,8 +744,8 @@ export default function CTA() {
                 }}
               >
                 <Link
-                  className="bg-cyan-600 text-2 font-bold px-3 py-2 hover:bg-cyan-700 hover:cursor-pointer"
-                  href="/app"
+                  className="bg-cyan-600 text-2 text-white rounded-lg font-bold px-3 py-2 hover:bg-cyan-700 hover:cursor-pointer"
+                  href="/dashboard"
                 >
                   Try Now
                 </Link>

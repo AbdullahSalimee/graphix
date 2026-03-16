@@ -640,7 +640,7 @@ export default function Hero() {
               instant beauty.
             </p>
             <Link
-              href="/app"
+              href="/dashboard"
               className="inline-block bg-cyan-600 hover:invert text-white px-7 py-3 text-sm tracking-[0.15em] transition-colors duration-150 no-underline leading-none"
             >
               TRY NOW

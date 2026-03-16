@@ -1,15 +1,9 @@
 "use client";
-import { useState, useEffect, use } from "react";
-import { CYAN, BG, W08, W12, W20, W35, W55, C08, C18, C35 } from "@/lib/Tokens";
-import { IC } from "@/lib/Tokens";
-import {
-  GRAPHS,
-  STATS,
-  ACTIVITY,
-  TEMPLATES,
-  USER,
-  PAGE_TITLES,
-} from "@/lib/Data";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useDashboardStore } from "@/store/useDashboardStore";
+import { PAGE_TITLES, NAV } from "@/lib/Data";
 import {
   Ico,
   Chip,
@@ -19,22 +13,75 @@ import {
   FieldLabel,
   SectionCard,
   SectionHead,
-  StripeDivider,
   BackBtn,
   SuccessBanner,
   DataTable,
-  Stepper,
-  MiniStepper,
   ActionCard,
 } from "@/components/dashboard/UIKit";
 import GraphCard from "@/components/dashboard/GraphCard";
 import Sidebar from "@/components/dashboard/Sidebar";
-import { useRouter } from "next/navigation";
-import { ClippingGroup } from "three/webgpu";
-import RouteGuard from "@/components/RouteGuard";
+
+// ─── Colour tokens as Tailwind-compatible values ──────────────────────────────
+// We keep a tiny set for cases where Tailwind can't express dynamic values.
+const CYAN = "#00d4c8";
+
+// ─── Skeleton loader ──────────────────────────────────────────────────────────
+function Skeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded bg-white/[0.06] ${className}`} />
+  );
+}
 
 // ─────────────────────────────────────────────────────────────
-// GRAPH GRID  (search + filter + card grid)
+// STAT CARD
+// ─────────────────────────────────────────────────────────────
+function StatCard({ stat, index }: { stat: any; index: number }) {
+  const [vis, setVis] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setVis(true), index * 70 + 80);
+    return () => clearTimeout(t);
+  }, [index]);
+
+  return (
+    <div
+      className="relative border border-white/[0.08] rounded-[7px] p-4 overflow-hidden transition-all duration-[400ms]"
+      style={{
+        opacity: vis ? 1 : 0,
+        transform: vis ? "none" : "translateY(10px)",
+      }}
+    >
+      {/* Accent glow */}
+      <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[radial-gradient(circle_at_top_right,rgba(0,212,200,0.08),transparent)] pointer-events-none" />
+
+      <div className="flex items-center justify-between mb-[14px]">
+        <span className="text-white/35 text-[10px] font-bold tracking-[0.1em] uppercase">
+          {stat.label}
+        </span>
+        <div className="w-[29px] h-[29px] bg-[rgba(0,212,200,0.08)] border border-[rgba(0,212,200,0.35)] rounded-[5px] flex items-center justify-center text-[#00d4c8]">
+          <svg
+            width={13}
+            height={13}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d={stat.icon} />
+          </svg>
+        </div>
+      </div>
+      <div className="text-[28px] font-extrabold text-white leading-none mb-[5px] tracking-tight">
+        {stat.value}
+      </div>
+      <div className="text-[12px] text-[#00d4c8]">{stat.delta}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GRAPH GRID
 // ─────────────────────────────────────────────────────────────
 function GraphGrid({
   graphs,
@@ -50,39 +97,21 @@ function GraphGrid({
       g.title.toLowerCase().includes(search.toLowerCase()) &&
       (filter === "All" || g.tag === filter),
   );
+  const filters = ["All", "Line", "Bar", "Area"];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div
-        style={{
-          display: "flex",
-          gap: 9,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <div
-          style={{
-            position: "relative",
-            flex: 1,
-            minWidth: 190,
-            maxWidth: 290,
-          }}
-        >
+    <div className="flex flex-col gap-[18px]">
+      {/* Filters */}
+      <div className="flex gap-[9px] flex-wrap items-center">
+        <div className="relative flex-1 min-w-[190px] max-w-[290px]">
           <svg
             width={13}
             height={13}
             viewBox="0 0 24 24"
             fill="none"
-            stroke={W20}
+            stroke="rgba(255,255,255,0.2)"
             strokeWidth={2}
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none",
-            }}
+            className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
           >
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
@@ -91,74 +120,40 @@ function GraphGrid({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search graphs…"
-            style={{
-              width: "100%",
-              paddingLeft: 30,
-              paddingRight: 11,
-              paddingTop: 8,
-              paddingBottom: 8,
-              background: "transparent",
-              border: `1px solid ${search ? CYAN : W12}`,
-              borderRadius: 3,
-              color: "#fff",
-              fontSize: 13,
-              outline: "none",
-              boxSizing: "border-box",
-              fontFamily: "inherit",
-            }}
+            className="w-full pl-[30px] pr-[11px] py-2 bg-transparent border border-white/[0.08] focus:border-[rgba(0,212,200,0.45)] rounded-[5px] text-[13px] text-white outline-none transition-colors"
           />
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {["All", "Line", "Bar", "Area"].map((f) => (
+        <div className="flex gap-[6px] flex-wrap">
+          {filters.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              style={{
-                padding: "7px 13px",
-                background: filter === f ? CYAN : "transparent",
-                border: `1px solid ${filter === f ? CYAN : W12}`,
-                color: filter === f ? "#111212" : W35,
-                borderRadius: 3,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.05em",
-                cursor: "pointer",
-                textTransform: "uppercase",
-                transition: "all 0.15s",
-              }}
+              className={`px-[10px] py-[5px] text-[11px] font-bold rounded-[4px] border cursor-pointer transition-colors
+                ${
+                  filter === f
+                    ? "bg-[rgba(0,212,200,0.15)] border-[rgba(0,212,200,0.4)] text-[#00d4c8]"
+                    : "bg-transparent border-white/[0.08] text-white/35 hover:border-white/20 hover:text-white/55"
+                }`}
             >
               {f}
             </button>
           ))}
         </div>
       </div>
-      {list.length > 0 ? (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
-            gap: 12,
-          }}
-        >
-          {list.map((g, i) => (
-            <GraphCard key={g.id} graph={g} index={i} />
-          ))}
+
+      {/* Grid */}
+      {list.length === 0 ? (
+        <div className="text-center py-16 text-white/20 text-[13px]">
+          {emptyMsg}
         </div>
       ) : (
         <div
-          style={{
-            border: `1px solid ${W08}`,
-            borderRadius: 6,
-            padding: "72px 20px",
-            textAlign: "center",
-          }}
+          className="grid gap-[12px]"
+          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}
         >
-          <div style={{ fontSize: 34, opacity: 0.12, marginBottom: 10 }}>
-            📊
-          </div>
-          <p style={{ color: W35, fontWeight: 700, fontSize: 14 }}>
-            {emptyMsg}
-          </p>
+          {list.map((g) => (
+            <GraphCard key={g.id} graph={g} />
+          ))}
         </div>
       )}
     </div>
@@ -168,172 +163,67 @@ function GraphGrid({
 // ─────────────────────────────────────────────────────────────
 // DASHBOARD HOME
 // ─────────────────────────────────────────────────────────────
-function StatCard({ stat, index }: { stat: any; index: number }) {
-  const [vis, setVis] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setVis(true), index * 90);
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <div
-      style={{
-        border: `1px solid ${W08}`,
-        borderRadius: 6,
-        padding: "18px 20px",
-        opacity: vis ? 1 : 0,
-        transform: vis ? "none" : "translateY(10px)",
-        transition: "opacity 0.4s ease, transform 0.4s ease",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          width: 60,
-          height: 60,
-          background: `radial-gradient(circle at top right,${C08},transparent)`,
-        }}
-      />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        }}
-      >
-        <span
-          style={{
-            color: W35,
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-          }}
-        >
-          {stat.label}
-        </span>
-        <div
-          style={{
-            width: 29,
-            height: 29,
-            background: C08,
-            border: `1px solid ${C35}`,
-            borderRadius: 5,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: CYAN,
-          }}
-        >
-          <Ico d={stat.icon} size={13} />
-        </div>
-      </div>
-      <div
-        style={{
-          fontSize: 28,
-          fontWeight: 800,
-          color: "#fff",
-          lineHeight: 1,
-          marginBottom: 5,
-          letterSpacing: "-0.02em",
-        }}
-      >
-        {stat.value}
-      </div>
-      <div style={{ fontSize: 12, color: CYAN }}>{stat.delta}</div>
-    </div>
-  );
-}
-
-function DashboardHome({ setTab }: { setTab: (tab: string) => void }) {
-  const [vis, setVis] = useState(false);
+function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
   const router = useRouter();
+  const [vis, setVis] = useState(false);
+  const { user, graphs, stats, activity, isLoading } = useDashboardStore();
+
   useEffect(() => {
     const t = setTimeout(() => setVis(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  const firstName = user.name?.split(" ")[0] ?? "…";
+
   return (
     <div
+      className="flex flex-col gap-7 transition-all duration-[400ms]"
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 28,
         opacity: vis ? 1 : 0,
         transform: vis ? "none" : "translateY(8px)",
-        transition: "all 0.4s ease",
       }}
     >
       {/* Welcome */}
       <div>
-        <div
-          style={{
-            color: CYAN,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            marginBottom: 7,
-          }}
-        >
+        <div className="text-[#00d4c8] text-[11px] font-bold tracking-[0.18em] uppercase mb-[7px]">
           Good morning
         </div>
-        <h1
-          style={{
-            color: "#fff",
-            fontSize: "clamp(1.8rem,4vw,2.5rem)",
-            fontWeight: 800,
-            margin: 0,
-            lineHeight: 1.12,
-            letterSpacing: "-0.025em",
-          }}
-        >
-          <span style={{ color: CYAN }}>{USER.name.split(" ")[0]}'s</span>{" "}
-          workspace
-        </h1>
-        <p style={{ color: W35, fontSize: 14, marginTop: 7 }}>
+        {isLoading ? (
+          <Skeleton className="h-9 w-64 mb-2" />
+        ) : (
+          <h1 className="text-white font-extrabold text-[clamp(1.8rem,4vw,2.5rem)] leading-[1.12] tracking-tight m-0">
+            <span className="text-[#00d4c8]">{firstName}'s</span> workspace
+          </h1>
+        )}
+        <p className="text-white/35 text-[14px] mt-[7px]">
           Here's what's happening with your data today.
         </p>
       </div>
 
-      <div className="w-full h-4 bg-[repeating-linear-gradient(-45deg,black_0px,white_3px,transparent_3px,transparent_6px)]"></div>
+      {/* Stripe divider */}
+      <div className="w-full h-2 bg-[repeating-linear-gradient(-45deg,black_0px,white_3px,transparent_3px,transparent_6px)]" />
 
       {/* Stats */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill,minmax(185px,1fr))",
-          gap: 11,
-        }}
+        className="grid gap-[11px]"
+        style={{ gridTemplateColumns: "repeat(auto-fill,minmax(185px,1fr))" }}
       >
-        {STATS.map((s, i) => (
-          <StatCard key={s.label} stat={s} index={i} />
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[100px] rounded-[7px]" />
+            ))
+          : stats.map((s, i) => <StatCard key={s.label} stat={s} index={i} />)}
       </div>
+
       {/* Quick Actions */}
       <div>
-        <h2
-          style={{
-            color: "#fff",
-            fontSize: 14,
-            fontWeight: 700,
-            marginBottom: 12,
-          }}
-        >
-          Quick Actions
-        </h2>
+        <h2 className="text-white text-[14px] font-bold mb-3">Quick Actions</h2>
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
-            gap: 9,
-          }}
+          className="grid gap-[9px]"
+          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))" }}
         >
           <ActionCard
-            icon={IC.plus}
+            icon="M12 5v14M5 12h14"
             label="New Graph"
             sub="Build from scratch"
             cta="Create"
@@ -341,21 +231,21 @@ function DashboardHome({ setTab }: { setTab: (tab: string) => void }) {
             primary
           />
           <ActionCard
-            icon={IC.sheet}
+            icon="M9 17H5a2 2 0 00-2 2"
             label="Google Sheets"
             sub="Connect live data"
             cta="Connect"
             onClick={() => setTab("import-google")}
           />
           <ActionCard
-            icon={IC.upload}
+            icon="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
             label="Upload Excel"
             sub="XLS / XLSX / CSV"
             cta="Upload"
             onClick={() => setTab("import-excel")}
           />
           <ActionCard
-            icon={IC.paste}
+            icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
             label="Paste Data"
             sub="Tabular text / JSON"
             cta="Paste"
@@ -364,1003 +254,94 @@ function DashboardHome({ setTab }: { setTab: (tab: string) => void }) {
         </div>
       </div>
 
-      {/* Recent */}
+      {/* Recent Graphs */}
       <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>
-            Recent Graphs
-          </h2>
+        <div className="flex items-center justify-between mb-[14px]">
+          <h2 className="text-white text-[14px] font-bold">Recent Graphs</h2>
           <button
             onClick={() => setTab("graphs")}
-            style={{
-              color: CYAN,
-              background: "none",
-              border: "none",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            className="text-[#00d4c8] text-[11px] font-semibold tracking-[0.06em] uppercase bg-transparent border-none cursor-pointer hover:opacity-75 transition-opacity"
           >
             View all →
           </button>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
-            gap: 12,
-          }}
-        >
-          {GRAPHS.slice(0, 6).map((g, i) => (
-            <GraphCard key={g.id} graph={g} index={i} />
-          ))}
-        </div>
-      </div>
-      {/* Activity + Starred */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))",
-          gap: 12,
-        }}
-      >
-        <SectionCard>
-          <SectionHead title="Activity" right={<Chip>Last 7 days</Chip>} />
-          {ACTIVITY.map((a, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "11px 17px",
-                borderBottom:
-                  i < ACTIVITY.length - 1 ? `1px solid ${W08}` : "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 29,
-                  height: 29,
-                  borderRadius: 5,
-                  background: a.own ? C18 : W08,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  color: a.own ? CYAN : W55,
-                  flexShrink: 0,
-                }}
-              >
-                {a.avatar}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ color: W35, fontSize: 13 }}>{a.action} </span>
-                <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>
-                  {a.graph}
-                </span>
-              </div>
-              <span style={{ color: W20, fontSize: 11, flexShrink: 0 }}>
-                {a.time}
-              </span>
-            </div>
-          ))}
-        </SectionCard>
-        <SectionCard>
-          <SectionHead
-            title="Starred"
-            right={
-              <button
-                onClick={() => setTab("favourites")}
-                style={{
-                  color: CYAN,
-                  background: "none",
-                  border: "none",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                See all →
-              </button>
-            }
-          />
-          {GRAPHS.filter((g) => g.starred).map((g, i, arr) => (
-            <div
-              key={g.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 11,
-                padding: "11px 17px",
-                borderBottom: i < arr.length - 1 ? `1px solid ${W08}` : "none",
-                cursor: "pointer",
-              }}
-            >
-              <Ico d={IC.star} size={12} fill={CYAN} stroke={CYAN} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    color: "#fff",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {g.title}
-                </div>
-                <div style={{ color: W35, fontSize: 11 }}>{g.category}</div>
-              </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: g.up ? CYAN : W55,
-                  flexShrink: 0,
-                }}
-              >
-                {g.trend}
-              </span>
-            </div>
-          ))}
-        </SectionCard>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// NEW GRAPH PAGE
-// ─────────────────────────────────────────────────────────────
-function NewGraphPage({ setTab }: { setTab: (tab: string) => void }) {
-  const [step, setStep] = useState(1);
-  const [type, setType] = useState("Line");
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const types = [
-    { id: "Line", label: "Line Chart", sub: "Trends over time" },
-    { id: "Bar", label: "Bar Chart", sub: "Compare values" },
-    { id: "Area", label: "Area Chart", sub: "Volume & fill" },
-    { id: "Pie", label: "Pie / Donut", sub: "Proportions" },
-    { id: "Scatter", label: "Scatter", sub: "Correlation" },
-    { id: "Table", label: "Data Table", sub: "Raw records" },
-  ];
-  return (
-    <div style={{ maxWidth: 650 }}>
-      <BackBtn onClick={() => setTab("dashboard")} />
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        New Graph
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Choose a chart type and configure your visualization
-      </p>
-      <Stepper
-        steps={[
-          ["1", "Type"],
-          ["2", "Details"],
-          ["3", "Data"],
-        ]}
-        current={step}
-      />
-      {step === 1 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 17 }}>
+        {isLoading ? (
           <div
+            className="grid gap-3"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              gap: 9,
+              gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
             }}
           >
-            {types.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setType(t.id)}
-                style={{
-                  background: type === t.id ? C18 : "transparent",
-                  border: `1.5px solid ${type === t.id ? CYAN : W12}`,
-                  borderRadius: 6,
-                  padding: "17px 11px",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                  transition: "all 0.15s",
-                }}
-              >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 5,
-                    background: type === t.id ? C35 : W08,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: type === t.id ? CYAN : W35,
-                  }}
-                >
-                  <Ico d={IC.graphs} size={16} />
-                </div>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 12 }}>
-                  {t.label}
-                </div>
-                <div style={{ color: W35, fontSize: 11 }}>{t.sub}</div>
-              </button>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[140px] rounded-[7px]" />
             ))}
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Btn onClick={() => setStep(2)}>Next: Details →</Btn>
+        ) : graphs.length === 0 ? (
+          <div className="border border-white/[0.08] rounded-[7px] p-10 text-center">
+            <p className="text-white/35 text-[13px] mb-4">
+              No graphs yet. Create your first one!
+            </p>
+            <Btn onClick={() => setTab("new-graph")}>Create Graph →</Btn>
           </div>
-        </div>
-      )}
-      {step === 2 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 17 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <FieldLabel>Graph Title *</FieldLabel>
-              <FieldInput
-                value={title}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setTitle(e.target.value)
-                }
-                placeholder="e.g. Monthly Revenue Q1"
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <FieldLabel>Description</FieldLabel>
-              <FieldTextarea
-                value={desc}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setDesc(e.target.value)
-                }
-                placeholder="What does this graph show?"
-                rows={3}
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <FieldLabel>Category</FieldLabel>
-              <select
-                style={{
-                  background: "transparent",
-                  border: `1px solid ${W12}`,
-                  color: "#fff",
-                  padding: "10px 13px",
-                  fontSize: 13,
-                  outline: "none",
-                  borderRadius: 3,
-                  fontFamily: "inherit",
-                  cursor: "pointer",
-                }}
-              >
-                {[
-                  "Finance",
-                  "Growth",
-                  "Retention",
-                  "Product",
-                  "Operations",
-                ].map((c) => (
-                  <option key={c} value={c} style={{ background: BG }}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <Btn variant="ghost" onClick={() => setStep(1)}>
-              ← Back
-            </Btn>
-            <Btn onClick={() => setStep(3)}>Next: Add Data →</Btn>
-          </div>
-        </div>
-      )}
-      {step === 3 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 17 }}>
-          <p style={{ color: W35, fontSize: 13 }}>
-            Add data to your <strong style={{ color: "#fff" }}>{type}</strong>{" "}
-            graph
-          </p>
+        ) : (
           <div
+            className="grid gap-3"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              gap: 9,
+              gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
             }}
           >
-            <ActionCard
-              icon={IC.upload}
-              label="Upload File"
-              sub="CSV / XLSX"
-              cta="Select"
-              onClick={() => setTab("import-excel")}
-            />
-            <ActionCard
-              icon={IC.sheet}
-              label="Google Sheets"
-              sub="Connect live"
-              cta="Select"
-              onClick={() => setTab("import-google")}
-            />
-            <ActionCard
-              icon={IC.paste}
-              label="Paste Data"
-              sub="Manual entry"
-              cta="Select"
-              onClick={() => setTab("import-paste")}
-            />
+            {graphs.slice(0, 4).map((g) => (
+              <GraphCard key={g.id} graph={g} />
+            ))}
           </div>
-          <Btn
-            variant="ghost"
-            onClick={() => setStep(2)}
-            style={{ alignSelf: "flex-start" }}
-          >
-            ← Back
-          </Btn>
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
+      </div>
 
-// ─────────────────────────────────────────────────────────────
-// IMPORT: GOOGLE SHEETS
-// ─────────────────────────────────────────────────────────────
-function ImportGooglePage({ setTab }: { setTab: (tab: string) => void }) {
-  const [step, setStep] = useState("connect");
-  const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [sheetData, setSheetData] = useState<string[][]>([]);
-  const [sheetName, setSheetName] = useState("");
-
-  const connect = async () => {
-    if (!url.trim()) return;
-    setError("");
-    setBusy(true);
-
-    const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    if (!idMatch) {
-      setError(
-        "Invalid Google Sheets URL. Please paste the full URL from your browser.",
-      );
-      setBusy(false);
-      return;
-    }
-
-    const sheetId = idMatch[1];
-    const gid = url.match(/gid=(\d+)/)?.[1] ?? "0";
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-
-    try {
-      const res = await fetch(csvUrl);
-      if (!res.ok)
-        throw new Error(
-          "Could not fetch sheet. Make sure sharing is set to 'Anyone with link can view'.",
-        );
-      const text = await res.text();
-      const rows = text.split("\n").map((r) => r.split(","));
-      setSheetData(rows);
-      console.log("Fetched sheet data:", rows); // Log first 5 rows for debugging
-      // derive a readable name from URL or fallback
-      setSheetName(`Sheet (${sheetId.slice(0, 8)}…)`);
-      setStep("done");
-    } catch (e: any) {
-      setError(e.message ?? "Something went wrong.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: 550 }}>
-      <BackBtn onClick={() => setTab("dashboard")} />
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Connect Google Sheets
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Paste the URL of the exact tab you want — no sign-in needed
-      </p>
-
-      <MiniStepper
-        steps={[
-          ["connect", "Paste URL"],
-          ["done", "Done"],
-        ]}
-        current={step}
-      />
-
-      {step === "connect" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div
-            style={{
-              border: `1px solid ${W12}`,
-              borderRadius: 6,
-              padding: 17,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: 14 }}>
-              Sheet URL
-            </div>
-
-            {/* How-to hint */}
-            <div
-              style={{
-                background: C08,
-                border: `1px solid ${W12}`,
-                borderRadius: 5,
-                padding: "10px 13px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 5,
-              }}
-            >
-              <div style={{ color: CYAN, fontSize: 12, fontWeight: 700 }}>
-                HOW TO GET YOUR URL
-              </div>
-              {[
-                "1. Open your Google Sheet",
-                "2. Navigate to the exact tab you want",
-                "3. Set sharing → Anyone with link can view",
-                "4. Copy the URL from your browser bar and paste below",
-              ].map((tip) => (
-                <div key={tip} style={{ color: W35, fontSize: 12 }}>
-                  {tip}
-                </div>
+      {/* Activity */}
+      <div>
+        <h2 className="text-white text-[14px] font-bold mb-3">
+          Recent Activity
+        </h2>
+        <div className="border border-white/[0.08] rounded-[7px] overflow-hidden">
+          {isLoading ? (
+            <div className="p-4 flex flex-col gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-[38px]" />
               ))}
             </div>
-
-            <FieldInput
-              value={url}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setUrl(e.target.value);
-                setError("");
-              }}
-              placeholder="https://docs.google.com/spreadsheets/d/…"
-            />
-
-            {error && (
-              <div
-                style={{
-                  color: "#f87171",
-                  fontSize: 12,
-                  background: "rgba(248,113,113,0.08)",
-                  border: "1px solid rgba(248,113,113,0.2)",
-                  borderRadius: 4,
-                  padding: "8px 12px",
-                }}
-              >
-                ⚠ {error}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Btn onClick={connect}>
-              {busy ? "Connecting…" : "Connect Sheet →"}
-            </Btn>
-          </div>
-        </div>
-      )}
-
-      {step === "done" && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 18,
-            padding: "44px 0",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 12,
-              background: C18,
-              border: `1.5px solid ${C35}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ico d={IC.check} size={24} stroke={CYAN} sw={2.5} />
-          </div>
-          <div>
-            <h3
-              style={{
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: 18,
-                marginBottom: 7,
-              }}
-            >
-              Sheet connected!
-            </h3>
-            <p style={{ color: W35, fontSize: 13 }}>
-              <strong style={{ color: "#fff" }}>{sheetName}</strong> is linked.{" "}
-              {sheetData.length} rows imported. Graphs update automatically.
-            </p>
-          </div>
-
-          {/* Preview first few rows */}
-          {sheetData.length > 0 && (
-            <div
-              style={{
-                width: "100%",
-                background: C08,
-                border: `1px solid ${W12}`,
-                borderRadius: 6,
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ overflowX: "auto" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 12,
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      {sheetData[0].map((col, i) => (
-                        <th
-                          key={i}
-                          style={{
-                            padding: "8px 12px",
-                            color: CYAN,
-                            fontWeight: 700,
-                            textAlign: "left",
-                            borderBottom: `1px solid ${W12}`,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {col}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sheetData.slice(1, 10).map((row, ri) => (
-                      <tr key={ri}>
-                        {row.map((cell, ci) => (
-                          <td
-                            key={ci}
-                            style={{
-                              padding: "7px 12px",
-                              color: W35,
-                              borderBottom: `1px solid ${W12}`,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ padding: "7px 12px", color: W35, fontSize: 11 }}>
-                Showing 3 of {sheetData.length - 1} rows
-              </div>
+          ) : activity.length === 0 ? (
+            <div className="p-8 text-center text-white/20 text-[13px]">
+              No activity yet.
             </div>
+          ) : (
+            activity.map((a, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-[18px] py-[11px] border-b border-white/[0.05] last:border-b-0 hover:bg-white/[0.02] transition-colors"
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 ${
+                    a.own
+                      ? "bg-[rgba(0,212,200,0.15)] text-[#00d4c8] border border-[rgba(0,212,200,0.3)]"
+                      : "bg-white/[0.08] text-white/55 border border-white/[0.1]"
+                  }`}
+                >
+                  {a.avatar}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-white/55 text-[12px]">
+                    <span className="text-white font-semibold">{a.action}</span>{" "}
+                    <span className="text-[#00d4c8]">{a.graph}</span>
+                  </span>
+                </div>
+                <span className="text-white/20 text-[11px] flex-shrink-0">
+                  {a.time}
+                </span>
+              </div>
+            ))
           )}
-
-          <div style={{ display: "flex", gap: 9 }}>
-            <Btn
-              variant="ghost"
-              onClick={() => {
-                setStep("connect");
-                setUrl("");
-                setSheetData([]);
-              }}
-            >
-              Connect Another
-            </Btn>
-            <Btn onClick={() => setTab("new-graph")}>Create Graph →</Btn>
-          </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// IMPORT: EXCEL UPLOAD
-// ─────────────────────────────────────────────────────────────
-const XL_ROWS = [
-  ["Month", "Revenue", "Users", "Churn"],
-  ["Jan 2024", "84,200", "1,240", "2.1%"],
-  ["Feb 2024", "91,500", "1,380", "1.9%"],
-  ["Mar 2024", "88,300", "1,310", "2.3%"],
-  ["Apr 2024", "96,800", "1,520", "1.7%"],
-];
-
-function ImportExcelPage({ setTab }: { setTab: (tab: string) => void }) {
-  const [drag, setDrag] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [parsing, setParsing] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const handle = (f: any) => {
-    setFile(f);
-    setParsing(true);
-    setTimeout(() => {
-      setParsing(false);
-      setPreview(true);
-    }, 1400);
-  };
-  const reset = () => {
-    setFile(null);
-    setParsing(false);
-    setPreview(false);
-  };
-  return (
-    <div style={{ maxWidth: 620 }}>
-      <BackBtn onClick={() => setTab("dashboard")} />
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Upload Excel Sheet
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Supports .xlsx, .xls and .csv files up to 50 MB
-      </p>
-      {!file && (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDrag(true);
-          }}
-          onDragLeave={() => setDrag(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDrag(false);
-            if (e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]);
-          }}
-          onClick={() => document.getElementById("xl-in")?.click()}
-          style={{
-            border: `2px dashed ${drag ? CYAN : W12}`,
-            borderRadius: 8,
-            padding: "52px 36px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 13,
-            textAlign: "center",
-            cursor: "pointer",
-            background: drag ? C08 : "transparent",
-            transition: "all 0.2s",
-          }}
-        >
-          <input
-            id="xl-in"
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              if (e.target.files?.[0]) handle(e.target.files[0]);
-            }}
-          />
-          <div
-            style={{
-              width: 54,
-              height: 54,
-              border: `1.5px solid ${drag ? CYAN : W12}`,
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: drag ? CYAN : W35,
-              background: drag ? C08 : "transparent",
-            }}
-          >
-            <Ico d={IC.upload} size={22} />
-          </div>
-          <div>
-            <div
-              style={{
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 15,
-                marginBottom: 5,
-              }}
-            >
-              Drop your file here
-            </div>
-            <div style={{ color: W35, fontSize: 13 }}>or click to browse</div>
-          </div>
-          <div style={{ display: "flex", gap: 7 }}>
-            {[".xlsx", ".xls", ".csv"].map((e) => (
-              <Chip key={e}>{e}</Chip>
-            ))}
-          </div>
-        </div>
-      )}
-      {parsing && (
-        <div
-          style={{
-            border: `1px solid ${W08}`,
-            borderRadius: 8,
-            padding: "52px 36px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 13,
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              border: `2.5px solid ${W08}`,
-              borderTopColor: CYAN,
-              animation: "spin 0.7s linear infinite",
-            }}
-          />
-          <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
-            Parsing {file?.name}…
-          </div>
-        </div>
-      )}
-      {preview && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 17 }}>
-          <SuccessBanner>
-            <p style={{ color: "#fff", fontSize: 13, flex: 1 }}>
-              <strong>{file?.name}</strong> — {XL_ROWS.length - 1} rows
-            </p>
-            <button
-              onClick={reset}
-              style={{
-                background: "none",
-                border: "none",
-                color: W35,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Change
-            </button>
-          </SuccessBanner>
-          <div>
-            <FieldLabel>Data Preview</FieldLabel>
-            <div style={{ marginTop: 9 }}>
-              <DataTable rows={XL_ROWS} />
-            </div>
-          </div>
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}
-          >
-            {[
-              ["X Axis", "Month"],
-              ["Y Axis", "Revenue"],
-            ].map(([l, v]) => (
-              <div
-                key={l}
-                style={{ display: "flex", flexDirection: "column", gap: 6 }}
-              >
-                <FieldLabel>{l}</FieldLabel>
-                <select
-                  defaultValue={v}
-                  style={{
-                    background: "transparent",
-                    border: `1px solid ${W12}`,
-                    color: "#fff",
-                    padding: "9px 12px",
-                    fontSize: 13,
-                    outline: "none",
-                    borderRadius: 3,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                  }}
-                >
-                  {XL_ROWS[0].map((h) => (
-                    <option key={h} value={h} style={{ background: BG }}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <Btn variant="ghost" onClick={reset}>
-              Start Over
-            </Btn>
-            <Btn onClick={() => setTab("new-graph")}>Create Graph →</Btn>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// IMPORT: PASTE DATA
-// ─────────────────────────────────────────────────────────────
-const PH = {
-  csv: "Month,Revenue,Users\nJan,84200,1240",
-  json: '[{"Month":"Jan","Revenue":84200}]',
-  tsv: "Month\tRevenue\nJan\t84200",
-};
-const PASTE_PREV = [
-  ["Month", "Revenue", "Users"],
-  ["Jan", "84,200", "1,240"],
-  ["Feb", "91,500", "1,380"],
-  ["Mar", "88,300", "1,310"],
-];
-
-function ImportPastePage({ setTab }: { setTab: (tab: string) => void }) {
-  const [raw, setRaw] = useState("");
-  const [fmt, setFmt] = useState<"csv" | "json" | "tsv">("csv");
-  const [parsed, setParsed] = useState(false);
-
-  return (
-    <div style={{ maxWidth: 620 }}>
-      <BackBtn onClick={() => setTab("dashboard")} />
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Paste Data
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Paste CSV, JSON or tab-separated data directly
-      </p>
-      {!parsed ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-          <div style={{ display: "flex", gap: 5 }}>
-            {["csv", "json", "tsv"].map((f) => (
-              <button
-                key={f}
-                onClick={() => setFmt(f as "csv" | "json" | "tsv")}
-                style={{
-                  padding: "6px 14px",
-                  background: fmt === f ? CYAN : "transparent",
-                  border: `1px solid ${fmt === f ? CYAN : W12}`,
-                  borderRadius: 3,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  color: fmt === f ? "#111212" : W35,
-                  cursor: "pointer",
-                }}
-              >
-                {f.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div style={{ position: "relative" }}>
-            <textarea
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              placeholder={PH[fmt]}
-              rows={9}
-              style={{
-                width: "100%",
-                background: "transparent",
-                border: `1.5px solid ${raw ? C35 : W12}`,
-                color: "#fff",
-                padding: "12px 14px",
-                fontSize: 12,
-                outline: "none",
-                resize: "vertical",
-                fontFamily: "monospace",
-                lineHeight: 1.75,
-                borderRadius: 5,
-                boxSizing: "border-box",
-              }}
-            />
-            {raw && (
-              <button
-                onClick={() => setRaw("")}
-                style={{
-                  position: "absolute",
-                  top: 9,
-                  right: 11,
-                  background: "none",
-                  border: "none",
-                  color: W35,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  textTransform: "uppercase",
-                }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span style={{ color: W20, fontSize: 12 }}>
-              {raw.split("\n").filter(Boolean).length} lines
-            </span>
-            <Btn onClick={() => raw.trim() && setParsed(true)}>
-              Parse Data →
-            </Btn>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 17 }}>
-          <SuccessBanner>
-            <p style={{ color: "#fff", fontSize: 13, flex: 1 }}>
-              Parsed — {PASTE_PREV.length - 1} rows detected
-            </p>
-            <button
-              onClick={() => setParsed(false)}
-              style={{
-                background: "none",
-                border: "none",
-                color: W35,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Edit
-            </button>
-          </SuccessBanner>
-          <div>
-            <FieldLabel>Preview</FieldLabel>
-            <div style={{ marginTop: 9 }}>
-              <DataTable rows={PASTE_PREV} />
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <Btn variant="ghost" onClick={() => setParsed(false)}>
-              ← Edit Data
-            </Btn>
-            <Btn onClick={() => setTab("new-graph")}>Create Graph →</Btn>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1368,78 +349,66 @@ function ImportPastePage({ setTab }: { setTab: (tab: string) => void }) {
 // ─────────────────────────────────────────────────────────────
 // TEMPLATES
 // ─────────────────────────────────────────────────────────────
-function TemplatesPage({ setTab }: { setTab: (tab: string) => void }) {
+function TemplatesPage({ setTab }: { setTab: (t: string) => void }) {
+  const { templates, isLoading } = useDashboardStore();
+
   return (
-    <div style={{ maxWidth: 800 }}>
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Templates
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
+    <div className="max-w-[800px]">
+      <h2 className="text-white text-[20px] font-extrabold mb-1">Templates</h2>
+      <p className="text-white/35 text-[13px] mb-[26px]">
         Start faster with pre-built chart collections
       </p>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))",
-          gap: 12,
-        }}
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))" }}
       >
-        {TEMPLATES.map((t, i) => {
-          const [hov, setHov] = useState(false);
-          return (
-            <div
-              key={t.title}
-              onMouseEnter={() => setHov(true)}
-              onMouseLeave={() => setHov(false)}
-              style={{
-                border: `1px solid ${hov ? W20 : W08}`,
-                borderRadius: 7,
-                padding: "21px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                transition: "all 0.2s",
-                opacity: 0,
-                animation: `fadeUp 0.4s ease ${i * 0.07}s forwards`,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
-                  {t.title}
-                </span>
-                <Chip cyan>{t.tag}</Chip>
-              </div>
-              <p style={{ color: W35, fontSize: 13, lineHeight: 1.6 }}>
-                {t.desc}
-              </p>
-              <p style={{ color: W20, fontSize: 12 }}>
-                {t.count} pre-built charts
-              </p>
-              <Btn
-                variant="outline"
-                size="sm"
-                onClick={() => setTab("new-graph")}
-                style={{ alignSelf: "flex-start" }}
-              >
-                Use Template →
-              </Btn>
-            </div>
-          );
-        })}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[140px] rounded-[7px]" />
+            ))
+          : templates.map((t, i) => (
+              <TemplateCard key={t.title} t={t} index={i} setTab={setTab} />
+            ))}
       </div>
+    </div>
+  );
+}
+
+function TemplateCard({
+  t,
+  index,
+  setTab,
+}: {
+  t: any;
+  index: number;
+  setTab: (s: string) => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      className="border rounded-[7px] p-[21px] flex flex-col gap-[10px] transition-all duration-200"
+      style={{
+        borderColor: hov ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
+        opacity: 0,
+        animation: `fadeUp 0.4s ease ${index * 0.07}s forwards`,
+      }}
+    >
+      <div className="flex items-start justify-between">
+        <span className="text-white font-extrabold text-[15px]">{t.title}</span>
+        <Chip cyan>{t.tag}</Chip>
+      </div>
+      <p className="text-white/35 text-[13px] leading-relaxed">{t.desc}</p>
+      <p className="text-white/20 text-[12px]">{t.count} pre-built charts</p>
+      <Btn
+        variant="outline"
+        size="sm"
+        onClick={() => setTab("new-graph")}
+        style={{ alignSelf: "flex-start" }}
+      >
+        Use Template →
+      </Btn>
     </div>
   );
 }
@@ -1448,34 +417,44 @@ function TemplatesPage({ setTab }: { setTab: (tab: string) => void }) {
 // SETTINGS
 // ─────────────────────────────────────────────────────────────
 function SettingsPage() {
-  const [name, setName] = useState(USER.name);
-  const [email, setEmail] = useState(USER.email);
+  const { user, setUser } = useDashboardStore();
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [saved, setSaved] = useState(false);
+
+  // Sync local state when store loads
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+  }, [user.name, user.email]);
+
+  const handleSave = () => {
+    setUser({ name, email });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
   return (
-    <div style={{ maxWidth: 480 }}>
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Settings
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
+    <div className="max-w-[480px]">
+      <h2 className="text-white text-[20px] font-extrabold mb-1">Settings</h2>
+      <p className="text-white/35 text-[13px] mb-[26px]">
         Manage your account preferences
       </p>
+
+      {saved && (
+        <div className="mb-3">
+          <SuccessBanner>
+            <span className="text-[#00d4c8] text-[13px]">
+              Changes saved successfully.
+            </span>
+          </SuccessBanner>
+        </div>
+      )}
+
       <SectionCard style={{ marginBottom: 13 }}>
         <SectionHead title="Profile" />
-        <div
-          style={{
-            padding: 17,
-            display: "flex",
-            flexDirection: "column",
-            gap: 13,
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="p-[17px] flex flex-col gap-[13px]">
+          <div className="flex flex-col gap-[6px]">
             <FieldLabel>Full Name</FieldLabel>
             <FieldInput
               value={name}
@@ -1485,7 +464,7 @@ function SettingsPage() {
               placeholder="Full name"
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div className="flex flex-col gap-[6px]">
             <FieldLabel>Email</FieldLabel>
             <FieldInput
               value={email}
@@ -1495,9 +474,30 @@ function SettingsPage() {
               placeholder="Email"
             />
           </div>
-          <Btn size="sm" style={{ alignSelf: "flex-start" }}>
+          <Btn
+            size="sm"
+            style={{ alignSelf: "flex-start" }}
+            onClick={handleSave}
+          >
             Save Changes
           </Btn>
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <SectionHead title="Plan" />
+        <div className="p-[17px] flex items-center justify-between">
+          <div>
+            <p className="text-white text-[13px] font-bold mb-1">
+              {user.plan || "—"} Plan
+            </p>
+            <p className="text-white/35 text-[12px]">
+              {user.plan === "Pro"
+                ? "Unlimited graphs, priority support"
+                : "Upgrade to unlock more features"}
+            </p>
+          </div>
+          {user.plan !== "Pro" && <Btn size="sm">Upgrade →</Btn>}
         </div>
       </SectionCard>
     </div>
@@ -1508,132 +508,31 @@ function SettingsPage() {
 // BILLING
 // ─────────────────────────────────────────────────────────────
 function BillingPage() {
+  const { user } = useDashboardStore();
+
   return (
-    <div style={{ maxWidth: 540 }}>
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
-        Billing
-      </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Manage your plan and payment
+    <div className="max-w-[480px]">
+      <h2 className="text-white text-[20px] font-extrabold mb-1">Billing</h2>
+      <p className="text-white/35 text-[13px] mb-[26px]">
+        Manage your subscription and invoices
       </p>
-      <div
-        style={{
-          border: `1px solid ${C35}`,
-          borderRadius: 7,
-          padding: "20px 22px",
-          marginBottom: 11,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 13,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              marginBottom: 4,
-            }}
-          >
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
-              Pro Plan
-            </span>
-            <Chip cyan>Active</Chip>
-          </div>
-          <p style={{ color: W35, fontSize: 13 }}>
-            $29 / month · Renews Feb 1, 2026
-          </p>
-          <div
-            style={{
-              display: "flex",
-              gap: 14,
-              marginTop: 8,
-              fontSize: 12,
-              color: CYAN,
-            }}
-          >
-            <span>✓ Unlimited graphs</span>
-            <span>✓ 10GB storage</span>
-            <span>✓ Priority support</span>
-          </div>
-        </div>
-        <Btn variant="ghost" size="sm">
-          Manage
-        </Btn>
-      </div>
-      <div
-        style={{
-          border: `1px solid ${W08}`,
-          borderRadius: 7,
-          padding: "15px 17px",
-          marginBottom: 11,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 13,
-            marginBottom: 8,
-          }}
-        >
-          <span style={{ color: W35 }}>Storage Used</span>
-          <span style={{ color: "#fff", fontWeight: 700 }}>2.1 / 10 GB</span>
-        </div>
-        <div
-          style={{
-            height: 4,
-            background: W08,
-            borderRadius: 2,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: "21%",
-              height: "100%",
-              background: CYAN,
-              borderRadius: 2,
-            }}
-          />
-        </div>
-      </div>
       <SectionCard>
-        <SectionHead title="Invoice History" />
-        {[
-          ["Jan 2026", "$29.00"],
-          ["Dec 2025", "$29.00"],
-          ["Nov 2025", "$29.00"],
-        ].map(([date, amt], i, arr) => (
-          <div
-            key={date}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "12px 17px",
-              borderBottom: i < arr.length - 1 ? `1px solid ${W08}` : "none",
-            }}
-          >
-            <span
-              style={{ flex: 1, color: "#fff", fontWeight: 600, fontSize: 13 }}
-            >
-              {date}
+        <SectionHead title="Current Plan" />
+        <div className="p-[17px] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-white/55 text-[13px]">Plan</span>
+            <span className="text-[#00d4c8] font-bold text-[13px]">
+              {user.plan || "—"}
             </span>
-            <span style={{ color: W35, fontSize: 13, marginRight: 16 }}>
-              {amt}
-            </span>
-            <Chip cyan>Paid</Chip>
           </div>
-        ))}
+          <div className="flex items-center justify-between">
+            <span className="text-white/55 text-[13px]">Email</span>
+            <span className="text-white text-[13px]">{user.email || "—"}</span>
+          </div>
+          <Btn variant="outline" size="sm" style={{ alignSelf: "flex-start" }}>
+            Manage Subscription →
+          </Btn>
+        </div>
       </SectionCard>
     </div>
   );
@@ -1644,136 +543,185 @@ function BillingPage() {
 // ─────────────────────────────────────────────────────────────
 const FAQS = [
   {
-    q: "How do I share a graph?",
-    a: "Open any graph and click Share. You'll get a public link instantly with optional expiry or password protection.",
+    q: "How do I connect Google Sheets?",
+    a: "Go to New Graph → Google Sheets, paste your sheet URL and follow the prompts.",
   },
   {
-    q: "Can I import from Google Sheets?",
-    a: "Yes — click Connect Google Sheets on the Dashboard. Authentication takes about 30 seconds.",
+    q: "Can I export my charts?",
+    a: "Yes — open any chart and click the share icon to export as PNG, SVG, or a shareable link.",
   },
   {
-    q: "How do I change my plan?",
-    a: "Go to Billing in the sidebar. You can upgrade, downgrade, or cancel at any time.",
+    q: "How do I invite teammates?",
+    a: "Team invites are available on the Team and Enterprise plans via Settings → Team.",
   },
   {
-    q: "Is my data encrypted?",
-    a: "All data is encrypted in transit (TLS 1.3) and at rest (AES-256). We never sell your data.",
-  },
-  {
-    q: "What file formats can I import?",
-    a: "We support .xlsx, .xls, .csv, JSON arrays, tab-separated values, plus live Google Sheets connections.",
+    q: "What file formats can I upload?",
+    a: "We support CSV, XLS, XLSX, and JSON. Max file size is 25 MB.",
   },
 ];
 
 function HelpPage() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <div style={{ maxWidth: 540 }}>
-      <h2
-        style={{
-          color: "#fff",
-          fontSize: 20,
-          fontWeight: 800,
-          marginBottom: 4,
-        }}
-      >
+    <div className="max-w-[560px]">
+      <h2 className="text-white text-[20px] font-extrabold mb-1">
         Help & Support
       </h2>
-      <p style={{ color: W35, fontSize: 13, marginBottom: 26 }}>
-        Answers and a real human if you need one
+      <p className="text-white/35 text-[13px] mb-[26px]">
+        Common questions answered
       </p>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 5,
-          marginBottom: 16,
-        }}
-      >
+      <div className="border border-white/[0.08] rounded-[7px] overflow-hidden mb-4">
         {FAQS.map((f, i) => (
-          <div
-            key={i}
-            style={{
-              border: `1px solid ${open === i ? W20 : W08}`,
-              borderRadius: 6,
-              overflow: "hidden",
-              transition: "border-color 0.15s",
-            }}
-          >
+          <div key={i} className="border-b border-white/[0.05] last:border-b-0">
             <button
               onClick={() => setOpen(open === i ? null : i)}
-              style={{
-                width: "100%",
-                background: "none",
-                border: "none",
-                padding: "14px 17px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                textAlign: "left",
-              }}
+              className="w-full flex items-center justify-between px-[17px] py-[13px] text-left bg-transparent border-none cursor-pointer hover:bg-white/[0.02] transition-colors"
             >
-              <span style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>
+              <span className="text-white text-[13px] font-semibold">
                 {f.q}
               </span>
               <span
-                style={{
-                  color: CYAN,
-                  fontSize: 16,
-                  display: "inline-block",
-                  transition: "transform 0.18s",
-                  transform: open === i ? "rotate(45deg)" : "none",
-                  flexShrink: 0,
-                  marginLeft: 11,
-                }}
+                className="text-[#00d4c8] text-[18px] leading-none ml-3 flex-shrink-0 transition-transform duration-200"
+                style={{ transform: open === i ? "rotate(45deg)" : "none" }}
               >
                 +
               </span>
             </button>
             {open === i && (
-              <div
-                style={{
-                  padding: "12px 17px 14px",
-                  color: W35,
-                  fontSize: 13,
-                  lineHeight: 1.7,
-                  borderTop: `1px solid ${W08}`,
-                }}
-              >
+              <div className="px-[17px] pb-[14px] text-white/35 text-[13px] leading-[1.7] border-t border-white/[0.08]">
                 {f.a}
               </div>
             )}
           </div>
         ))}
       </div>
-      <div
-        style={{
-          border: `1px solid ${W08}`,
-          borderRadius: 7,
-          padding: "17px 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
-        <div style={{ flex: 1 }}>
-          <div
-            style={{
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 14,
-              marginBottom: 4,
-            }}
-          >
-            Still stuck?
-          </div>
-          <div style={{ color: W35, fontSize: 13 }}>
+      <div className="border border-white/[0.08] rounded-[7px] p-[17px] flex items-center gap-4">
+        <div className="flex-1">
+          <p className="text-white font-bold text-[14px] mb-1">Still stuck?</p>
+          <p className="text-white/35 text-[13px]">
             Our team replies within 24 hours on business days.
-          </div>
+          </p>
         </div>
         <Btn size="sm">Contact Us</Btn>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// NEW GRAPH / IMPORT STUBS (unchanged logic, Tailwind wrapper)
+// ─────────────────────────────────────────────────────────────
+function NewGraphPage({ setTab }: { setTab: (t: string) => void }) {
+  const [step, setStep] = useState(1);
+  return (
+    <div className="max-w-[560px]">
+      <BackBtn onClick={() => setTab("graphs")} />
+      <h2 className="text-white text-[20px] font-extrabold mb-1">New Graph</h2>
+      <p className="text-white/35 text-[13px] mb-7">
+        Choose a data source to get started
+      </p>
+      {step === 1 && (
+        <div
+          className="grid gap-[9px]"
+          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))" }}
+        >
+          {[
+            {
+              icon: "M9 17H5a2 2 0 00-2 2",
+              label: "Google Sheets",
+              sub: "Live spreadsheet data",
+            },
+            {
+              icon: "M21 15v4a2 2 0 01-2 2H5",
+              label: "Upload Excel",
+              sub: "XLS / XLSX / CSV",
+            },
+            {
+              icon: "M9 5H7a2 2 0 00-2 2v12",
+              label: "Paste Data",
+              sub: "Manual entry",
+            },
+          ].map((src) => (
+            <ActionCard
+              key={src.label}
+              icon={src.icon}
+              label={src.label}
+              sub={src.sub}
+              cta="Select"
+              onClick={() => setStep(2)}
+            />
+          ))}
+        </div>
+      )}
+      {step === 2 && (
+        <div className="flex flex-col gap-4">
+          <p className="text-white/55 text-[13px]">
+            Configure your data source in the next step.
+          </p>
+          <Btn
+            variant="ghost"
+            onClick={() => setStep(1)}
+            style={{ alignSelf: "flex-start" }}
+          >
+            ← Back
+          </Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportGooglePage({ setTab }: { setTab: (t: string) => void }) {
+  return (
+    <div className="max-w-[480px]">
+      <BackBtn onClick={() => setTab("dashboard")} />
+      <h2 className="text-white text-[20px] font-extrabold mb-1">
+        Google Sheets
+      </h2>
+      <p className="text-white/35 text-[13px] mb-7">
+        Paste your Google Sheets URL to connect live data.
+      </p>
+      <div className="flex flex-col gap-3">
+        <FieldLabel>Sheet URL</FieldLabel>
+        <FieldInput placeholder="https://docs.google.com/spreadsheets/d/..." />
+        <Btn style={{ alignSelf: "flex-start" }}>Connect →</Btn>
+      </div>
+    </div>
+  );
+}
+
+function ImportExcelPage({ setTab }: { setTab: (t: string) => void }) {
+  return (
+    <div className="max-w-[480px]">
+      <BackBtn onClick={() => setTab("dashboard")} />
+      <h2 className="text-white text-[20px] font-extrabold mb-1">
+        Upload Excel
+      </h2>
+      <p className="text-white/35 text-[13px] mb-7">
+        Upload XLS, XLSX, or CSV files.
+      </p>
+      <div className="border-2 border-dashed border-white/[0.12] rounded-[7px] p-10 text-center hover:border-[rgba(0,212,200,0.35)] transition-colors cursor-pointer">
+        <p className="text-white/35 text-[13px]">
+          Drop file here or click to browse
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ImportPastePage({ setTab }: { setTab: (t: string) => void }) {
+  return (
+    <div className="max-w-[480px]">
+      <BackBtn onClick={() => setTab("dashboard")} />
+      <h2 className="text-white text-[20px] font-extrabold mb-1">Paste Data</h2>
+      <p className="text-white/35 text-[13px] mb-7">
+        Paste tabular text or JSON directly.
+      </p>
+      <FieldTextarea
+        placeholder="Paste CSV, TSV, or JSON here…"
+        style={{ minHeight: 180 }}
+      />
+      <Btn style={{ marginTop: 12 }}>Parse & Visualise →</Btn>
     </div>
   );
 }
@@ -1786,18 +734,50 @@ export default function App() {
   const [sideOpen, setSide] = useState(true);
   const [collapsed, setCol] = useState(false);
 
-  const pages = {
+  const {
+    graphs,
+    setGraphs,
+    setStats,
+    setActivity,
+    setTemplates,
+    setUser,
+    setLoading,
+  } = useDashboardStore();
+
+  // ── Simulate fetching user + dashboard data from DB ──────────────────────
+  useEffect(() => {
+    setLoading(true);
+    // Replace this with your real API / DB call, e.g.:
+    // const res = await fetch("/api/dashboard"); const data = await res.json();
+    // Then call setUser(data.user), setGraphs(data.graphs), etc.
+
+    // For now we pull from the static seed so the UI isn't empty during dev:
+    import("@/lib/Data").then(
+      ({ USER, GRAPHS, STATS, ACTIVITY, TEMPLATES }) => {
+        setUser(USER);
+        setGraphs(GRAPHS);
+        setStats(STATS);
+        setActivity(ACTIVITY);
+        setTemplates(TEMPLATES);
+        setLoading(false);
+      },
+    );
+  }, []);
+
+  const { user } = useDashboardStore();
+
+  const pages: Record<string, React.ReactNode> = {
     dashboard: <DashboardHome setTab={setTab} />,
-    graphs: <GraphGrid graphs={GRAPHS} emptyMsg="No graphs yet" />,
+    graphs: <GraphGrid graphs={graphs} emptyMsg="No graphs yet" />,
     shared: (
       <GraphGrid
-        graphs={GRAPHS.slice(0, 3)}
+        graphs={graphs.slice(0, 3)}
         emptyMsg="Nothing shared with you yet"
       />
     ),
     favourites: (
       <GraphGrid
-        graphs={GRAPHS.filter((g) => g.starred)}
+        graphs={graphs.filter((g) => g.starred)}
         emptyMsg="Star graphs to save them here"
       />
     ),
@@ -1812,29 +792,17 @@ export default function App() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: BG,
-        color: "#fff",
-        display: "flex",
-        overflow: "hidden",
-        fontFamily:
-          "'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,sans-serif",
-      }}
-    >
+    <div className="min-h-screen bg-[#111212] text-white flex overflow-hidden font-[Inter,'SF_Pro_Display',-apple-system,BlinkMacSystemFont,sans-serif]">
       <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(11px); } to { opacity:1; transform:none; } }
         input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.20); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 2px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(8,145,178,0.35); }
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes stpMove { to { background-position: 18px 0; } }
-        @keyframes fadeUp  { from { opacity:0; transform:translateY(11px); } to { opacity:1; transform:none; } }
       `}</style>
 
+      {/* ── Sidebar ── */}
       <Sidebar
         open={sideOpen}
         collapsed={collapsed}
@@ -1843,113 +811,41 @@ export default function App() {
         onTab={setTab}
       />
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-          overflow: "hidden",
-        }}
-      >
+      {/* ── Main area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header
-          style={{
-            background: BG,
-            borderBottom: `1px solid ${W08}`,
-            padding: "0 19px",
-            height: 50,
-            display: "flex",
-            alignItems: "center",
-            gap: 11,
-            flexShrink: 0,
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
+        <header className="bg-[#111212] border-b border-white/[0.08] px-[19px] h-[50px] flex items-center gap-[11px] flex-shrink-0 sticky top-0 z-10">
+          {/* Hamburger */}
           <button
             onClick={() => setSide((s) => !s)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: W35,
-              display: "flex",
-              flexDirection: "column",
-              gap: 3.5,
-              padding: 5,
-            }}
+            className="flex flex-col gap-[3.5px] p-[5px] text-white/35 bg-transparent border-none cursor-pointer"
+            aria-label="Toggle sidebar"
           >
-            <span
-              style={{
-                width: 14,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
-            <span
-              style={{
-                width: 14,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
-            <span
-              style={{
-                width: 10,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
+            <span className="w-[14px] h-[1.5px] bg-current block" />
+            <span className="w-[14px] h-[1.5px] bg-current block" />
+            <span className="w-[10px] h-[1.5px] bg-current block" />
           </button>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              fontSize: 13,
-            }}
-          >
-            <span style={{ color: W20 }}>Graphix</span>
-            <span style={{ color: W20 }}>/</span>
-            <span style={{ color: "#fff", fontWeight: 600 }}>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-[7px] text-[13px]">
+            <span className="text-white/20">Graphix</span>
+            <span className="text-white/20">/</span>
+            <span className="text-white font-semibold">
               {PAGE_TITLES[tab as keyof typeof PAGE_TITLES] ?? tab}
             </span>
           </div>
-          <div style={{ flex: 1 }} />
-          <div
-            style={{
-              width: 31,
-              height: 31,
-              borderRadius: 6,
-              background: C18,
-              border: `1px solid ${C35}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 800,
-              color: CYAN,
-              cursor: "pointer",
-            }}
-          >
-            {USER.avatar}
+
+          <div className="flex-1" />
+
+          {/* Avatar */}
+          <div className="w-[31px] h-[31px] rounded-[6px] bg-[rgba(0,212,200,0.18)] border border-[rgba(0,212,200,0.35)] flex items-center justify-center text-[11px] font-extrabold text-[#00d4c8] cursor-pointer select-none">
+            {user.avatar || "…"}
           </div>
         </header>
 
-        <main
-          style={{
-            flex: 1,
-            padding: "24px 24px 48px",
-            overflowY: "auto",
-            background: BG,
-          }}
-        >
-          {pages[tab as keyof typeof pages] ?? null}
+        {/* Page content */}
+        <main className="flex-1 px-6 pt-6 pb-12 overflow-y-auto bg-[#111212]">
+          {pages[tab] ?? null}
         </main>
       </div>
     </div>

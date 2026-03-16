@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 interface ChartSubtype {
@@ -1775,7 +1776,8 @@ export default function HowItWorks() {
             </p>
           </div>
           <div className="flex items-center gap-4 flex-shrink-0">
-            <button
+            <Link
+              href="/dashboard"
               className="px-7 py-3 rounded-xl text-sm font-bold transition-all hover:scale-105 hover:shadow-lg"
               style={{
                 background: "linear-gradient(135deg, #06b6d4, #0891b2)",
@@ -1784,7 +1786,7 @@ export default function HowItWorks() {
               }}
             >
               Start for free →
-            </button>
+            </Link>
             <button
               className="px-7 py-3 rounded-xl text-sm font-semibold transition-all"
               style={{

@@ -28,7 +28,7 @@ export default function CtaSection({
           {subtext}
         </p>
         <Link
-          href="/app"
+          href="/dashboard"
           className="inline-block bg-[#00d4c8] text-[#090b0e] font-syne font-bold text-[0.82rem] uppercase tracking-widest px-9 py-4 hover:opacity-85 transition-opacity duration-200"
         >
           {btnLabel}

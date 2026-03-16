@@ -10,16 +10,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-[#111212]">
         {/*
           AppBootstrapper wraps everything.
           - If user is authenticated, it calls /bootstrap once and shows a
             splash screen until all data is loaded into Zustand.
           - Then children (pages) render with full data available.
         */}
-        <AppBootstrapper>
-          {children}
-        </AppBootstrapper>
+        <AppBootstrapper>{children}</AppBootstrapper>
       </body>
     </html>
   );

@@ -101,7 +101,7 @@ function preprocessTraces(
             (chartType === "scatter" ? "markers" : "lines+markers"),
           marker: {
             ...(trace.marker || {}),
-            color: clr,
+            color: trace.marker?.color || clr, // ← fallback only
             size: mobile
               ? 6
               : trace.marker?.size || (chartType === "scatter" ? 9 : 7),
@@ -110,10 +110,12 @@ function preprocessTraces(
           },
           line: {
             ...(trace.line || {}),
-            color: clr, // ← always forced, never from server
+            color: trace.line?.color || clr, // ← fallback only
             width: mobile ? 1.5 : trace.line?.width || 2.5,
           },
-          fillcolor: trace.fill ? clr + "22" : undefined,
+          fillcolor: trace.fill
+            ? (trace.line?.color || trace.marker?.color || clr) + "22"
+            : undefined,
         };
       }),
       layout,

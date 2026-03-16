@@ -33,6 +33,16 @@ export interface SavedChart {
   chartConfig: Record<string, any>;
   createdAt: string;
   updatedAt: string;
+  // ── Dashboard display fields (populated by bootstrap) ──
+  tag: string; // "Line" | "Bar" | "Area"
+  category: string;
+  views: number;
+  trend: string; // "+18.4%"
+  up: boolean;
+  starred: boolean;
+  desc: string;
+  data: number[]; // sparkline points
+  updated: string; // "2h ago"
 }
 
 export interface GraphTemplate {
@@ -43,6 +53,10 @@ export interface GraphTemplate {
   trend: string;
   isTrending: boolean;
   template: Record<string, any>;
+  // ── Dashboard display fields ──
+  tag: string;
+  count: number;
+  desc: string;
 }
 
 export interface Feedback {
@@ -51,6 +65,24 @@ export interface Feedback {
   message: string;
   rating: number;
   createdAt: string;
+}
+
+// ── ADDED: Stat card ───────────────────────────────────────────
+export interface DashboardStat {
+  label: string; // "Total Graphs"
+  value: string; // "24"
+  delta: string; // "+3 this week"
+  icon: string; // SVG path d=""
+}
+
+// ── ADDED: Activity feed item ──────────────────────────────────
+export interface ActivityItem {
+  id: string;
+  action: string; // "Edited" | "Shared" | "Created" | "Starred"
+  graph: string; // chart title
+  time: string; // "2h ago"
+  avatar: string; // initials "AC"
+  own: boolean; // true = current user's action
 }
 
 interface AppState {
@@ -63,13 +95,17 @@ interface AppState {
   subscription: Subscription | null;
   savedCharts: SavedChart[];
 
+  // ── ADDED: Dashboard data ──────────────────────────────────
+  dashboardStats: DashboardStat[];
+  activityFeed: ActivityItem[];
+
   // ── Global data (shared across all users) ─────────────────
   graphTemplates: GraphTemplate[];
   feedbacks: Feedback[];
 
   // ── UI state ──────────────────────────────────────────────
-  isBootstrapped: boolean;   // true once /bootstrap has resolved
-  isBootstrapping: boolean;  // true while /bootstrap is in-flight
+  isBootstrapped: boolean;
+  isBootstrapping: boolean;
   bootstrapError: string | null;
 
   // ── Actions ───────────────────────────────────────────────
@@ -77,10 +113,10 @@ interface AppState {
   bootstrap: () => Promise<void>;
   logout: () => void;
 
-  // Chart actions (optimistic UI — update store then call API)
   addSavedChart: (chart: SavedChart) => void;
   removeSavedChart: (id: string) => void;
   updateChartTitle: (id: string, title: string) => void;
+  toggleStarChart: (id: string) => void; // ADDED
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -88,27 +124,23 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      // ── Initial state ──────────────────────────────────────
       token: null,
       isAuthenticated: false,
       user: null,
       subscription: null,
       savedCharts: [],
+      dashboardStats: [], // ADDED
+      activityFeed: [], // ADDED
       graphTemplates: [],
       feedbacks: [],
       isBootstrapped: false,
       isBootstrapping: false,
       bootstrapError: null,
 
-      // ── setToken ───────────────────────────────────────────
-      // Called after login/signup to store token and trigger bootstrap
       setToken: (token: string) => {
         set({ token, isAuthenticated: true });
       },
 
-      // ── bootstrap ─────────────────────────────────────────
-      // Single API call that loads ALL data for the logged-in user.
-      // Run once per session (or once per page reload if already logged in).
       bootstrap: async () => {
         const { token, isBootstrapping } = get();
         if (!token || isBootstrapping) return;
@@ -121,7 +153,6 @@ export const useAppStore = create<AppState>()(
           });
 
           if (res.status === 401) {
-            // Token expired or invalid — force logout
             get().logout();
             return;
           }
@@ -136,9 +167,11 @@ export const useAppStore = create<AppState>()(
           set({
             user: data.user,
             subscription: data.subscription,
-            savedCharts: data.savedCharts,
-            graphTemplates: data.globalData.graphTemplates,
-            feedbacks: data.globalData.feedbacks,
+            savedCharts: data.savedCharts ?? [],
+            dashboardStats: data.dashboardStats ?? [], // ADDED — backend sends this
+            activityFeed: data.activityFeed ?? [], // ADDED — backend sends this
+            graphTemplates: data.globalData?.graphTemplates ?? [],
+            feedbacks: data.globalData?.feedbacks ?? [],
             isBootstrapped: true,
             isBootstrapping: false,
             bootstrapError: null,
@@ -151,7 +184,6 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      // ── logout ─────────────────────────────────────────────
       logout: () => {
         set({
           token: null,
@@ -159,6 +191,8 @@ export const useAppStore = create<AppState>()(
           user: null,
           subscription: null,
           savedCharts: [],
+          dashboardStats: [],
+          activityFeed: [],
           graphTemplates: [],
           feedbacks: [],
           isBootstrapped: false,
@@ -167,7 +201,6 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      // ── Chart actions (optimistic) ─────────────────────────
       addSavedChart: (chart: SavedChart) => {
         set((s) => ({ savedCharts: [chart, ...s.savedCharts] }));
       },
@@ -178,15 +211,28 @@ export const useAppStore = create<AppState>()(
 
       updateChartTitle: (id: string, title: string) => {
         set((s) => ({
-          savedCharts: s.savedCharts.map((c) => (c.id === id ? { ...c, title } : c)),
+          savedCharts: s.savedCharts.map((c) =>
+            c.id === id ? { ...c, title } : c,
+          ),
+        }));
+      },
+
+      // ADDED
+      toggleStarChart: (id: string) => {
+        set((s) => ({
+          savedCharts: s.savedCharts.map((c) =>
+            c.id === id ? { ...c, starred: !c.starred } : c,
+          ),
         }));
       },
     }),
     {
       name: "graphix-store",
       storage: createJSONStorage(() => localStorage),
-      // Only persist auth token — everything else re-fetched via bootstrap
-      partialize: (state) => ({ token: state.token, isAuthenticated: state.isAuthenticated }),
-    }
-  )
+      partialize: (state) => ({
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    },
+  ),
 );

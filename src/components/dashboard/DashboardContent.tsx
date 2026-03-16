@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useDashboardStore } from "@/store/useDashboardStore";
-import { PAGE_TITLES, NAV } from "@/lib/Data";
+import { useAppStore } from "@/store/appStore";
+import { PAGE_TITLES } from "@/lib/Data";
 import {
   Ico,
   Chip,
@@ -13,19 +13,18 @@ import {
   FieldLabel,
   SectionCard,
   SectionHead,
+  StripeDivider,
   BackBtn,
   SuccessBanner,
   DataTable,
+  Stepper,
+  MiniStepper,
   ActionCard,
 } from "@/components/dashboard/UIKit";
 import GraphCard from "@/components/dashboard/GraphCard";
 import Sidebar from "@/components/dashboard/Sidebar";
 
-// ─── Colour tokens as Tailwind-compatible values ──────────────────────────────
-// We keep a tiny set for cases where Tailwind can't express dynamic values.
-const CYAN = "#00d4c8";
-
-// ─── Skeleton loader ──────────────────────────────────────────────────────────
+// ── Skeleton ──────────────────────────────────────────────────
 function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div className={`animate-pulse rounded bg-white/[0.06] ${className}`} />
@@ -50,7 +49,7 @@ function StatCard({ stat, index }: { stat: any; index: number }) {
         transform: vis ? "none" : "translateY(10px)",
       }}
     >
-      {/* Accent glow */}
+      {/* corner glow */}
       <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[radial-gradient(circle_at_top_right,rgba(0,212,200,0.08),transparent)] pointer-events-none" />
 
       <div className="flex items-center justify-between mb-[14px]">
@@ -58,18 +57,7 @@ function StatCard({ stat, index }: { stat: any; index: number }) {
           {stat.label}
         </span>
         <div className="w-[29px] h-[29px] bg-[rgba(0,212,200,0.08)] border border-[rgba(0,212,200,0.35)] rounded-[5px] flex items-center justify-center text-[#00d4c8]">
-          <svg
-            width={13}
-            height={13}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d={stat.icon} />
-          </svg>
+          <Ico d={stat.icon} size={13} />
         </div>
       </div>
       <div className="text-[28px] font-extrabold text-white leading-none mb-[5px] tracking-tight">
@@ -81,27 +69,28 @@ function StatCard({ stat, index }: { stat: any; index: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// GRAPH GRID
+// GRAPH GRID  (search + filter + card grid)
 // ─────────────────────────────────────────────────────────────
 function GraphGrid({
-  graphs,
+  charts,
   emptyMsg = "No graphs found",
 }: {
-  graphs: any[];
+  charts: any[];
   emptyMsg: string;
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
-  const list = graphs.filter(
-    (g) =>
-      g.title.toLowerCase().includes(search.toLowerCase()) &&
-      (filter === "All" || g.tag === filter),
-  );
   const filters = ["All", "Line", "Bar", "Area"];
+
+  const list = charts.filter(
+    (c) =>
+      c.title.toLowerCase().includes(search.toLowerCase()) &&
+      (filter === "All" || c.tag === filter),
+  );
 
   return (
     <div className="flex flex-col gap-[18px]">
-      {/* Filters */}
+      {/* Search + filter row */}
       <div className="flex gap-[9px] flex-wrap items-center">
         <div className="relative flex-1 min-w-[190px] max-w-[290px]">
           <svg
@@ -128,12 +117,11 @@ function GraphGrid({
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-[10px] py-[5px] text-[11px] font-bold rounded-[4px] border cursor-pointer transition-colors
-                ${
-                  filter === f
-                    ? "bg-[rgba(0,212,200,0.15)] border-[rgba(0,212,200,0.4)] text-[#00d4c8]"
-                    : "bg-transparent border-white/[0.08] text-white/35 hover:border-white/20 hover:text-white/55"
-                }`}
+              className={`px-[10px] py-[5px] text-[11px] font-bold rounded-[4px] border cursor-pointer transition-colors ${
+                filter === f
+                  ? "bg-[rgba(0,212,200,0.15)] border-[rgba(0,212,200,0.4)] text-[#00d4c8]"
+                  : "bg-transparent border-white/[0.08] text-white/35 hover:border-white/20 hover:text-white/55"
+              }`}
             >
               {f}
             </button>
@@ -141,18 +129,17 @@ function GraphGrid({
         </div>
       </div>
 
-      {/* Grid */}
       {list.length === 0 ? (
         <div className="text-center py-16 text-white/20 text-[13px]">
           {emptyMsg}
         </div>
       ) : (
         <div
-          className="grid gap-[12px]"
+          className="grid gap-3"
           style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}
         >
-          {list.map((g) => (
-            <GraphCard key={g.id} graph={g} />
+          {list.map((c) => (
+            <GraphCard key={c.id} graph={c} />
           ))}
         </div>
       )}
@@ -166,14 +153,23 @@ function GraphGrid({
 function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
   const router = useRouter();
   const [vis, setVis] = useState(false);
-  const { user, graphs, stats, activity, isLoading } = useDashboardStore();
+
+  const {
+    user,
+    savedCharts,
+    dashboardStats,
+    activityFeed,
+    isBootstrapping,
+    isBootstrapped,
+  } = useAppStore();
+
+  const isLoading = isBootstrapping || !isBootstrapped;
+  const firstName = user?.firstName ?? "…";
 
   useEffect(() => {
     const t = setTimeout(() => setVis(true), 80);
     return () => clearTimeout(t);
   }, []);
-
-  const firstName = user.name?.split(" ")[0] ?? "…";
 
   return (
     <div
@@ -200,8 +196,7 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
         </p>
       </div>
 
-      {/* Stripe divider */}
-      <div className="w-full h-2 bg-[repeating-linear-gradient(-45deg,black_0px,white_3px,transparent_3px,transparent_6px)]" />
+      <StripeDivider />
 
       {/* Stats */}
       <div
@@ -212,7 +207,9 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
           ? Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-[100px] rounded-[7px]" />
             ))
-          : stats.map((s, i) => <StatCard key={s.label} stat={s} index={i} />)}
+          : dashboardStats.map((s, i) => (
+              <StatCard key={s.label} stat={s} index={i} />
+            ))}
       </div>
 
       {/* Quick Actions */}
@@ -245,7 +242,7 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
             onClick={() => setTab("import-excel")}
           />
           <ActionCard
-            icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+            icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"
             label="Paste Data"
             sub="Tabular text / JSON"
             cta="Paste"
@@ -254,85 +251,98 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
         </div>
       </div>
 
-      {/* Recent Graphs */}
-      <div>
-        <div className="flex items-center justify-between mb-[14px]">
-          <h2 className="text-white text-[14px] font-bold">Recent Graphs</h2>
-          <button
-            onClick={() => setTab("graphs")}
-            className="text-[#00d4c8] text-[11px] font-semibold tracking-[0.06em] uppercase bg-transparent border-none cursor-pointer hover:opacity-75 transition-opacity"
-          >
-            View all →
-          </button>
-        </div>
-        {isLoading ? (
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
-            }}
-          >
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-[140px] rounded-[7px]" />
-            ))}
-          </div>
-        ) : graphs.length === 0 ? (
-          <div className="border border-white/[0.08] rounded-[7px] p-10 text-center">
-            <p className="text-white/35 text-[13px] mb-4">
-              No graphs yet. Create your first one!
-            </p>
-            <Btn onClick={() => setTab("new-graph")}>Create Graph →</Btn>
-          </div>
-        ) : (
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
-            }}
-          >
-            {graphs.slice(0, 4).map((g) => (
-              <GraphCard key={g.id} graph={g} />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Recent Graphs + Activity side-by-side */}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))" }}
+      >
+        {/* Recent Graphs */}
+        <SectionCard>
+          <SectionHead
+            title="Recent Graphs"
+            right={
+              <button
+                onClick={() => setTab("graphs")}
+                className="text-[#00d4c8] bg-transparent border-none text-[12px] font-semibold cursor-pointer hover:opacity-75 transition-opacity"
+              >
+                View all →
+              </button>
+            }
+          />
+          {isLoading ? (
+            <div className="p-4 flex flex-col gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-[38px]" />
+              ))}
+            </div>
+          ) : savedCharts.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-white/35 text-[13px] mb-4">No graphs yet.</p>
+              <Btn size="sm" onClick={() => setTab("new-graph")}>
+                Create Graph →
+              </Btn>
+            </div>
+          ) : (
+            savedCharts.slice(0, 5).map((c, i, arr) => (
+              <div
+                key={c.id}
+                className={`flex items-center gap-3 px-[17px] py-[11px] hover:bg-white/[0.02] transition-colors ${
+                  i < arr.length - 1 ? "border-b border-white/[0.05]" : ""
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-[13px] font-semibold truncate">
+                    {c.title}
+                  </p>
+                  <p className="text-white/35 text-[11px]">
+                    {c.updated ?? "recently"}
+                  </p>
+                </div>
+                <span
+                  className={`text-[11px] font-bold ${
+                    c.up ? "text-[#00d4c8]" : "text-white/35"
+                  }`}
+                >
+                  {c.trend ?? "—"}
+                </span>
+              </div>
+            ))
+          )}
+        </SectionCard>
 
-      {/* Activity */}
-      <div>
-        <h2 className="text-white text-[14px] font-bold mb-3">
-          Recent Activity
-        </h2>
-        <div className="border border-white/[0.08] rounded-[7px] overflow-hidden">
+        {/* Activity */}
+        <SectionCard>
+          <SectionHead title="Activity" right={<Chip>Last 7 days</Chip>} />
           {isLoading ? (
             <div className="p-4 flex flex-col gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-[38px]" />
               ))}
             </div>
-          ) : activity.length === 0 ? (
+          ) : activityFeed.length === 0 ? (
             <div className="p-8 text-center text-white/20 text-[13px]">
               No activity yet.
             </div>
           ) : (
-            activity.map((a, i) => (
+            activityFeed.map((a, i, arr) => (
               <div
-                key={i}
-                className="flex items-center gap-3 px-[18px] py-[11px] border-b border-white/[0.05] last:border-b-0 hover:bg-white/[0.02] transition-colors"
+                key={a.id}
+                className={`flex items-center gap-3 px-[17px] py-[11px] hover:bg-white/[0.02] transition-colors ${
+                  i < arr.length - 1 ? "border-b border-white/[0.05]" : ""
+                }`}
               >
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 ${
+                  className={`w-[29px] h-[29px] rounded-[5px] flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 ${
                     a.own
-                      ? "bg-[rgba(0,212,200,0.15)] text-[#00d4c8] border border-[rgba(0,212,200,0.3)]"
-                      : "bg-white/[0.08] text-white/55 border border-white/[0.1]"
+                      ? "bg-[rgba(0,212,200,0.15)] text-[#00d4c8]"
+                      : "bg-white/[0.08] text-white/55"
                   }`}
                 >
                   {a.avatar}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-white/55 text-[12px]">
-                    <span className="text-white font-semibold">{a.action}</span>{" "}
-                    <span className="text-[#00d4c8]">{a.graph}</span>
-                  </span>
+                <div className="flex-1 min-w-0 text-[13px] text-white/55">
+                  {a.action}{" "}
+                  <span className="text-white font-semibold">{a.graph}</span>
                 </div>
                 <span className="text-white/20 text-[11px] flex-shrink-0">
                   {a.time}
@@ -340,8 +350,36 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
               </div>
             ))
           )}
-        </div>
+        </SectionCard>
       </div>
+
+      {/* Starred */}
+      {!isLoading && savedCharts.some((c) => c.starred) && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-white text-[14px] font-bold">Starred</h2>
+            <button
+              onClick={() => setTab("favourites")}
+              className="text-[#00d4c8] bg-transparent border-none text-[12px] font-semibold cursor-pointer hover:opacity-75 transition-opacity"
+            >
+              See all →
+            </button>
+          </div>
+          <div
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))",
+            }}
+          >
+            {savedCharts
+              .filter((c) => c.starred)
+              .slice(0, 4)
+              .map((c) => (
+                <GraphCard key={c.id} graph={c} />
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -350,7 +388,8 @@ function DashboardHome({ setTab }: { setTab: (t: string) => void }) {
 // TEMPLATES
 // ─────────────────────────────────────────────────────────────
 function TemplatesPage({ setTab }: { setTab: (t: string) => void }) {
-  const { templates, isLoading } = useDashboardStore();
+  const { graphTemplates, isBootstrapping, isBootstrapped } = useAppStore();
+  const isLoading = isBootstrapping || !isBootstrapped;
 
   return (
     <div className="max-w-[800px]">
@@ -366,8 +405,8 @@ function TemplatesPage({ setTab }: { setTab: (t: string) => void }) {
           ? Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-[140px] rounded-[7px]" />
             ))
-          : templates.map((t, i) => (
-              <TemplateCard key={t.title} t={t} index={i} setTab={setTab} />
+          : graphTemplates.map((t, i) => (
+              <TemplateCard key={t.id} t={t} index={i} setTab={setTab} />
             ))}
       </div>
     </div>
@@ -397,10 +436,14 @@ function TemplateCard({
     >
       <div className="flex items-start justify-between">
         <span className="text-white font-extrabold text-[15px]">{t.title}</span>
-        <Chip cyan>{t.tag}</Chip>
+        <Chip cyan>{t.tag ?? t.category}</Chip>
       </div>
-      <p className="text-white/35 text-[13px] leading-relaxed">{t.desc}</p>
-      <p className="text-white/20 text-[12px]">{t.count} pre-built charts</p>
+      <p className="text-white/35 text-[13px] leading-relaxed">
+        {t.desc ?? t.description}
+      </p>
+      {t.count && (
+        <p className="text-white/20 text-[12px]">{t.count} pre-built charts</p>
+      )}
       <Btn
         variant="outline"
         size="sm"
@@ -417,19 +460,20 @@ function TemplateCard({
 // SETTINGS
 // ─────────────────────────────────────────────────────────────
 function SettingsPage() {
-  const { user, setUser } = useDashboardStore();
-  const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+  const { user, subscription } = useAppStore();
+  const [firstName, setFirstName] = useState(user?.firstName ?? "");
+  const [lastName, setLastName] = useState(user?.lastName ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [saved, setSaved] = useState(false);
 
-  // Sync local state when store loads
   useEffect(() => {
-    setName(user.name);
-    setEmail(user.email);
-  }, [user.name, user.email]);
+    setFirstName(user?.firstName ?? "");
+    setLastName(user?.lastName ?? "");
+    setEmail(user?.email ?? "");
+  }, [user]);
 
   const handleSave = () => {
-    setUser({ name, email });
+    // TODO: PATCH /api/user { firstName, lastName, email }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -454,23 +498,29 @@ function SettingsPage() {
       <SectionCard style={{ marginBottom: 13 }}>
         <SectionHead title="Profile" />
         <div className="p-[17px] flex flex-col gap-[13px]">
-          <div className="flex flex-col gap-[6px]">
-            <FieldLabel>Full Name</FieldLabel>
-            <FieldInput
-              value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setName(e.target.value)
-              }
-              placeholder="Full name"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-[6px]">
+              <FieldLabel>First Name</FieldLabel>
+              <FieldInput
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+              />
+            </div>
+            <div className="flex flex-col gap-[6px]">
+              <FieldLabel>Last Name</FieldLabel>
+              <FieldInput
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-[6px]">
             <FieldLabel>Email</FieldLabel>
             <FieldInput
               value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setEmail(e.target.value)
-              }
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
             />
           </div>
@@ -488,16 +538,14 @@ function SettingsPage() {
         <SectionHead title="Plan" />
         <div className="p-[17px] flex items-center justify-between">
           <div>
-            <p className="text-white text-[13px] font-bold mb-1">
-              {user.plan || "—"} Plan
+            <p className="text-white text-[13px] font-bold mb-1 capitalize">
+              {subscription?.plan ?? "—"} Plan
             </p>
-            <p className="text-white/35 text-[12px]">
-              {user.plan === "Pro"
-                ? "Unlimited graphs, priority support"
-                : "Upgrade to unlock more features"}
+            <p className="text-white/35 text-[12px] capitalize">
+              Status: {subscription?.status ?? "—"}
             </p>
           </div>
-          {user.plan !== "Pro" && <Btn size="sm">Upgrade →</Btn>}
+          {subscription?.plan === "free" && <Btn size="sm">Upgrade →</Btn>}
         </div>
       </SectionCard>
     </div>
@@ -508,7 +556,33 @@ function SettingsPage() {
 // BILLING
 // ─────────────────────────────────────────────────────────────
 function BillingPage() {
-  const { user } = useDashboardStore();
+  const { user, subscription } = useAppStore();
+
+  const rows = [
+    [
+      "Plan",
+      <span className="capitalize text-[#00d4c8] font-bold">
+        {subscription?.plan ?? "—"}
+      </span>,
+    ],
+    [
+      "Status",
+      <span className="capitalize">{subscription?.status ?? "—"}</span>,
+    ],
+    ["Email", user?.email ?? "—"],
+    [
+      "Started",
+      subscription?.startedAt
+        ? new Date(subscription.startedAt).toLocaleDateString()
+        : "—",
+    ],
+    [
+      "Expires",
+      subscription?.expiresAt
+        ? new Date(subscription.expiresAt).toLocaleDateString()
+        : "—",
+    ],
+  ] as const;
 
   return (
     <div className="max-w-[480px]">
@@ -519,16 +593,15 @@ function BillingPage() {
       <SectionCard>
         <SectionHead title="Current Plan" />
         <div className="p-[17px] flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <span className="text-white/55 text-[13px]">Plan</span>
-            <span className="text-[#00d4c8] font-bold text-[13px]">
-              {user.plan || "—"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-white/55 text-[13px]">Email</span>
-            <span className="text-white text-[13px]">{user.email || "—"}</span>
-          </div>
+          {rows.map(([label, val]) => (
+            <div
+              key={String(label)}
+              className="flex items-center justify-between"
+            >
+              <span className="text-white/55 text-[13px]">{label}</span>
+              <span className="text-white text-[13px]">{val}</span>
+            </div>
+          ))}
           <Btn variant="outline" size="sm" style={{ alignSelf: "flex-start" }}>
             Manage Subscription →
           </Btn>
@@ -609,10 +682,16 @@ function HelpPage() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// NEW GRAPH / IMPORT STUBS (unchanged logic, Tailwind wrapper)
+// NEW GRAPH
 // ─────────────────────────────────────────────────────────────
 function NewGraphPage({ setTab }: { setTab: (t: string) => void }) {
   const [step, setStep] = useState(1);
+  const steps: [string, string][] = [
+    ["1", "Source"],
+    ["2", "Configure"],
+    ["3", "Preview"],
+  ];
+
   return (
     <div className="max-w-[560px]">
       <BackBtn onClick={() => setTab("graphs")} />
@@ -620,37 +699,35 @@ function NewGraphPage({ setTab }: { setTab: (t: string) => void }) {
       <p className="text-white/35 text-[13px] mb-7">
         Choose a data source to get started
       </p>
+
+      <Stepper steps={steps} current={step} />
+
       {step === 1 && (
         <div
           className="grid gap-[9px]"
           style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))" }}
         >
-          {[
-            {
-              icon: "M9 17H5a2 2 0 00-2 2",
-              label: "Google Sheets",
-              sub: "Live spreadsheet data",
-            },
-            {
-              icon: "M21 15v4a2 2 0 01-2 2H5",
-              label: "Upload Excel",
-              sub: "XLS / XLSX / CSV",
-            },
-            {
-              icon: "M9 5H7a2 2 0 00-2 2v12",
-              label: "Paste Data",
-              sub: "Manual entry",
-            },
-          ].map((src) => (
-            <ActionCard
-              key={src.label}
-              icon={src.icon}
-              label={src.label}
-              sub={src.sub}
-              cta="Select"
-              onClick={() => setStep(2)}
-            />
-          ))}
+          <ActionCard
+            icon="M9 17H5a2 2 0 00-2 2"
+            label="Google Sheets"
+            sub="Live spreadsheet data"
+            cta="Select"
+            onClick={() => setStep(2)}
+          />
+          <ActionCard
+            icon="M21 15v4a2 2 0 01-2 2H5"
+            label="Upload Excel"
+            sub="XLS / XLSX / CSV"
+            cta="Select"
+            onClick={() => setStep(2)}
+          />
+          <ActionCard
+            icon="M9 5H7a2 2 0 00-2 2v12"
+            label="Paste Data"
+            sub="Manual entry"
+            cta="Select"
+            onClick={() => setStep(2)}
+          />
         </div>
       )}
       {step === 2 && (
@@ -671,7 +748,11 @@ function NewGraphPage({ setTab }: { setTab: (t: string) => void }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// IMPORT PAGES
+// ─────────────────────────────────────────────────────────────
 function ImportGooglePage({ setTab }: { setTab: (t: string) => void }) {
+  const [url, setUrl] = useState("");
   return (
     <div className="max-w-[480px]">
       <BackBtn onClick={() => setTab("dashboard")} />
@@ -683,7 +764,11 @@ function ImportGooglePage({ setTab }: { setTab: (t: string) => void }) {
       </p>
       <div className="flex flex-col gap-3">
         <FieldLabel>Sheet URL</FieldLabel>
-        <FieldInput placeholder="https://docs.google.com/spreadsheets/d/..." />
+        <FieldInput
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://docs.google.com/spreadsheets/d/..."
+        />
         <Btn style={{ alignSelf: "flex-start" }}>Connect →</Btn>
       </div>
     </div>
@@ -710,6 +795,7 @@ function ImportExcelPage({ setTab }: { setTab: (t: string) => void }) {
 }
 
 function ImportPastePage({ setTab }: { setTab: (t: string) => void }) {
+  const [text, setText] = useState("");
   return (
     <div className="max-w-[480px]">
       <BackBtn onClick={() => setTab("dashboard")} />
@@ -718,6 +804,8 @@ function ImportPastePage({ setTab }: { setTab: (t: string) => void }) {
         Paste tabular text or JSON directly.
       </p>
       <FieldTextarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         placeholder="Paste CSV, TSV, or JSON here…"
         style={{ minHeight: 180 }}
       />
@@ -734,50 +822,25 @@ export default function App() {
   const [sideOpen, setSide] = useState(true);
   const [collapsed, setCol] = useState(false);
 
-  const {
-    graphs,
-    setGraphs,
-    setStats,
-    setActivity,
-    setTemplates,
-    setUser,
-    setLoading,
-  } = useDashboardStore();
+  const { user, savedCharts, bootstrap, isBootstrapped, isBootstrapping } =
+    useAppStore();
 
-  // ── Simulate fetching user + dashboard data from DB ──────────────────────
   useEffect(() => {
-    setLoading(true);
-    // Replace this with your real API / DB call, e.g.:
-    // const res = await fetch("/api/dashboard"); const data = await res.json();
-    // Then call setUser(data.user), setGraphs(data.graphs), etc.
-
-    // For now we pull from the static seed so the UI isn't empty during dev:
-    import("@/lib/Data").then(
-      ({ USER, GRAPHS, STATS, ACTIVITY, TEMPLATES }) => {
-        setUser(USER);
-        setGraphs(GRAPHS);
-        setStats(STATS);
-        setActivity(ACTIVITY);
-        setTemplates(TEMPLATES);
-        setLoading(false);
-      },
-    );
+    if (!isBootstrapped && !isBootstrapping) bootstrap();
   }, []);
-
-  const { user } = useDashboardStore();
 
   const pages: Record<string, React.ReactNode> = {
     dashboard: <DashboardHome setTab={setTab} />,
-    graphs: <GraphGrid graphs={graphs} emptyMsg="No graphs yet" />,
+    graphs: <GraphGrid charts={savedCharts} emptyMsg="No graphs yet" />,
     shared: (
       <GraphGrid
-        graphs={graphs.slice(0, 3)}
+        charts={savedCharts.slice(0, 3)}
         emptyMsg="Nothing shared with you yet"
       />
     ),
     favourites: (
       <GraphGrid
-        graphs={graphs.filter((g) => g.starred)}
+        charts={savedCharts.filter((c) => c.starred)}
         emptyMsg="Star graphs to save them here"
       />
     ),
@@ -792,17 +855,20 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111212] text-white flex overflow-hidden font-[Inter,'SF_Pro_Display',-apple-system,BlinkMacSystemFont,sans-serif]">
+    <div className="min-h-screen bg-[#111212] text-white flex overflow-hidden font-sans">
       <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(11px); } to { opacity:1; transform:none; } }
-        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.20); }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(11px); }
+          to   { opacity: 1; transform: none; }
+        }
+        input::placeholder,
+        textarea::placeholder { color: rgba(255,255,255,0.20); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 2px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(8,145,178,0.35); }
       `}</style>
 
-      {/* ── Sidebar ── */}
       <Sidebar
         open={sideOpen}
         collapsed={collapsed}
@@ -811,22 +877,18 @@ export default function App() {
         onTab={setTab}
       />
 
-      {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
         <header className="bg-[#111212] border-b border-white/[0.08] px-[19px] h-[50px] flex items-center gap-[11px] flex-shrink-0 sticky top-0 z-10">
-          {/* Hamburger */}
           <button
             onClick={() => setSide((s) => !s)}
             className="flex flex-col gap-[3.5px] p-[5px] text-white/35 bg-transparent border-none cursor-pointer"
-            aria-label="Toggle sidebar"
           >
             <span className="w-[14px] h-[1.5px] bg-current block" />
             <span className="w-[14px] h-[1.5px] bg-current block" />
             <span className="w-[10px] h-[1.5px] bg-current block" />
           </button>
 
-          {/* Breadcrumb */}
           <div className="flex items-center gap-[7px] text-[13px]">
             <span className="text-white/20">Graphix</span>
             <span className="text-white/20">/</span>
@@ -837,13 +899,15 @@ export default function App() {
 
           <div className="flex-1" />
 
-          {/* Avatar */}
-          <div className="w-[31px] h-[31px] rounded-[6px] bg-[rgba(0,212,200,0.18)] border border-[rgba(0,212,200,0.35)] flex items-center justify-center text-[11px] font-extrabold text-[#00d4c8] cursor-pointer select-none">
-            {user.avatar || "…"}
+          {/* Avatar — real initials from store */}
+          <div
+            className="w-[31px] h-[31px] rounded-[6px] bg-[rgba(0,212,200,0.18)] border border-[rgba(0,212,200,0.35)] flex items-center justify-center text-[11px] font-extrabold text-[#00d4c8] cursor-pointer select-none"
+            title={user ? `${user.firstName} ${user.lastName}` : ""}
+          >
+            {user ? `${user.firstName[0]}${user.lastName[0]}` : "…"}
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 px-6 pt-6 pb-12 overflow-y-auto bg-[#111212]">
           {pages[tab] ?? null}
         </main>

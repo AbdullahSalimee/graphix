@@ -88,7 +88,7 @@ export default function GraphCard({
   index = 0,
 }: {
   graph: any;
-  index: number;
+  index?: number;
 }) {
   const [hov, setHov] = useState(false);
   const [vis, setVis] = useState(false);

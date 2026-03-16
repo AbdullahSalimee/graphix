@@ -1,242 +1,156 @@
-import { CYAN, BG, W08, W20, W35, W55, C18, C35 } from "@/lib/Tokens";
-import { IC } from "@/lib/Tokens";
-import { NAV as NAV_DATA, USER as USER_DATA } from "@/lib/Data";
-import { Ico } from "./UIKit";
+"use client";
 
-/**
- * Sidebar
- * Props: open, collapsed, setCollapsed, tab, onTab
- */
-export default function Sidebar({ open, collapsed, setCollapsed, tab, onTab }: { open: boolean, collapsed: boolean, setCollapsed: (collapsed: boolean) => void, tab: string, onTab: (tab: string) => void }) {
+import { NAV as NAV_DATA } from "@/lib/Data";
+import { IC } from "@/lib/Tokens";
+import { useAppStore } from "@/store/appStore";
+
+interface SidebarProps {
+  open: boolean;
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+  tab: string;
+  onTab: (tab: string) => void;
+}
+
+export default function Sidebar({
+  open,
+  collapsed,
+  setCollapsed,
+  tab,
+  onTab,
+}: SidebarProps) {
+  const user = useAppStore((s) => s.user);
+  const subscription = useAppStore((s) => s.subscription);
+  const logout = useAppStore((s) => s.logout);
+
+  const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "…";
+  const fullName = user ? `${user.firstName} ${user.lastName}` : "";
   const w = open ? (collapsed ? 52 : 215) : 0;
 
   return (
     <aside
-      style={{
-        width: w,
-        minWidth: w,
-        background: BG,
-        borderRight: `1px solid ${W08}`,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        transition: "all 0.27s ease",
-        flexShrink: 0,
-      }}
+      className="flex-shrink-0 flex flex-col bg-[#111212] border-r border-white/[0.08] overflow-hidden transition-all duration-[270ms] ease-in-out"
+      style={{ width: w, minWidth: w }}
     >
       <div
-        style={{
-          width: collapsed ? 52 : 215,
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-        }}
+        className="flex flex-col h-full"
+        style={{ width: collapsed ? 52 : 215 }}
       >
-        {/* Logo */}
+        {/* ── Logo ── */}
         <div
-          style={{
-            padding: "15px 12px",
-            borderBottom: `1px solid ${W08}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: collapsed ? "center" : "space-between",
-            minHeight: 52,
-          }}
+          className={`flex items-center border-b border-white/[0.08] min-h-[52px] px-3 py-[15px] ${
+            collapsed ? "justify-center" : "justify-between"
+          }`}
         >
           {!collapsed && (
-            <span
-              style={{
-                color: "#fff",
-                fontWeight: 800,
-                fontSize: 15,
-                letterSpacing: "-0.02em",
-              }}
-            >
+            <span className="text-white font-extrabold text-[15px] tracking-tight">
               Graphix
             </span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: W35,
-              display: "flex",
-              flexDirection: "column",
-              gap: 3.5,
-              padding: 4,
-            }}
+            className="flex flex-col gap-[3.5px] p-1 text-white/35 cursor-pointer bg-transparent border-none"
+            aria-label="Toggle sidebar"
           >
-            <span
-              style={{
-                width: 13,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
-            <span
-              style={{
-                width: 13,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
-            <span
-              style={{
-                width: 9,
-                height: 1.5,
-                background: "currentColor",
-                display: "block",
-              }}
-            />
+            <span className="w-[13px] h-[1.5px] bg-current block" />
+            <span className="w-[13px] h-[1.5px] bg-current block" />
+            <span className="w-[9px] h-[1.5px] bg-current block" />
           </button>
         </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: "5px 6px", overflowY: "auto" }}>
+        {/* ── Nav ── */}
+        <nav className="flex-1 px-[6px] py-[5px] overflow-y-auto">
           {NAV_DATA.map((grp: any) => (
-            <div key={grp.group} style={{ marginBottom: 2 }}>
+            <div key={grp.group} className="mb-0.5">
               {!collapsed && (
-                <div
-                  style={{
-                    color: W20,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    padding: "10px 8px 5px",
-                  }}
-                >
+                <div className="text-white/20 text-[9px] font-bold tracking-[0.14em] uppercase px-2 pt-[10px] pb-[5px]">
                   {grp.group}
                 </div>
               )}
-              {grp.items.map((item: { id: keyof typeof IC; label: string; badge?: string }) => {
-                const active = tab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onTab(item.id)}
-                    title={collapsed ? item.label : undefined}
-                    style={{
-                      width: "100%",
-                      background: active ? C18 : "transparent",
-                      border: `1px solid ${active ? C35 : "transparent"}`,
-                      borderRadius: 5,
-                      padding: collapsed ? "9px" : "8px 9px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      justifyContent: collapsed ? "center" : "flex-start",
-                      transition: "all 0.15s",
-                      marginBottom: 1.5,
-                      position: "relative",
-                    }}
-                  >
-                    {active && !collapsed && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: 5,
-                          bottom: 5,
-                          width: 2.5,
-                          background: CYAN,
-                          borderRadius: "0 2px 2px 0",
-                        }}
-                      />
-                    )}
-                    <span style={{ color: active ? CYAN : W35, flexShrink: 0 }}>
-                      <Ico d={IC[item.id] || IC.graphs} size={14} />
-                    </span>
-                    {!collapsed && (
-                      <>
-                        <span
-                          style={{
-                            flex: 1,
-                            textAlign: "left",
-                            color: active ? "#fff" : W55,
-                            fontWeight: active ? 700 : 500,
-                            fontSize: 13,
-                          }}
-                        >
-                          {item.label}
-                        </span>
-                        {item.badge && (
-                          <span
-                            style={{
-                              background: active ? C18 : W08,
-                              color: active ? CYAN : W35,
-                              borderRadius: 3,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              padding: "1px 5px",
-                            }}
-                          >
-                            {item.badge}
+              {grp.items.map(
+                (item: { id: string; label: string; badge?: string }) => {
+                  const active = tab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onTab(item.id)}
+                      title={collapsed ? item.label : undefined}
+                      className={`w-full flex items-center rounded-[5px] text-left cursor-pointer border transition-colors duration-150
+                      ${collapsed ? "justify-center p-[7px]" : "gap-[9px] px-[8px] py-[7px]"}
+                      ${
+                        active
+                          ? "bg-[rgba(0,212,200,0.18)] border-[rgba(0,212,200,0.35)] text-[#00d4c8]"
+                          : "bg-transparent border-transparent text-white/55 hover:text-white/80 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <svg
+                        width={13}
+                        height={13}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="flex-shrink-0"
+                      >
+                        <path
+                          d={
+                            (IC as Record<string, string>)[item.id] ??
+                            IC.dashboard
+                          }
+                        />
+                      </svg>
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-[12.5px] font-medium">
+                            {item.label}
                           </span>
-                        )}
-                      </>
-                    )}
-                  </button>
-                );
-              })}
+                          {item.badge && (
+                            <span
+                              className={`text-[9px] font-bold px-[5px] py-[1px] rounded-[3px] ${
+                                active
+                                  ? "bg-[rgba(0,212,200,0.2)] text-[#00d4c8]"
+                                  : "bg-white/[0.08] text-white/35"
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  );
+                },
+              )}
             </div>
           ))}
         </nav>
 
-        {/* User */}
-        <div
-          style={{
-            borderTop: `1px solid ${W08}`,
-            padding: collapsed ? "9px 6px" : "12px 13px",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            justifyContent: collapsed ? "center" : "flex-start",
-          }}
-        >
-          <div
-            style={{
-              width: 29,
-              height: 29,
-              borderRadius: 6,
-              background: C18,
-              border: `1px solid ${C35}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              fontWeight: 800,
-              color: CYAN,
-              flexShrink: 0,
-            }}
-          >
-            {USER_DATA.avatar}
-          </div>
-          {!collapsed && (
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  color: "#fff",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {USER_DATA.name}
+        {/* ── User footer ── */}
+        {!collapsed && (
+          <div className="border-t border-white/[0.08] px-3 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-[5px] bg-[rgba(0,212,200,0.18)] border border-[rgba(0,212,200,0.35)] flex items-center justify-center text-[10px] font-extrabold text-[#00d4c8] flex-shrink-0">
+                {initials}
               </div>
-              <div style={{ color: CYAN, fontSize: 11 }}>
-                {USER_DATA.plan} plan
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-[11px] font-bold truncate">
+                  {fullName}
+                </p>
+                <p className="text-white/35 text-[10px] capitalize truncate">
+                  {subscription?.plan ?? "—"}
+                </p>
               </div>
             </div>
-          )}
-        </div>
+            <button
+              onClick={logout}
+              className="w-full text-left text-white/35 text-[11px] hover:text-white/60 transition-colors bg-transparent border-none cursor-pointer px-0 py-1"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

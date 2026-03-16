@@ -3206,9 +3206,28 @@ export default function ChartEditor({
                   />
                 </div>
                 {!searchQuery && (
+                  // AFTER
                   <div
                     className="flex gap-1.5 px-4 pb-2 overflow-x-auto"
                     style={{ scrollbarWidth: "none" }}
+                    onMouseDown={(e) => {
+                      const el = e.currentTarget;
+                      let startX = e.pageX;
+                      let scrollLeft = el.scrollLeft;
+                      let isDragging = false;
+
+                      const onMove = (ev: MouseEvent) => {
+                        isDragging = true;
+                        el.scrollLeft = scrollLeft - (ev.pageX - startX);
+                      };
+                      const onUp = () => {
+                        document.removeEventListener("mousemove", onMove);
+                        document.removeEventListener("mouseup", onUp);
+                      };
+
+                      document.addEventListener("mousemove", onMove);
+                      document.addEventListener("mouseup", onUp);
+                    }}
                   >
                     {CHART_GROUPS_ORDER.map((g) => {
                       const isActive = activeGroup === g.id;

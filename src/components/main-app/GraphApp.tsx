@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Sidebar from "./Sidebar";
-import ChatArea from "./ChartArea";
+import SingleChartArea from "./SingleChartArea";
+import ChartTemplatePanel from "./ChartTemplatePanel";
+import MessageHistorySidebar from "./MessageHistorySidebar";
 import InputBar from "./InputBar";
 import StarField from "./StarField";
 import WaveHero from "./WaveHero";
@@ -32,13 +34,13 @@ export default function GraphApp() {
   const [activeId, setActiveId] = useState<string>(INITIAL_CONV.id);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const chatRef = useRef<HTMLDivElement>(null);
+  const [chatHistory, setChatHistory] = useState<
+    { role: string; content: string }[]
+  >([]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 640) {
+    if (typeof window !== "undefined" && window.innerWidth >= 640)
       setSidebarOpen(true);
-    }
   }, []);
 
   const activeConv = conversations.find((c) => c.id === activeId);
@@ -76,29 +78,18 @@ export default function GraphApp() {
       const c = createConversation();
       setConversations((prev) => [c, ...prev]);
       setActiveId(c.id);
+      setChatHistory([]);
     }
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
+    if (typeof window !== "undefined" && window.innerWidth < 640)
       setSidebarOpen(false);
-    }
   };
 
   const handleSelect = (id: string) => {
     setActiveId(id);
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
+    setChatHistory([]);
+    if (typeof window !== "undefined" && window.innerWidth < 640)
       setSidebarOpen(false);
-    }
   };
-
-  useEffect(() => {
-    if (chatRef.current) {
-      setTimeout(() => {
-        chatRef.current?.scrollTo({
-          top: chatRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }, 80);
-    }
-  }, [activeConv?.messages?.length]);
 
   const handleSend = async (
     input: string,
@@ -117,23 +108,48 @@ export default function GraphApp() {
       hasFile: !!fileContent,
       fileName,
     };
-    const aiMsg: Message = {
-      id: crypto.randomUUID(),
-      from: "ai",
-      content: "",
-      status: "loading",
-    };
 
-    updateMessages(convId, (msgs) => [...msgs, userMsg, aiMsg]);
+    // Keep only one AI message slot — update in place
+    updateMessages(convId, (msgs) => {
+      const withUser = [...msgs, userMsg];
+      const hasAi = withUser.some((m) => m.from === "ai");
+      if (hasAi) {
+        return withUser.map((m) =>
+          m.from === "ai"
+            ? { ...m, status: "loading" as const, content: "" }
+            : m,
+        );
+      }
+      return [
+        ...withUser,
+        {
+          id: "ai-chart",
+          from: "ai" as const,
+          content: "",
+          status: "loading" as const,
+        },
+      ];
+    });
+
     setIsLoading(true);
 
     if (prebuiltConfig) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
-          m.id === aiMsg.id
-            ? { ...m, content: prebuiltConfig, status: "success" }
+          m.from === "ai"
+            ? { ...m, content: prebuiltConfig, status: "success" as const }
             : m,
         ),
+      );
+      setChatHistory((h) =>
+        [
+          ...h,
+          { role: "user", content: input },
+          {
+            role: "assistant",
+            content: JSON.stringify(prebuiltConfig).slice(0, 300),
+          },
+        ].slice(-6),
       );
       setIsLoading(false);
       return;
@@ -143,7 +159,11 @@ export default function GraphApp() {
       const res = await fetch("https://graphy-server.vercel.app/api/chart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input, fileContent }),
+        body: JSON.stringify({
+          prompt: input,
+          fileContent,
+          history: chatHistory,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -151,12 +171,15 @@ export default function GraphApp() {
       }
       const config = await res.json();
 
-      // If AI returned error message instead of chart
       if (config.error) {
         updateMessages(convId, (msgs) =>
           msgs.map((m) =>
-            m.id === aiMsg.id
-              ? { ...m, content: { error: config.error }, status: "success" }
+            m.from === "ai"
+              ? {
+                  ...m,
+                  content: { error: config.error },
+                  status: "success" as const,
+                }
               : m,
           ),
         );
@@ -166,17 +189,27 @@ export default function GraphApp() {
 
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
-          m.id === aiMsg.id ? { ...m, content: config, status: "success" } : m,
+          m.from === "ai"
+            ? { ...m, content: config, status: "success" as const }
+            : m,
         ),
+      );
+
+      setChatHistory((h) =>
+        [
+          ...h,
+          { role: "user", content: input },
+          { role: "assistant", content: JSON.stringify(config).slice(0, 300) },
+        ].slice(-6),
       );
     } catch (err: any) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
-          m.id === aiMsg.id
+          m.from === "ai"
             ? {
                 ...m,
                 content: err.message || "Failed to generate chart",
-                status: "error",
+                status: "error" as const,
               }
             : m,
         ),
@@ -197,7 +230,7 @@ export default function GraphApp() {
       />
       <StarField />
 
-      <div className="app-shell flex h-dvh relative z-10">
+      <div className="flex h-dvh relative z-10">
         {/* Mobile backdrop */}
         {sidebarOpen && (
           <div
@@ -210,6 +243,7 @@ export default function GraphApp() {
           />
         )}
 
+        {/* LEFT — conversations sidebar */}
         {sidebarOpen && (
           <Sidebar
             conversations={conversations}
@@ -220,10 +254,11 @@ export default function GraphApp() {
           />
         )}
 
-        <div className="main flex-1 flex flex-col min-w-0 relative">
+        {/* CENTER — main area */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
           {/* Topbar */}
           <div
-            className="topbar flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 flex-shrink-0"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2.5 flex-shrink-0"
             style={{
               background: "rgba(9,9,15,0.85)",
               backdropFilter: "blur(12px)",
@@ -232,24 +267,12 @@ export default function GraphApp() {
           >
             {!sidebarOpen && (
               <button
-                className="flex items-center justify-center w-8 h-8 rounded-lg transition-all flex-shrink-0"
+                className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 transition-all"
                 style={{
                   color: "rgba(255,255,255,0.4)",
                   border: "1px solid rgba(255,255,255,0.07)",
                 }}
                 onClick={() => setSidebarOpen(true)}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.color =
-                    "rgba(255,255,255,0.8)";
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.06)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.color =
-                    "rgba(255,255,255,0.4)";
-                  (e.currentTarget as HTMLElement).style.background =
-                    "transparent";
-                }}
                 aria-label="Open sidebar"
               >
                 <MenuIcon />
@@ -266,28 +289,31 @@ export default function GraphApp() {
             </span>
           </div>
 
-          {/* Chat / Hero area */}
-          <div
-            ref={chatRef}
-            className="chat-area flex-1 overflow-y-auto overscroll-contain"
-            style={{
-              scrollbarWidth: "thin",
-              scrollbarColor: "rgba(255,255,255,0.08) transparent",
-            }}
-          >
-            {!hasMessages ? (
-              <WaveHero onSend={handleSend} isLoading={isLoading} />
-            ) : (
-              <div className="py-4 sm:py-6 px-2 sm:px-4 md:px-6">
-                <ChatArea messages={activeConv?.messages ?? []} />
-              </div>
-            )}
-          </div>
+          {/* Body */}
+          <div className="flex-1 flex min-h-0">
+            {/* Template panel — left, only when chart exists */}
+            {hasMessages && <ChartTemplatePanel />}
 
-          {hasMessages && (
-            <InputBar onSend={handleSend} isLoading={isLoading} />
-          )}
+            {/* Chart or Hero */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {!hasMessages ? (
+                <WaveHero onSend={handleSend} isLoading={isLoading} />
+              ) : (
+                <div className="flex-1 min-h-0 flex">
+                  <SingleChartArea messages={activeConv?.messages ?? []} />
+                </div>
+              )}
+              {hasMessages && (
+                <InputBar onSend={handleSend} isLoading={isLoading} />
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* RIGHT — message history sidebar */}
+        {hasMessages && (
+          <MessageHistorySidebar messages={activeConv?.messages ?? []} />
+        )}
       </div>
     </div>
   );

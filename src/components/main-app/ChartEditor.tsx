@@ -13,13 +13,13 @@ interface PlotlyHTMLElement extends HTMLDivElement {
   data?: any[];
   layout?: any;
 }
+
 interface ChartEditorProps {
   message: any;
   divRef: React.RefObject<PlotlyHTMLElement | null>;
   onClose: () => void;
 }
 
-// ── Chart Type Definitions ────────────────────────────────────────────────────
 type ChartTypeId =
   | "line"
   | "scatter"
@@ -689,7 +689,6 @@ const Icon = {
 };
 
 const CHART_TYPES: ChartTypeDef[] = [
-  // ── Line & Scatter ─────────────────────────────────────────────────────────
   {
     id: "line",
     label: "Line",
@@ -816,8 +815,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Line & Scatter",
     icon: Icon.line,
   },
-
-  // ── Bar Charts ─────────────────────────────────────────────────────────────
   {
     id: "bar",
     label: "Column",
@@ -921,8 +918,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Bar Charts",
     icon: Icon.bar,
   },
-
-  // ── Pie & Bubble ───────────────────────────────────────────────────────────
   {
     id: "pie",
     label: "Pie Chart",
@@ -999,8 +994,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Pie & Bubble",
     icon: Icon.scatter,
   },
-
-  // ── Statistical ────────────────────────────────────────────────────────────
   {
     id: "error-bars",
     label: "Symmetric Error Bars",
@@ -1101,8 +1094,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Statistical",
     icon: Icon.violin,
   },
-
-  // ── Histograms ─────────────────────────────────────────────────────────────
   {
     id: "histogram",
     label: "Basic Histogram",
@@ -1167,8 +1158,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Histograms",
     icon: Icon.contour,
   },
-
-  // ── Filled & Error ─────────────────────────────────────────────────────────
   {
     id: "filled-lines",
     label: "Filled Lines",
@@ -1207,8 +1196,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Filled & Error",
     icon: Icon.error,
   },
-
-  // ── Contour & Heatmap ──────────────────────────────────────────────────────
   {
     id: "contour-simple",
     label: "Simple Contour",
@@ -1265,8 +1252,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Contour & Heat",
     icon: Icon.heatmap,
   },
-
-  // ── Scientific ─────────────────────────────────────────────────────────────
   {
     id: "ternary",
     label: "Ternary + Markers",
@@ -1325,8 +1310,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Scientific",
     icon: Icon.line,
   },
-
-  // ── Financial ──────────────────────────────────────────────────────────────
   {
     id: "waterfall",
     label: "Basic Waterfall",
@@ -1401,8 +1384,6 @@ const CHART_TYPES: ChartTypeDef[] = [
     category: "Financial",
     icon: Icon.timeseries,
   },
-
-  // ── 3D Charts ──────────────────────────────────────────────────────────────
   {
     id: "scatter3d",
     label: "3D Scatter",
@@ -1521,6 +1502,7 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   if (type === "box") return orient === "h" ? "hbox" : "box";
   if (type === "violin") return "violin";
   if (type === "histogram") return "histogram";
+  if (type === "histogram2dcontour") return "2d-histogram-contour";
   if (type === "heatmap") return "heatmap";
   if (type === "contour") return "contour-basic";
   if (type === "parcoords") return "parallel-coords";
@@ -1541,8 +1523,383 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   return "bar";
 }
 
-// ── Palettes & Fonts ──────────────────────────────────────────────────────────
+// ─── Synthetic data generators for chart types that need specific data formats ───
+
+function generateBoxData(sourceTraces: any[], palette: string[]) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const rawY: number[] =
+      trace.y?.map(Number).filter((n: number) => !isNaN(n)) || [];
+    const syntheticY =
+      rawY.length >= 4
+        ? rawY
+        : [10, 15, 13, 17, 14, 12, 18, 11, 16, 13, 15, 14, 19, 12, 17];
+    return {
+      type: "box",
+      name: trace.name || `Series ${i + 1}`,
+      y: syntheticY,
+      marker: { color: palette[i % palette.length] },
+      boxmean: true,
+    };
+  });
+}
+
+function generateViolinData(sourceTraces: any[], palette: string[]) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const rawY: number[] =
+      trace.y?.map(Number).filter((n: number) => !isNaN(n)) || [];
+    const syntheticY =
+      rawY.length >= 5
+        ? rawY
+        : Array.from({ length: 30 }, () => Math.random() * 20 + 5);
+    return {
+      type: "violin",
+      name: trace.name || `Series ${i + 1}`,
+      y: syntheticY,
+      marker: { color: palette[i % palette.length] },
+      box: { visible: true },
+      meanline: { visible: true },
+    };
+  });
+}
+
+function generateHistogramData(
+  sourceTraces: any[],
+  palette: string[],
+  variant: string,
+) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const rawX: number[] =
+      trace.y?.map(Number).filter((n: number) => !isNaN(n)) ||
+      trace.x?.map(Number).filter((n: number) => !isNaN(n)) ||
+      [];
+    const syntheticX =
+      rawX.length >= 5
+        ? rawX
+        : Array.from({ length: 50 }, () => Math.random() * 20 + i * 5);
+    const base: any = {
+      type: "histogram",
+      name: trace.name || `Series ${i + 1}`,
+      x: syntheticX,
+      marker: { color: palette[i % palette.length] },
+    };
+    if (variant === "overlaid-histogram") base.opacity = 0.7;
+    if (variant === "stacked-histogram") base.opacity = 1;
+    if (variant === "cumulative-histogram") base.cumulative = { enabled: true };
+    if (variant === "normalized-histogram") base.histnorm = "probability";
+    return base;
+  });
+}
+
+function generate2DHistContour(sourceTraces: any[], palette: string[]) {
+  const n = 100;
+  const x = Array.from({ length: n }, () => Math.random() * 10);
+  const y = Array.from({ length: n }, () => Math.random() * 10);
+  return [
+    {
+      type: "histogram2dcontour",
+      x,
+      y,
+      colorscale: "Viridis",
+      contours: { showlabels: true },
+    },
+  ];
+}
+
+function generateHeatmapData(sourceTraces: any[], variant: string) {
+  if (sourceTraces[0]?.z) return sourceTraces;
+  const allTraces = sourceTraces;
+  const cols = allTraces.length;
+  const rows = Math.max(
+    ...allTraces.map((t: any) => (t.y || t.x || []).length),
+    4,
+  );
+  const z = Array.from({ length: rows }, (_, r) =>
+    Array.from(
+      { length: cols },
+      (_, c) =>
+        allTraces[c]?.y?.[r] ?? allTraces[c]?.x?.[r] ?? Math.random() * 100,
+    ),
+  );
+  const xLabels = allTraces.map(
+    (t: any) => t.name || `Series ${allTraces.indexOf(t) + 1}`,
+  );
+  const yLabels = (
+    allTraces[0]?.x || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`)
+  ).map(String);
+  const base: any = {
+    type: "heatmap",
+    z,
+    x: xLabels,
+    y: yLabels,
+    colorscale: "Viridis",
+  };
+  if (variant === "heatmap-annotated") {
+    base.text = z.map((row: number[]) => row.map((v: number) => v.toFixed(1)));
+    base.texttemplate = "%{text}";
+    base.showscale = true;
+  }
+  return [base];
+}
+
+function generateContourData(sourceTraces: any[], variant: string) {
+  if (sourceTraces[0]?.z) {
+    const base: any = {
+      ...sourceTraces[0],
+      type: "contour",
+      colorscale: "Viridis",
+    };
+    if (variant === "contour-lines") base.contours = { coloring: "lines" };
+    if (variant === "contour-labels") base.contours = { showlabels: true };
+    return [base];
+  }
+  // Generate z matrix from traces
+  const size = 20;
+  const x = Array.from({ length: size }, (_, i) => i);
+  const y = Array.from({ length: size }, (_, i) => i);
+  const z = y.map((yi) =>
+    x.map((xi) => Math.sin(xi / 3) * Math.cos(yi / 3) * 10),
+  );
+  const base: any = { type: "contour", x, y, z, colorscale: "Viridis" };
+  if (variant === "contour-lines") base.contours = { coloring: "lines" };
+  if (variant === "contour-labels") base.contours = { showlabels: true };
+  return [base];
+}
+
+function generateTernaryData(sourceTraces: any[], palette: string[]) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const len = Math.max((trace.y || []).length, 5);
+    const a = Array.from({ length: len }, () => Math.random() * 100);
+    const b = a.map((ai) => Math.random() * (100 - ai));
+    const c = a.map((ai, idx) => 100 - ai - b[idx]);
+    return {
+      type: "scatterternary",
+      name: trace.name || `Series ${i + 1}`,
+      a,
+      b,
+      c,
+      mode: "markers",
+      marker: { color: palette[i % palette.length], size: 8 },
+    };
+  });
+}
+
+function generateParcoordData(sourceTraces: any[], palette: string[]) {
+  const dims = sourceTraces.map((trace: any, i: number) => ({
+    label: trace.name || `Dim ${i + 1}`,
+    values:
+      (trace.y || trace.x || []).map(Number).filter((n: number) => !isNaN(n))
+        .length >= 3
+        ? (trace.y || trace.x || []).map(Number)
+        : Array.from({ length: 20 }, () => Math.random() * 100),
+  }));
+  if (dims.length < 2) {
+    dims.push({
+      label: "Dim 2",
+      values: Array.from({ length: 20 }, () => Math.random() * 100),
+    });
+  }
+  return [
+    {
+      type: "parcoords",
+      line: { color: dims[0].values, colorscale: "Viridis" },
+      dimensions: dims,
+    },
+  ];
+}
+
+function generateWaterfallData(sourceTraces: any[], palette: string[]) {
+  const trace0 = sourceTraces[0] || {};
+  const x: string[] = trace0.x || ["Start", "Q1", "Q2", "Q3", "Q4", "Total"];
+  const y: number[] = (trace0.y || [100, 20, -15, 35, -10, 130]).map(Number);
+  return [
+    {
+      type: "waterfall",
+      name: trace0.name || "Waterfall",
+      x,
+      y,
+      measure: y.map((_, i) =>
+        i === 0 || i === y.length - 1 ? "absolute" : "relative",
+      ),
+      connector: { line: { color: "rgb(63,63,63)" } },
+      increasing: { marker: { color: palette[1] || "#10b981" } },
+      decreasing: { marker: { color: "#ef4444" } },
+      totals: { marker: { color: palette[0] || "#3b82f6" } },
+    },
+  ];
+}
+
+function generateCandlestickData(sourceTraces: any[], showSlider: boolean) {
+  const trace0 = sourceTraces[0] || {};
+  const dates =
+    trace0.x ||
+    Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(2024, 0, i + 1);
+      return d.toISOString().split("T")[0];
+    });
+  const open =
+    trace0.open ||
+    Array.from(
+      { length: dates.length },
+      (_, i) => 100 + Math.sin(i / 3) * 15 + Math.random() * 5,
+    );
+  const high = trace0.high || open.map((o: number) => o + Math.random() * 10);
+  const low = trace0.low || open.map((o: number) => o - Math.random() * 10);
+  const close =
+    trace0.close ||
+    open.map((o: number, i: number) => o + (Math.random() - 0.5) * 8);
+  return [
+    {
+      type: "candlestick",
+      x: dates,
+      open,
+      high,
+      low,
+      close,
+      name: trace0.name || "OHLC",
+      increasing: { line: { color: "#10b981" } },
+      decreasing: { line: { color: "#ef4444" } },
+    },
+  ];
+}
+
+function generateFunnelData(
+  sourceTraces: any[],
+  palette: string[],
+  stacked: boolean,
+) {
+  if (stacked) {
+    return sourceTraces.map((trace: any, i: number) => ({
+      type: "funnel",
+      name: trace.name || `Stage ${i + 1}`,
+      y: trace.x || ["Awareness", "Interest", "Desire", "Action"],
+      x: trace.y || [500 - i * 80, 400 - i * 60, 300 - i * 50, 200 - i * 40],
+      marker: { color: palette[i % palette.length] },
+    }));
+  }
+  const trace0 = sourceTraces[0] || {};
+  return [
+    {
+      type: "funnel",
+      name: trace0.name || "Funnel",
+      y: trace0.x || [
+        "Website visits",
+        "Downloads",
+        "Prospects",
+        "Invoiced",
+        "Paid",
+      ],
+      x: trace0.y || [13873, 10533, 5443, 2703, 908],
+      marker: { color: palette.slice(0, 5) },
+      textinfo: "value+percent initial",
+    },
+  ];
+}
+
+function generateSurface3DData() {
+  const size = 25;
+  const x = Array.from({ length: size }, (_, i) => (i - size / 2) / 5);
+  const y = Array.from({ length: size }, (_, i) => (i - size / 2) / 5);
+  const z = y.map((yi) =>
+    x.map((xi) => Math.sin(Math.sqrt(xi * xi + yi * yi))),
+  );
+  return [{ type: "surface", x, y, z, colorscale: "Viridis" }];
+}
+
+function generateMesh3DData(palette: string[]) {
+  const n = 50;
+  const theta = Array.from({ length: n }, (_, i) => (i / n) * 2 * Math.PI);
+  const phi = Array.from({ length: n }, (_, i) => (i / n) * Math.PI);
+  const x = theta.map((t, i) => Math.sin(phi[i]) * Math.cos(t));
+  const y = theta.map((t, i) => Math.sin(phi[i]) * Math.sin(t));
+  const z = phi.map((p) => Math.cos(p));
+  return [
+    { type: "mesh3d", x, y, z, alphahull: 7, color: palette[0], opacity: 0.7 },
+  ];
+}
+
+function generateScatter3DData(
+  sourceTraces: any[],
+  palette: string[],
+  mode3d: string,
+) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const n = Math.max((trace.y || []).length, 20);
+    const x = trace.x || Array.from({ length: n }, () => Math.random() * 10);
+    const y = trace.y || Array.from({ length: n }, () => Math.random() * 10);
+    const z = trace.z || Array.from({ length: n }, () => Math.random() * 10);
+    return {
+      type: "scatter3d",
+      name: trace.name || `Series ${i + 1}`,
+      x,
+      y,
+      z,
+      mode: mode3d || "markers",
+      marker: { color: palette[i % palette.length], size: 5, opacity: 0.8 },
+      line: { color: palette[i % palette.length], width: 2 },
+    };
+  });
+}
+
+function generateErrorBarData(
+  sourceTraces: any[],
+  palette: string[],
+  variant: string,
+) {
+  return sourceTraces.map((trace: any, i: number) => {
+    const x = trace.x || ["Jan", "Feb", "Mar", "Apr", "May"];
+    const y = (trace.y || [10, 15, 13, 17, 14]).map(Number);
+    const errVals = y.map((v: number) => v * 0.1 + 1);
+    const base: any = {
+      type: "scatter",
+      name: trace.name || `Series ${i + 1}`,
+      x,
+      y,
+      mode: "lines+markers",
+      marker: { color: palette[i % palette.length] },
+      line: { color: palette[i % palette.length] },
+    };
+    if (variant === "horizontal-error") {
+      base.error_x = { type: "data", array: errVals, visible: true };
+    } else if (variant === "asymmetric-error") {
+      base.error_y = {
+        type: "data",
+        array: errVals,
+        arrayminus: errVals.map((v: number) => v * 0.5),
+        visible: true,
+      };
+    } else {
+      base.error_y = { type: "data", array: errVals, visible: true };
+    }
+    return base;
+  });
+}
+
+function generateBarErrorData(sourceTraces: any[], palette: string[]) {
+  return sourceTraces.map((trace: any, i: number) => ({
+    type: "bar",
+    name: trace.name || `Series ${i + 1}`,
+    x: trace.x || ["A", "B", "C", "D"],
+    y: (trace.y || [10, 15, 13, 17]).map(Number),
+    error_y: { type: "data", array: [1.5, 2, 1, 2.5], visible: true },
+    marker: { color: palette[i % palette.length] },
+  }));
+}
+
 const PALETTES = [
+  {
+    id: "neon",
+    label: "Neon",
+    colors: [
+      "#00f5ff",
+      "#bf5fff",
+      "#ff006e",
+      "#ffbe0b",
+      "#00e676",
+      "#ff4081",
+      "#40c4ff",
+      "#69ff47",
+    ],
+  },
   {
     id: "vivid",
     label: "Vivid",
@@ -1625,20 +1982,6 @@ const PALETTES = [
       "#cbd5e1",
       "#e2e8f0",
       "#f8fafc",
-    ],
-  },
-  {
-    id: "neon",
-    label: "Neon",
-    colors: [
-      "#00ff88",
-      "#00e5ff",
-      "#ff00c8",
-      "#ffe600",
-      "#ff4400",
-      "#8800ff",
-      "#00ffaa",
-      "#ff0066",
     ],
   },
   {
@@ -1730,6 +2073,7 @@ const FONTS = [
   "Roboto",
   "Roboto Mono",
 ];
+
 const BG_PRESETS = [
   { id: "white", label: "White", hex: "#ffffff" },
   { id: "paper", label: "Paper", hex: "#fafaf9" },
@@ -1741,47 +2085,25 @@ const BG_PRESETS = [
   { id: "green", label: "Forest", hex: "#052e16" },
 ];
 
-// ── Mini UI ───────────────────────────────────────────────────────────────────
+// ─── Small sub-components ───
+
 function Sec({
   title,
   children,
-  open: d = true,
+  open = true,
 }: {
   title: string;
   children: React.ReactNode;
   open?: boolean;
 }) {
-  const [open, setOpen] = useState(d);
+  const [isOpen, setIsOpen] = useState(open);
   return (
-    <div style={{ borderBottom: "1px solid #f0f0f0" }}>
+    <div className="border-b border-gray-100">
       <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "11px 16px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-        }}
-        onMouseEnter={(e) =>
-          ((e.currentTarget as HTMLElement).style.background = "#fafafa")
-        }
-        onMouseLeave={(e) =>
-          ((e.currentTarget as HTMLElement).style.background = "none")
-        }
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-transparent border-none cursor-pointer"
       >
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#9ca3af",
-          }}
-        >
+        <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400">
           {title}
         </span>
         <svg
@@ -1790,9 +2112,8 @@ function Sec({
           viewBox="0 0 12 12"
           fill="none"
           style={{
-            transform: open ? "rotate(180deg)" : "rotate(0)",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0)",
             transition: "transform 0.18s",
-            flexShrink: 0,
           }}
         >
           <path
@@ -1804,7 +2125,7 @@ function Sec({
           />
         </svg>
       </button>
-      {open && <div style={{ padding: "2px 16px 14px" }}>{children}</div>}
+      {isOpen && <div className="px-4 pb-4 pt-0.5">{children}</div>}
     </div>
   );
 }
@@ -1819,41 +2140,21 @@ function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 10,
-      }}
-    >
-      <span style={{ fontSize: 11, color: "#374151" }}>{label}</span>
+    <div className="flex items-center justify-between mb-2.5">
+      <span className="text-[11px] text-gray-700">{label}</span>
       <button
         onClick={() => onChange(!value)}
+        className="relative border-none cursor-pointer transition-colors duration-200"
         style={{
           width: 36,
           height: 20,
           borderRadius: 10,
           background: value ? "#06b6d4" : "#e5e7eb",
-          border: "none",
-          cursor: "pointer",
-          position: "relative",
-          transition: "background 0.2s",
-          flexShrink: 0,
         }}
       >
         <span
-          style={{
-            position: "absolute",
-            top: 3,
-            left: value ? 18 : 3,
-            width: 14,
-            height: 14,
-            borderRadius: "50%",
-            background: "#fff",
-            transition: "left 0.18s",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }}
+          className="absolute top-[3px] w-3.5 h-3.5 rounded-full bg-white shadow transition-all duration-200"
+          style={{ left: value ? 18 : 3 }}
         />
       </button>
     </div>
@@ -1878,23 +2179,10 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <span style={{ fontSize: 11, color: "#374151" }}>{label}</span>
-        <span
-          style={{
-            fontSize: 11,
-            color: "#06b6d4",
-            fontFamily: "monospace",
-            fontWeight: 700,
-          }}
-        >
+    <div className="mb-3">
+      <div className="flex justify-between mb-1">
+        <span className="text-[11px] text-gray-700">{label}</span>
+        <span className="text-[11px] font-bold text-cyan-500 font-mono">
           {value}
           {unit}
         </span>
@@ -1906,12 +2194,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{
-          width: "100%",
-          accentColor: "#06b6d4",
-          cursor: "pointer",
-          height: 4,
-        }}
+        className="w-full cursor-pointer accent-cyan-500"
       />
     </div>
   );
@@ -1934,78 +2217,17 @@ function TxtInput({
       placeholder={placeholder}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      className="w-full px-2.5 py-[7px] text-[11px] rounded-lg bg-gray-50 text-gray-900 outline-none transition-all duration-150"
       style={{
-        width: "100%",
-        padding: "7px 10px",
-        fontSize: 11,
         border: `1.5px solid ${focused ? "#06b6d4" : "#e5e7eb"}`,
-        borderRadius: 8,
-        outline: "none",
-        background: "#f9fafb",
-        color: "#111827",
-        boxSizing: "border-box",
         boxShadow: focused ? "0 0 0 3px rgba(6,182,212,0.1)" : "none",
-        transition: "border-color 0.15s,box-shadow 0.15s",
       }}
     />
   );
 }
 
-function NumInput({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <input
-      type="number"
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      style={{
-        width: "100%",
-        padding: "7px 10px",
-        fontSize: 11,
-        border: "1.5px solid #e5e7eb",
-        borderRadius: 8,
-        outline: "none",
-        background: "#f9fafb",
-        color: "#111827",
-        fontFamily: "monospace",
-        boxSizing: "border-box",
-      }}
-    />
-  );
-}
+// ─── Main Component ───
 
-function LRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 8,
-      }}
-    >
-      <span
-        style={{ fontSize: 11, color: "#9ca3af", flexShrink: 0, width: 74 }}
-      >
-        {label}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-    </div>
-  );
-}
-
-// ── Main Editor ───────────────────────────────────────────────────────────────
 export default function ChartEditor({
   message,
   divRef,
@@ -2013,33 +2235,11 @@ export default function ChartEditor({
 }: ChartEditorProps) {
   const plotRef = useRef<PlotlyHTMLElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [isMobileLayout, setIsMobileLayout] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [tab, setTab] = useState<
+    "graph" | "style" | "axes" | "annotate" | "export"
+  >("graph");
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    const check = () => setIsMobileLayout(window.innerWidth < 640);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    // Inject keyframes globally to avoid SSR hydration mismatch
-    const styleId = "chart-editor-keyframes";
-    if (!document.getElementById(styleId)) {
-      const s = document.createElement("style");
-      s.id = styleId;
-      s.textContent =
-        "@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }";
-      document.head.appendChild(s);
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
 
   const getLiveData = useCallback((): { data: any[]; layout: any } => {
     const liveDiv = divRef?.current;
@@ -2055,13 +2255,10 @@ export default function ChartEditor({
     };
   }, [divRef, message]);
 
-  const [tab, setTab] = useState<
-    "graph" | "style" | "axes" | "annotate" | "export"
-  >("graph");
   const [chartTypeId, setChartTypeId] = useState<ChartTypeId>("bar");
   const [paletteIdx, setPaletteIdx] = useState(0);
-  const [bgHex, setBgHex] = useState("#ffffff");
-  const [customBg, setCustomBg] = useState("#ffffff");
+  const [bgHex, setBgHex] = useState("#111111");
+  const [customBg, setCustomBg] = useState("#111111");
   const [borderRadius, setBorderRadius] = useState(12);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -2075,9 +2272,9 @@ export default function ChartEditor({
   const [showZero, setShowZero] = useState(true);
   const [showTicks, setShowTicks] = useState(true);
   const [xAngle, setXAngle] = useState(0);
-  const [fontFamily, setFontFamily] = useState("Inter");
-  const [fontSize, setFontSize] = useState(12);
-  const [titleSize, setTitleSize] = useState(18);
+  const [fontFamily, setFontFamily] = useState("DM Mono");
+  const [fontSize, setFontSize] = useState(11);
+  const [titleSize, setTitleSize] = useState(15);
   const [lineWidth, setLineWidth] = useState(2);
   const [markerSize, setMarkerSize] = useState(7);
   const [opacity, setOpacity] = useState(90);
@@ -2088,7 +2285,6 @@ export default function ChartEditor({
   const [showWatermark, setShowWatermark] = useState(true);
   const [fillOpacity, setFillOpacity] = useState(30);
   const [borderWidth, setBorderWidth] = useState(0);
-  const [markerSymbol, setMarkerSymbol] = useState("circle");
   const [logX, setLogX] = useState(false);
   const [logY, setLogY] = useState(false);
   const [reverseX, setReverseX] = useState(false);
@@ -2097,6 +2293,8 @@ export default function ChartEditor({
   const [newNote, setNewNote] = useState("");
   const [exportW, setExportW] = useState(1200);
   const [exportH, setExportH] = useState(700);
+
+  const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
 
   useEffect(() => {
     const { data: liveData, layout: liveLayout } = getLiveData();
@@ -2111,44 +2309,49 @@ export default function ChartEditor({
     setChartTypeId(detectedId);
     const grp = CHART_TYPES.find((c) => c.id === detectedId)?.group || "bar";
     setActiveGroup(grp);
-    if (liveData.length > 0) {
-      const firstColor = (liveData[0] as any)?.marker?.color;
-      const firstLineColor = (liveData[0] as any)?.line?.color;
-      const c =
-        (typeof firstColor === "string" ? firstColor : firstLineColor) || "";
-      const found = PALETTES.findIndex((p) => p.colors.includes(c));
-      if (found >= 0) setPaletteIdx(found);
-    }
     setShowLegend(liveLayout.showlegend !== false);
     setShowGrid(liveLayout.xaxis?.showgrid !== false);
     setShowZero(liveLayout.xaxis?.zeroline !== false);
     setMounted(true);
   }, [getLiveData]);
 
-  const buildPieData = useCallback((rawData: any[], pal: string[]) => {
-    if (rawData.length === 0) return [];
-    const labels: string[] = [],
-      values: number[] = [];
-    rawData.forEach((trace, i) => {
-      const name = trace.name || `Series ${i + 1}`;
-      const vals: number[] = trace.y || trace.values || trace.r || [];
-      const total = Array.isArray(vals)
-        ? vals.reduce((s: number, v: any) => s + (Number(v) || 0), 0)
-        : Number(vals) || 0;
-      labels.push(name);
-      values.push(total);
-    });
-    return [
-      {
-        type: "pie",
-        labels,
-        values,
-        marker: { colors: pal },
-        textinfo: "label+percent",
-        hoverinfo: "label+value+percent",
-      },
-    ];
-  }, []);
+  const buildPieData = useCallback(
+    (rawData: any[], pal: string[], hole?: number) => {
+      if (rawData.length === 0) return [];
+      // If already pie data, just update
+      if (rawData[0]?.type === "pie") {
+        return rawData.map((t: any) => ({
+          ...t,
+          type: "pie",
+          hole: hole || 0,
+          marker: { ...t.marker, colors: pal },
+        }));
+      }
+      const labels: string[] = [];
+      const values: number[] = [];
+      rawData.forEach((trace: any, i: number) => {
+        const name = trace.name || `Series ${i + 1}`;
+        const vals: number[] = trace.y || trace.values || trace.r || [];
+        const total = Array.isArray(vals)
+          ? vals.reduce((s: number, v: any) => s + (Number(v) || 0), 0)
+          : Number(vals) || 0;
+        labels.push(name);
+        values.push(total);
+      });
+      return [
+        {
+          type: "pie",
+          labels,
+          values,
+          hole: hole || 0,
+          marker: { colors: pal },
+          textinfo: "label+percent",
+          hoverinfo: "label+value+percent",
+        },
+      ];
+    },
+    [],
+  );
 
   const applyChart = useCallback(() => {
     if (!plotRef.current || typeof window === "undefined" || !window.Plotly)
@@ -2157,196 +2360,394 @@ export default function ChartEditor({
     const { data: liveData, layout: liveLayout } = getLiveData();
     const ct = CHART_TYPES.find((c) => c.id === chartTypeId) || CHART_TYPES[0];
     const pal = PALETTES[paletteIdx].colors;
-    const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
-    const textClr = isLightBg ? "#374151" : "rgba(255,255,255,0.8)";
-    const gridClr = isLightBg ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.08)";
-    const lineClr = isLightBg ? "#e5e7eb" : "rgba(255,255,255,0.1)";
-    const is3D = ct.group === "3d";
-    const isPie =
-      ct.group === "pie-bubble" && (ct.id === "pie" || ct.id === "donut");
-    const isSpecial = [
-      "contour-simple",
-      "contour-basic",
-      "contour-lines",
-      "contour-labels",
-      "heatmap",
-      "heatmap-categorical",
-      "heatmap-annotated",
-      "2d-histogram-contour",
-      "2d-histogram-slider",
-      "parallel-basic",
-      "parallel-coords",
-      "parallel-advanced",
-      "ternary",
-      "soil-ternary",
-    ].includes(ct.id);
+
+    // Card is the OPPOSITE of the outer bg:
+    //   outer bg dark  → card is white  → isCardLight = true  → dark text
+    //   outer bg light → card is slate  → isCardLight = false → light text
+    // isLightBg = outer bg is light (white/paper/light-gray)
+    // Card is OPPOSITE of outer bg: dark outer → white card, light outer → dark card
+    const isCardLight = !isLightBg; // white card when outer is dark
+    const cardBgColor = isCardLight ? "#ffffff" : "#1e293b";
+
+    const textClr = isCardLight ? "#111827" : "rgba(255,255,255,0.85)";
+    const gridClr = isCardLight ? "rgba(0,0,0,0.09)" : "rgba(255,255,255,0.08)";
+    const lineClr = isCardLight ? "#d1d5db" : "rgba(255,255,255,0.12)";
 
     let data: any[];
 
-    if (isPie) {
-      const existing0 = liveData[0];
-      if (existing0?.type === "pie") {
-        data = liveData.map((t: any) => ({
-          ...t,
-          type: "pie",
-          hole: ct.hole || 0,
-          marker: { ...t.marker, colors: pal },
+    // ─── Route to the right data builder ───
+    switch (ct.id) {
+      // PIE / DONUT
+      case "pie":
+        data = buildPieData(liveData, pal, 0);
+        break;
+      case "donut":
+        data = buildPieData(liveData, pal, 0.45);
+        break;
+
+      // BOX PLOTS
+      case "box":
+      case "box-data":
+      case "grouped-box":
+      case "box-outliers":
+      case "box-styled":
+      case "rainbow-box":
+        data = generateBoxData(liveData, pal);
+        if (ct.id === "grouped-box")
+          data = data.map((d, i) => ({ ...d, boxpoints: "all", jitter: 0.3 }));
+        if (ct.id === "box-outliers")
+          data = data.map((d) => ({ ...d, boxpoints: "outliers" }));
+        if (ct.id === "rainbow-box")
+          data = data.map((d, i) => ({
+            ...d,
+            marker: { color: pal[i % pal.length], opacity: 0.7 },
+          }));
+        break;
+      case "hbox":
+        data = generateBoxData(liveData, pal).map((d) => ({
+          ...d,
+          orientation: "h",
+          x: d.y,
+          y: undefined,
         }));
-      } else {
-        data = buildPieData(liveData, pal);
-        if (ct.hole) data[0].hole = ct.hole;
-      }
-    } else if (is3D) {
-      data = liveData.map((trace: any, i: number) => {
-        const clr = pal[i % pal.length];
-        const base: any = { ...trace };
-        if (ct.plotlyType === "mesh3d") {
-          base.type = "mesh3d";
-          base.color = clr;
-          base.opacity = opacity / 100;
-          if (!base.i) {
-            base.i = [];
-            base.j = [];
-            base.k = [];
-          }
-        } else if (ct.plotlyType === "surface") {
-          base.type = "surface";
-          base.colorscale = "Viridis";
-          base.opacity = opacity / 100;
-        } else {
-          base.type = "scatter3d";
-          base.mode = ct.mode3d || "markers";
-          base.marker = {
-            ...(trace.marker || {}),
-            color: clr,
-            size: Math.max(markerSize - 2, 3),
+        break;
+
+      // VIOLIN
+      case "violin":
+        data = generateViolinData(liveData, pal);
+        break;
+
+      // HISTOGRAMS
+      case "histogram":
+      case "overlaid-histogram":
+      case "stacked-histogram":
+      case "styled-histogram":
+      case "cumulative-histogram":
+      case "normalized-histogram":
+        data = generateHistogramData(liveData, pal, ct.id);
+        break;
+      case "2d-histogram-contour":
+      case "2d-histogram-slider":
+        data = generate2DHistContour(liveData, pal);
+        break;
+
+      // HEATMAPS
+      case "heatmap":
+      case "heatmap-categorical":
+      case "heatmap-annotated":
+        data = generateHeatmapData(liveData, ct.id);
+        break;
+
+      // CONTOURS
+      case "contour-simple":
+      case "contour-basic":
+      case "contour-lines":
+      case "contour-labels":
+        data = generateContourData(liveData, ct.id);
+        break;
+
+      // TERNARY
+      case "ternary":
+      case "soil-ternary":
+        data = generateTernaryData(liveData, pal);
+        break;
+
+      // PARALLEL COORDS
+      case "parallel-basic":
+      case "parallel-coords":
+      case "parallel-advanced":
+        data = generateParcoordData(liveData, pal);
+        break;
+
+      // WATERFALL
+      case "waterfall":
+      case "waterfall-multi":
+        data = generateWaterfallData(liveData, pal);
+        break;
+
+      // CANDLESTICK
+      case "candlestick":
+      case "candlestick-no-slider":
+      case "candlestick-annotated":
+        data = generateCandlestickData(liveData, ct.id === "candlestick");
+        break;
+
+      // FUNNEL
+      case "funnel":
+        data = generateFunnelData(liveData, pal, false);
+        break;
+      case "funnel-stacked":
+        data = generateFunnelData(liveData, pal, true);
+        break;
+
+      // 3D SURFACE
+      case "surface3d":
+      case "surface3d-multi":
+        if (liveData[0]?.z) {
+          data = liveData.map((t: any) => ({
+            ...t,
+            type: "surface",
+            colorscale: "Viridis",
             opacity: opacity / 100,
-          };
-          base.line = { color: clr, width: lineWidth };
-        }
-        return base;
-      });
-    } else if (isSpecial) {
-      const isContourOrHeatmap = [
-        "contour-simple",
-        "contour-basic",
-        "contour-lines",
-        "contour-labels",
-        "heatmap",
-        "heatmap-categorical",
-        "heatmap-annotated",
-      ].includes(ct.id);
-      if (isContourOrHeatmap) {
-        // Only the first trace matters for matrix-based charts
-        const trace0 = liveData[0] || {};
-        // If source already has z matrix data, use it directly
-        if (trace0.z) {
-          const base: any = {
-            type: ct.plotlyType,
-            z: trace0.z,
-            x: trace0.x,
-            y: trace0.y,
-            colorscale: "Viridis",
-            name: trace0.name,
-          };
-          if (ct.id === "contour-lines") base.contours = { coloring: "lines" };
-          if (ct.id === "contour-labels") base.contours = { showlabels: true };
-          if (ct.id === "heatmap-annotated") base.showscale = true;
-          data = [base];
+          }));
         } else {
-          // Source has no z (e.g. bar/scatter) — build a z matrix from all traces y values
-          const allTraces = liveData;
-          const xLabels = allTraces.map((t: any) => t.name || "");
-          const yLabels = (allTraces[0]?.x || []).map(String);
-          // z[row][col]: rows = x-categories, cols = traces
-          const zMatrix: number[][] = (allTraces[0]?.y || []).map(
-            (_: any, rowIdx: number) =>
-              allTraces.map((t: any) => Number(t.y?.[rowIdx]) || 0),
-          );
-          const base: any = {
-            type: ct.plotlyType,
-            z: zMatrix,
-            x: xLabels,
-            y: yLabels,
-            colorscale: "Viridis",
-          };
-          if (ct.id === "contour-lines") base.contours = { coloring: "lines" };
-          if (ct.id === "contour-labels") base.contours = { showlabels: true };
-          if (ct.id === "heatmap-annotated") base.showscale = true;
-          data = [base];
+          data = generateSurface3DData();
+          if (ct.id === "surface3d-multi") {
+            const base = data[0];
+            data = [
+              base,
+              {
+                ...base,
+                z: base.z.map((row: number[]) =>
+                  row.map((v: number) => v * 0.7 + 0.5),
+                ),
+                opacity: 0.6,
+              },
+            ];
+          }
         }
-      } else {
+        break;
+
+      // 3D MESH
+      case "mesh3d":
+        if (liveData[0]?.i) {
+          data = liveData.map((t: any) => ({
+            ...t,
+            type: "mesh3d",
+            opacity: opacity / 100,
+          }));
+        } else {
+          data = generateMesh3DData(pal);
+        }
+        break;
+
+      // 3D SCATTER / LINE
+      case "scatter3d":
+      case "ribbon3d":
+      case "line3d":
+      case "line3d-plot":
+      case "line3d-markers":
+      case "line3d-spiral":
+      case "random-walk3d":
+        data = generateScatter3DData(liveData, pal, ct.mode3d || "markers");
+        if (ct.id === "line3d-spiral") {
+          const t = Array.from({ length: 100 }, (_, i) => i / 10);
+          data = [
+            {
+              type: "scatter3d",
+              mode: "lines",
+              x: t.map((v) => Math.cos(v)),
+              y: t.map((v) => Math.sin(v)),
+              z: t,
+              line: { color: pal[0], width: 4 },
+              name: "Spiral",
+            },
+          ];
+        }
+        if (ct.id === "random-walk3d") {
+          const n = 50;
+          let x = 0,
+            y = 0,
+            z = 0;
+          const xs: number[] = [],
+            ys: number[] = [],
+            zs: number[] = [];
+          for (let i = 0; i < n; i++) {
+            x += Math.random() - 0.5;
+            y += Math.random() - 0.5;
+            z += Math.random() - 0.5;
+            xs.push(x);
+            ys.push(y);
+            zs.push(z);
+          }
+          data = [
+            {
+              type: "scatter3d",
+              mode: "lines+markers",
+              x: xs,
+              y: ys,
+              z: zs,
+              marker: { color: pal[0], size: 4 },
+              line: { color: pal[1] || pal[0], width: 2 },
+              name: "Random Walk",
+            },
+          ];
+        }
+        break;
+
+      // ERROR BARS
+      case "error-bars":
+      case "horizontal-error":
+      case "asymmetric-error":
+      case "asymmetric-offset":
+      case "continuous-error":
+        data = generateErrorBarData(liveData, pal, ct.id);
+        break;
+      case "bar-error":
+        data = generateBarErrorData(liveData, pal);
+        break;
+
+      // FILLED LINES (area charts)
+      case "filled-lines":
         data = liveData.map((trace: any, i: number) => {
           const clr = pal[i % pal.length];
-          return {
-            ...trace,
-            type: ct.plotlyType,
-            marker: { ...(trace.marker || {}), color: clr },
-          };
-        });
-      }
-    } else {
-      data = liveData.map((trace: any, i: number) => {
-        const clr = pal[i % pal.length];
-        const base: any = { ...trace };
-        base.type = ct.plotlyType;
-        base.name = trace.name || `Series ${i + 1}`;
-        base.marker = {
-          ...(trace.marker || {}),
-          color: clr,
-          size: ct.bubble ? (trace.marker?.size ?? markerSize) : markerSize,
-          opacity: opacity / 100,
-          symbol: markerSymbol,
-          line: { color: "rgba(255,255,255,0.3)", width: borderWidth },
-        };
-        base.line = {
-          color: clr,
-          width: lineWidth,
-          shape: smooth ? "spline" : "linear",
-        };
-        if (ct.mode) {
-          base.mode =
-            ct.mode + (showMarkers && ct.mode === "lines" ? "+markers" : "");
-        } else if (ct.plotlyType === "scatter") {
-          base.mode = "markers";
-        } else {
-          delete base.mode;
-        }
-        if (ct.fill) {
-          base.fill = ct.fill;
           const fa = Math.round(fillOpacity * 2.55)
             .toString(16)
             .padStart(2, "0");
-          base.fillcolor = clr + fa;
-        } else {
-          delete base.fill;
-        }
-        if (ct.hole) base.hole = ct.hole;
-        else delete base.hole;
-        if (ct.orientation) base.orientation = ct.orientation;
-        else delete base.orientation;
-        if (showLabels && ct.plotlyType !== "heatmap") {
-          base.texttemplate = "%{y}";
-          base.textposition = "outside";
-          base.textfont = {
-            size: fontSize - 1,
-            color: textClr,
-            family: fontFamily,
+          return {
+            ...trace,
+            type: "scatter",
+            mode: "lines",
+            fill: i === 0 ? "tozeroy" : "tonexty",
+            fillcolor: clr + fa,
+            line: {
+              color: clr,
+              width: lineWidth,
+              shape: smooth ? "spline" : "linear",
+            },
           };
-          base.cliponaxis = false;
-        } else {
-          base.texttemplate = undefined;
-          base.text = undefined;
-        }
-        // Log scale tweaks
-        if (ct.id === "log-plots" || ct.id === "log-axes") {
-          base.type = "scatter";
-          base.mode = "lines+markers";
-        }
-        return base;
-      });
+        });
+        break;
+      case "continuous-error-filled":
+        data = liveData.map((trace: any, i: number) => {
+          const clr = pal[i % pal.length];
+          const fa = Math.round(fillOpacity * 2.55)
+            .toString(16)
+            .padStart(2, "0");
+          return {
+            ...trace,
+            type: "scatter",
+            mode: "lines",
+            fill: "tonexty",
+            fillcolor: clr + fa,
+            line: { color: clr, width: lineWidth },
+          };
+        });
+        break;
+
+      // TIME SERIES
+      case "time-series":
+      case "time-series-slider":
+        data = liveData.map((trace: any, i: number) => ({
+          ...trace,
+          type: "scatter",
+          mode: "lines",
+          line: {
+            color: pal[i % pal.length],
+            width: lineWidth,
+            shape: smooth ? "spline" : "linear",
+          },
+        }));
+        break;
+
+      // LOG PLOTS / AXES
+      case "log-plots":
+      case "log-axes":
+        data = liveData.map((trace: any, i: number) => ({
+          ...trace,
+          type: "scatter",
+          mode: "lines+markers",
+          marker: { color: pal[i % pal.length], size: markerSize },
+          line: { color: pal[i % pal.length], width: lineWidth },
+        }));
+        break;
+
+      // DEFAULT: scatter/bar/line variants
+      default:
+        data = liveData.map((trace: any, i: number) => {
+          const clr = pal[i % pal.length];
+          const base: any = { ...trace };
+          base.type = ct.plotlyType;
+          base.name = trace.name || `Series ${i + 1}`;
+          base.marker = {
+            ...(trace.marker || {}),
+            color: clr,
+            size: ct.bubble ? (trace.marker?.size ?? markerSize) : markerSize,
+            opacity: opacity / 100,
+            line: { color: "rgba(255,255,255,0.3)", width: borderWidth },
+          };
+          base.line = {
+            color: clr,
+            width: lineWidth,
+            shape: smooth ? "spline" : "linear",
+          };
+          if (ct.mode) {
+            base.mode =
+              ct.mode + (showMarkers && ct.mode === "lines" ? "+markers" : "");
+          } else if (ct.plotlyType === "scatter") {
+            base.mode = "markers";
+          } else {
+            delete base.mode;
+          }
+          if (ct.fill) {
+            base.fill = ct.fill;
+            const fa = Math.round(fillOpacity * 2.55)
+              .toString(16)
+              .padStart(2, "0");
+            base.fillcolor = clr + fa;
+          } else {
+            delete base.fill;
+          }
+          if (ct.hole) base.hole = ct.hole;
+          else delete base.hole;
+          if (ct.orientation) base.orientation = ct.orientation;
+          else delete base.orientation;
+          if (showLabels) {
+            base.texttemplate = "%{y}";
+            base.textposition = "outside";
+            base.textfont = {
+              size: fontSize - 1,
+              color: textClr,
+              family: fontFamily,
+            };
+            base.cliponaxis = false;
+          } else {
+            delete base.texttemplate;
+            delete base.text;
+          }
+          if (
+            ct.id === "bar-direct-labels" ||
+            ct.id === "grouped-direct-labels"
+          ) {
+            base.text = (trace.y || []).map((v: any) => v);
+            base.textposition = "outside";
+            base.textfont = { size: fontSize, color: textClr };
+          }
+          if (ct.id === "bar-rotated") {
+            // handled via layout xaxis tickangle
+          }
+          if (
+            ct.id === "bubble" ||
+            ct.id === "bubble-size" ||
+            ct.id === "bubble-size-color" ||
+            ct.id === "bubble-hover" ||
+            ct.id === "bubble-scaling"
+          ) {
+            const yVals = (trace.y || []).map(Number);
+            const sizes = yVals.map((v: number) =>
+              Math.max(Math.abs(v) / 5, 5),
+            );
+            base.marker = {
+              ...base.marker,
+              size: sizes,
+              sizemode: "area",
+              sizeref: 0.5,
+            };
+          }
+          if (ct.id === "line-dash") {
+            const dashes = ["solid", "dash", "dot", "dashdot"];
+            base.line = { ...base.line, dash: dashes[i % dashes.length] };
+          }
+          if (ct.id === "line-shape") {
+            const shapes = ["linear", "spline", "hv", "vh", "hvh", "vhv"];
+            base.line = { ...base.line, shape: shapes[i % shapes.length] };
+          }
+          return base;
+        });
+        break;
     }
 
+    // ─── Build layout ───
     const legendConfig: Record<string, any> = {
       bottom: {
         orientation: "h",
@@ -2366,35 +2767,55 @@ export default function ChartEditor({
       right: { orientation: "v", x: 1.04, xanchor: "left", y: 0.5 },
     };
 
+    const is3D = ct.group === "3d";
+    const isPie = ct.id === "pie" || ct.id === "donut";
+    const isNoAxes =
+      [
+        "ternary",
+        "soil-ternary",
+        "parallel-basic",
+        "parallel-coords",
+        "parallel-advanced",
+        "2d-histogram-contour",
+        "2d-histogram-slider",
+      ].includes(ct.id) ||
+      isPie ||
+      is3D;
+
     const layout: any = {
       autosize: true,
-      paper_bgcolor: "rgba(0,0,0,0)",
-      plot_bgcolor: "rgba(0,0,0,0)",
+      paper_bgcolor: cardBgColor,
+      plot_bgcolor: cardBgColor,
       font: { family: fontFamily, size: fontSize, color: textClr },
       showlegend: showLegend,
       legend: showLegend
         ? {
             ...legendConfig[legendPos],
             font: { family: fontFamily, size: fontSize - 1, color: textClr },
-            bgcolor: isLightBg ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.4)",
+            bgcolor: isCardLight
+              ? "rgba(255,255,255,0.9)"
+              : "rgba(15,23,42,0.7)",
             bordercolor: lineClr,
             borderwidth: 1,
           }
         : undefined,
       margin: {
-        t: 20,
+        t: title ? titleSize + 35 : 30,
         b: showLegend && legendPos === "bottom" ? 80 : 50,
-        l: 60,
+        l: yLabel ? 70 : 60,
         r: 20,
       },
       bargap: barGap / 100,
       barmode: ct.barmode || liveLayout?.barmode || "group",
     };
 
-    if (logX || ct.id === "log-plots" || ct.id === "log-axes")
-      layout.xaxis = { ...(layout.xaxis || {}), type: "log" };
-    if (logY || ct.id === "log-plots" || ct.id === "log-axes")
-      layout.yaxis = { ...(layout.yaxis || {}), type: "log" };
+    if (title) {
+      layout.title = {
+        text: title,
+        font: { color: textClr, size: titleSize, family: fontFamily },
+        x: 0.5,
+      };
+    }
 
     if (is3D) {
       layout.scene = {
@@ -2402,23 +2823,23 @@ export default function ChartEditor({
         xaxis: {
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
-          backgroundcolor: "rgba(0,0,0,0)",
+          backgroundcolor: cardBgColor,
         },
         yaxis: {
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
-          backgroundcolor: "rgba(0,0,0,0)",
+          backgroundcolor: cardBgColor,
         },
         zaxis: {
           gridcolor: gridClr,
           tickfont: { color: textClr, size: 10 },
-          backgroundcolor: "rgba(0,0,0,0)",
+          backgroundcolor: cardBgColor,
         },
-        bgcolor: "rgba(0,0,0,0)",
+        bgcolor: cardBgColor,
       };
     }
 
-    if (!is3D && !isPie) {
+    if (!isNoAxes) {
       layout.xaxis = {
         ...(liveLayout?.xaxis || {}),
         title: xLabel
@@ -2432,14 +2853,16 @@ export default function ChartEditor({
         zerolinewidth: 1.5,
         showticklabels: showTicks,
         tickfont: { size: fontSize - 1, color: textClr, family: fontFamily },
-        tickangle: xAngle,
+        tickangle: ct.id === "bar-rotated" ? -45 : xAngle,
         automargin: true,
-        type: logX ? "log" : undefined,
+        type:
+          logX || ct.id === "log-plots" || ct.id === "log-axes"
+            ? "log"
+            : undefined,
         autorange: reverseX ? "reversed" : true,
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
-        ...layout.xaxis,
       };
       layout.yaxis = {
         ...(liveLayout?.yaxis || {}),
@@ -2454,13 +2877,35 @@ export default function ChartEditor({
         showticklabels: showTicks,
         tickfont: { size: fontSize - 1, color: textClr, family: fontFamily },
         automargin: true,
-        type: logY ? "log" : undefined,
+        type:
+          logY || ct.id === "log-plots" || ct.id === "log-axes"
+            ? "log"
+            : undefined,
         autorange: reverseY ? "reversed" : true,
         showline: true,
         linecolor: lineClr,
         linewidth: 1,
-        ...layout.yaxis,
       };
+    }
+
+    if (ct.id === "stacked-histogram" || ct.id === "overlaid-histogram") {
+      layout.barmode = ct.id === "stacked-histogram" ? "stack" : "overlay";
+    }
+
+    if (ct.id === "candlestick-no-slider") {
+      layout.xaxis = {
+        ...(layout.xaxis || {}),
+        rangeslider: { visible: false },
+      };
+    } else if (ct.id === "candlestick" || ct.id === "candlestick-annotated") {
+      layout.xaxis = {
+        ...(layout.xaxis || {}),
+        rangeslider: { visible: true },
+      };
+    }
+
+    if (ct.id === "funnel-stacked") {
+      layout.funnelmode = "stack";
     }
 
     Plotly.react(plotRef.current, data, layout, {
@@ -2479,6 +2924,7 @@ export default function ChartEditor({
     xAngle,
     fontFamily,
     fontSize,
+    titleSize,
     lineWidth,
     markerSize,
     opacity,
@@ -2487,7 +2933,6 @@ export default function ChartEditor({
     showMarkers,
     showLabels,
     fillOpacity,
-    markerSymbol,
     borderWidth,
     xLabel,
     yLabel,
@@ -2495,8 +2940,10 @@ export default function ChartEditor({
     logY,
     reverseX,
     reverseY,
+    title,
     getLiveData,
     buildPieData,
+    isLightBg,
   ]);
 
   useEffect(() => {
@@ -2513,105 +2960,40 @@ export default function ChartEditor({
     });
   };
 
-  const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
+  // Commented-out save handler — wire to your DB endpoint when ready
+  /*
+  const handleSaveToDatabase = async () => {
+    if (!plotRef.current || !window.Plotly) return;
+    const chartJson = {
+      data: plotRef.current.data,
+      layout: plotRef.current.layout,
+      meta: { title, subtitle, exportW, exportH, createdAt: new Date().toISOString() },
+    };
+    try {
+      const res = await fetch("/api/charts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chartJson),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      alert("Chart saved!");
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Could not save chart.");
+    }
+  };
+  */
+
   if (!mounted || typeof document === "undefined") return null;
 
   const TABS = [
-    {
-      id: "graph",
-      label: "Graph",
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <rect x="3" y="12" width="4" height="9" rx="1" />
-          <rect x="10" y="7" width="4" height="14" rx="1" />
-          <rect x="17" y="3" width="4" height="18" rx="1" />
-        </svg>
-      ),
-    },
-    {
-      id: "style",
-      label: "Style",
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "axes",
-      label: "Axes",
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <line x1="3" y1="21" x2="3" y2="3" />
-          <line x1="3" y1="21" x2="21" y2="21" />
-          <polyline points="7 14 11 10 15 13 21 7" />
-        </svg>
-      ),
-    },
-    {
-      id: "annotate",
-      label: "Notes",
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
-        </svg>
-      ),
-    },
-    {
-      id: "export",
-      label: "Export",
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-      ),
-    },
+    { id: "graph", label: "Graph" },
+    { id: "style", label: "Style" },
+    { id: "axes", label: "Axes" },
+    { id: "annotate", label: "Notes" },
+    { id: "export", label: "Export" },
   ] as const;
 
-  // Filtered chart types for search
   const filteredTypes = searchQuery.trim()
     ? CHART_TYPES.filter(
         (ct) =>
@@ -2622,981 +3004,23 @@ export default function ChartEditor({
       ? CHART_TYPES.filter((ct) => ct.group === activeGroup)
       : [];
 
-  const renderGraphTab = () => (
-    <>
-      {/* Search */}
-      <div style={{ padding: "10px 16px 6px" }}>
-        <div style={{ position: "relative" }}>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth="2"
-            strokeLinecap="round"
-            style={{
-              position: "absolute",
-              left: 9,
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none",
-            }}
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              if (e.target.value) setActiveGroup(null);
-            }}
-            placeholder="Search chart types…"
-            style={{
-              width: "100%",
-              padding: "7px 10px 7px 30px",
-              fontSize: 11,
-              border: "1.5px solid #e5e7eb",
-              borderRadius: 8,
-              background: "#f9fafb",
-              color: "#111827",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Category pills */}
-      {!searchQuery && (
-        <div
-          style={{
-            display: "flex",
-            gap: 5,
-            padding: "4px 16px 8px",
-            overflowX: "auto",
-            scrollbarWidth: "none",
-          }}
-        >
-          {CHART_GROUPS_ORDER.map((g) => {
-            const isActive = activeGroup === g.id;
-            return (
-              <button
-                key={g.id}
-                onClick={() => setActiveGroup(isActive ? null : g.id)}
-                style={{
-                  flexShrink: 0,
-                  padding: "4px 10px",
-                  borderRadius: 20,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  border: isActive
-                    ? `1.5px solid ${g.color}`
-                    : "1.5px solid #e5e7eb",
-                  background: isActive ? `${g.color}18` : "#fafafa",
-                  color: isActive ? g.color : "#9ca3af",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.12s",
-                }}
-              >
-                {g.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Chart type grid */}
-      {(searchQuery || activeGroup) && (
-        <div style={{ padding: "0 16px 14px" }}>
-          {searchQuery && (
-            <p
-              style={{
-                fontSize: 10,
-                color: "#9ca3af",
-                margin: "0 0 8px",
-                letterSpacing: "0.05em",
-              }}
-            >
-              {filteredTypes.length} result
-              {filteredTypes.length !== 1 ? "s" : ""}
-            </p>
-          )}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              gap: 6,
-            }}
-          >
-            {filteredTypes.map((ct) => {
-              const isActive = chartTypeId === ct.id;
-              const grpColor =
-                CHART_GROUPS_ORDER.find((g) => g.id === ct.group)?.color ||
-                "#06b6d4";
-              return (
-                <button
-                  key={ct.id}
-                  onClick={() => setChartTypeId(ct.id)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 5,
-                    padding: "10px 4px 8px",
-                    borderRadius: 10,
-                    border: isActive
-                      ? `2px solid ${grpColor}`
-                      : "1.5px solid #e5e7eb",
-                    background: isActive ? `${grpColor}0f` : "#fafafa",
-                    cursor: "pointer",
-                    color: isActive ? grpColor : "#6b7280",
-                    transition: "all 0.12s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLElement).style.borderColor =
-                        grpColor + "60";
-                      (e.currentTarget as HTMLElement).style.color = grpColor;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLElement).style.borderColor =
-                        "#e5e7eb";
-                      (e.currentTarget as HTMLElement).style.color = "#6b7280";
-                    }
-                  }}
-                >
-                  {ct.icon}
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 600,
-                      textAlign: "center",
-                      lineHeight: 1.3,
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    {ct.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {!searchQuery && !activeGroup && (
-        <div style={{ padding: "20px 16px", textAlign: "center" }}>
-          <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>
-            Select a category above or search to browse all {CHART_TYPES.length}{" "}
-            chart types
-          </p>
-        </div>
-      )}
-
-      <Sec title="Data Labels" open={false}>
-        <Toggle
-          label="Show values on chart"
-          value={showLabels}
-          onChange={setShowLabels}
-        />
-        <Toggle
-          label="Show markers on lines"
-          value={showMarkers}
-          onChange={setShowMarkers}
-        />
-      </Sec>
-      <Sec title="Legend" open={false}>
-        <Toggle
-          label="Show legend"
-          value={showLegend}
-          onChange={setShowLegend}
-        />
-        {showLegend && (
-          <div>
-            <p style={{ fontSize: 11, color: "#9ca3af", margin: "4px 0 6px" }}>
-              Position
-            </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 4,
-              }}
-            >
-              {(["top", "bottom", "left", "right"] as const).map((pos) => (
-                <button
-                  key={pos}
-                  onClick={() => setLegendPos(pos)}
-                  style={{
-                    padding: "5px 2px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    borderRadius: 7,
-                    border:
-                      legendPos === pos
-                        ? "1.5px solid #06b6d4"
-                        : "1.5px solid #e5e7eb",
-                    background:
-                      legendPos === pos ? "rgba(6,182,212,0.07)" : "#fafafa",
-                    color: legendPos === pos ? "#06b6d4" : "#9ca3af",
-                    cursor: "pointer",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {pos}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </Sec>
-      <Sec title="Watermark" open={false}>
-        <Toggle
-          label="Show Graphix branding"
-          value={showWatermark}
-          onChange={setShowWatermark}
-        />
-      </Sec>
-    </>
-  );
-
-  const renderPanel = () => (
-    <div
-      style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}
-    >
-      {tab === "graph" && renderGraphTab()}
-
-      {tab === "style" && (
-        <>
-          <Sec title="Color Palette">
-            {PALETTES.map((p, i) => (
-              <button
-                key={p.id}
-                onClick={() => setPaletteIdx(i)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "7px 8px",
-                  borderRadius: 8,
-                  border:
-                    paletteIdx === i
-                      ? "1.5px solid #06b6d4"
-                      : "1.5px solid transparent",
-                  background:
-                    paletteIdx === i ? "rgba(6,182,212,0.05)" : "transparent",
-                  cursor: "pointer",
-                  marginBottom: 2,
-                }}
-              >
-                <div style={{ display: "flex", gap: 3 }}>
-                  {p.colors.slice(0, 6).map((c, j) => (
-                    <span
-                      key={j}
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 3,
-                        background: c,
-                        display: "block",
-                      }}
-                    />
-                  ))}
-                </div>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: paletteIdx === i ? "#06b6d4" : "#374151",
-                    flex: 1,
-                    textAlign: "left",
-                  }}
-                >
-                  {p.label}
-                </span>
-                {paletteIdx === i && (
-                  <span
-                    style={{ color: "#06b6d4", fontSize: 12, fontWeight: 700 }}
-                  >
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-          </Sec>
-          <Sec title="Background">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 6,
-                marginBottom: 12,
-              }}
-            >
-              {BG_PRESETS.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => setBgHex(b.hex)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 5,
-                    padding: "8px 4px 7px",
-                    borderRadius: 9,
-                    border:
-                      bgHex === b.hex
-                        ? "2px solid #06b6d4"
-                        : "1.5px solid #e5e7eb",
-                    background:
-                      bgHex === b.hex ? "rgba(6,182,212,0.05)" : "#fafafa",
-                    cursor: "pointer",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 6,
-                      background: b.hex,
-                      border: "1px solid #d1d5db",
-                      display: "block",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 9.5,
-                      fontWeight: 600,
-                      color: bgHex === b.hex ? "#06b6d4" : "#9ca3af",
-                    }}
-                  >
-                    {b.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <LRow label="Custom">
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="color"
-                  value={customBg}
-                  onChange={(e) => {
-                    setCustomBg(e.target.value);
-                    setBgHex(e.target.value);
-                  }}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    border: "1.5px solid #e5e7eb",
-                    borderRadius: 7,
-                    cursor: "pointer",
-                    padding: 2,
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "#9ca3af",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {customBg.toUpperCase()}
-                </span>
-              </div>
-            </LRow>
-          </Sec>
-          <Sec title="Typography">
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
-                Font family
-              </p>
-              <select
-                value={fontFamily}
-                onChange={(e) => setFontFamily(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  fontSize: 11,
-                  border: "1.5px solid #e5e7eb",
-                  borderRadius: 8,
-                  background: "#f9fafb",
-                  color: "#111827",
-                  outline: "none",
-                }}
-              >
-                {FONTS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Slider
-              label="Base font size"
-              value={fontSize}
-              min={8}
-              max={18}
-              unit="px"
-              onChange={setFontSize}
-            />
-            <Slider
-              label="Title font size"
-              value={titleSize}
-              min={12}
-              max={36}
-              unit="px"
-              onChange={setTitleSize}
-            />
-          </Sec>
-          <Sec title="Marks & Lines" open={false}>
-            <Slider
-              label="Opacity"
-              value={opacity}
-              min={20}
-              max={100}
-              unit="%"
-              onChange={setOpacity}
-            />
-            <Slider
-              label="Line width"
-              value={lineWidth}
-              min={1}
-              max={8}
-              onChange={setLineWidth}
-            />
-            <Slider
-              label="Marker size"
-              value={markerSize}
-              min={3}
-              max={20}
-              onChange={setMarkerSize}
-            />
-            <Slider
-              label="Bar gap"
-              value={barGap}
-              min={0}
-              max={60}
-              unit="%"
-              onChange={setBarGap}
-            />
-            <Slider
-              label="Fill opacity"
-              value={fillOpacity}
-              min={5}
-              max={80}
-              unit="%"
-              onChange={setFillOpacity}
-            />
-            <Slider
-              label="Border width"
-              value={borderWidth}
-              min={0}
-              max={5}
-              onChange={setBorderWidth}
-            />
-            <Toggle
-              label="Smooth curves (spline)"
-              value={smooth}
-              onChange={setSmooth}
-            />
-          </Sec>
-          <Sec title="Card" open={false}>
-            <Slider
-              label="Border radius"
-              value={borderRadius}
-              min={0}
-              max={28}
-              unit="px"
-              onChange={setBorderRadius}
-            />
-          </Sec>
-        </>
-      )}
-
-      {tab === "axes" && (
-        <>
-          <Sec title="Axis Labels">
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
-                X-Axis label
-              </p>
-              <TxtInput
-                value={xLabel}
-                onChange={setXLabel}
-                placeholder="e.g. Month"
-              />
-            </div>
-            <div>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
-                Y-Axis label
-              </p>
-              <TxtInput
-                value={yLabel}
-                onChange={setYLabel}
-                placeholder="e.g. Revenue ($)"
-              />
-            </div>
-          </Sec>
-          <Sec title="Grid & Lines">
-            <Toggle
-              label="Show grid lines"
-              value={showGrid}
-              onChange={setShowGrid}
-            />
-            <Toggle
-              label="Show zero line"
-              value={showZero}
-              onChange={setShowZero}
-            />
-            <Toggle
-              label="Show tick labels"
-              value={showTicks}
-              onChange={setShowTicks}
-            />
-          </Sec>
-          <Sec title="Scale">
-            <Toggle
-              label="Log scale — X axis"
-              value={logX}
-              onChange={setLogX}
-            />
-            <Toggle
-              label="Log scale — Y axis"
-              value={logY}
-              onChange={setLogY}
-            />
-            <Toggle
-              label="Reverse X axis"
-              value={reverseX}
-              onChange={setReverseX}
-            />
-            <Toggle
-              label="Reverse Y axis"
-              value={reverseY}
-              onChange={setReverseY}
-            />
-          </Sec>
-          <Sec title="X-Axis Rotation" open={false}>
-            <Slider
-              label="Tick angle"
-              value={xAngle}
-              min={-90}
-              max={90}
-              unit="°"
-              onChange={setXAngle}
-            />
-          </Sec>
-        </>
-      )}
-
-      {tab === "annotate" && (
-        <>
-          <Sec title="Title & Subtitle">
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
-                Chart title
-              </p>
-              <TxtInput
-                value={title}
-                onChange={setTitle}
-                placeholder="Add a title…"
-              />
-            </div>
-            <div>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 5px" }}>
-                Subtitle
-              </p>
-              <TxtInput
-                value={subtitle}
-                onChange={setSubtitle}
-                placeholder="Optional subtitle…"
-              />
-            </div>
-          </Sec>
-          <Sec title="Annotation Labels">
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              <input
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newNote.trim()) {
-                    setAnnotations((a) => [...a, newNote.trim()]);
-                    setNewNote("");
-                  }
-                }}
-                placeholder="e.g. Peak Q3 · Enter to add"
-                style={{
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: 11,
-                  border: "1.5px solid #e5e7eb",
-                  borderRadius: 8,
-                  background: "#f9fafb",
-                  outline: "none",
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (newNote.trim()) {
-                    setAnnotations((a) => [...a, newNote.trim()]);
-                    setNewNote("");
-                  }
-                }}
-                style={{
-                  padding: "7px 13px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  border: "none",
-                  borderRadius: 8,
-                  background: "#06b6d4",
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                +
-              </button>
-            </div>
-            {annotations.map((a, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "7px 10px",
-                  borderRadius: 8,
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                  marginBottom: 5,
-                }}
-              >
-                <span style={{ fontSize: 11, color: "#374151" }}>{a}</span>
-                <button
-                  onClick={() =>
-                    setAnnotations((an) => an.filter((_, j) => j !== i))
-                  }
-                  style={{
-                    border: "none",
-                    background: "none",
-                    color: "#d1d5db",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    padding: 0,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </Sec>
-        </>
-      )}
-
-      {tab === "export" && (
-        <>
-          <Sec title="Dimensions">
-            <LRow label="Width px">
-              <NumInput value={exportW} onChange={setExportW} />
-            </LRow>
-            <LRow label="Height px">
-              <NumInput value={exportH} onChange={setExportH} />
-            </LRow>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2,1fr)",
-                gap: 5,
-                marginTop: 8,
-              }}
-            >
-              {[
-                { l: "Square", w: 800, h: 800 },
-                { l: "Landscape", w: 1200, h: 700 },
-                { l: "Portrait", w: 700, h: 1000 },
-                { l: "4K UHD", w: 3840, h: 2160 },
-                { l: "Twitter", w: 1200, h: 675 },
-                { l: "Instagram", w: 1080, h: 1080 },
-                { l: "Slide 16:9", w: 1920, h: 1080 },
-                { l: "Slide 4:3", w: 1024, h: 768 },
-              ].map((p) => {
-                const active = exportW === p.w && exportH === p.h;
-                return (
-                  <button
-                    key={p.l}
-                    onClick={() => {
-                      setExportW(p.w);
-                      setExportH(p.h);
-                    }}
-                    style={{
-                      padding: "7px 6px",
-                      borderRadius: 8,
-                      border: active
-                        ? "1.5px solid #06b6d4"
-                        : "1.5px solid #e5e7eb",
-                      background: active ? "rgba(6,182,212,0.06)" : "#fafafa",
-                      color: active ? "#06b6d4" : "#6b7280",
-                      cursor: "pointer",
-                      fontSize: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {p.l}
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: 9,
-                        color: "#9ca3af",
-                        fontFamily: "monospace",
-                        marginTop: 2,
-                      }}
-                    >
-                      {p.w}×{p.h}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Sec>
-          <Sec title="Download">
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {(
-                [
-                  {
-                    fmt: "png",
-                    label: "PNG",
-                    desc: "Best for web & docs",
-                    primary: true,
-                  },
-                  {
-                    fmt: "svg",
-                    label: "SVG",
-                    desc: "Vector, infinite scale",
-                    primary: false,
-                  },
-                  {
-                    fmt: "jpeg",
-                    label: "JPEG",
-                    desc: "Compressed, smaller",
-                    primary: false,
-                  },
-                ] as const
-              ).map(({ fmt, label, desc, primary }) => (
-                <button
-                  key={fmt}
-                  onClick={() => handleExport(fmt)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "11px 14px",
-                    borderRadius: 10,
-                    border: primary ? "none" : "1.5px solid #e5e7eb",
-                    background: primary
-                      ? "linear-gradient(135deg,#06b6d4,#0891b2)"
-                      : "#fafafa",
-                    color: primary ? "#fff" : "#374151",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>
-                      Download {label}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.65, marginTop: 1 }}>
-                      {desc}
-                    </div>
-                  </div>
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: 9,
-                      fontFamily: "monospace",
-                      opacity: 0.5,
-                    }}
-                  >
-                    {exportW}×{exportH}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </Sec>
-        </>
-      )}
-    </div>
-  );
-
-  const chartCanvas = (isMobile: boolean) => {
-    const { data: liveData, layout: liveLayout } = getLiveData();
-    const chartTitle =
-      title ||
-      (typeof liveLayout.title === "string"
-        ? liveLayout.title
-        : liveLayout.title?.text || "");
-    return (
-      <div
-        style={{
-          background: bgHex,
-          borderRadius,
-          boxShadow: isLightBg
-            ? "0 8px 48px rgba(0,0,0,0.13)"
-            : "0 28px 70px rgba(0,0,0,0.75)",
-          width: isMobile ? "100%" : "min(100%,880px)",
-          overflow: "hidden",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {(chartTitle || subtitle || showWatermark) && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              padding: "18px 22px 10px",
-              borderBottom: chartTitle
-                ? `1px solid ${isLightBg ? "#f3f4f6" : "rgba(255,255,255,0.05)"}`
-                : "none",
-            }}
-          >
-            <div>
-              {chartTitle && (
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: isMobile ? Math.min(titleSize, 20) : titleSize,
-                    fontWeight: 700,
-                    color: isLightBg ? "#111827" : "#fff",
-                    fontFamily,
-                    lineHeight: 1.25,
-                  }}
-                >
-                  {chartTitle}
-                </h3>
-              )}
-              {subtitle && (
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontSize: 12,
-                    color: isLightBg ? "#9ca3af" : "rgba(255,255,255,0.4)",
-                    fontFamily,
-                  }}
-                >
-                  {subtitle}
-                </p>
-              )}
-            </div>
-            {showWatermark && (
-              <span
-                style={{
-                  fontSize: 10,
-                  color: isLightBg ? "#d1d5db" : "rgba(255,255,255,0.15)",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  marginTop: 2,
-                }}
-              >
-                ✦ Graphix
-              </span>
-            )}
-          </div>
-        )}
-        {annotations.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 5,
-              padding: "8px 22px 0",
-            }}
-          >
-            {annotations.map((a, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize: 10,
-                  padding: "2px 9px",
-                  borderRadius: 20,
-                  background: "rgba(6,182,212,0.1)",
-                  color: "#06b6d4",
-                  border: "1px solid rgba(6,182,212,0.25)",
-                  fontFamily: "monospace",
-                }}
-              >
-                {a}
-              </span>
-            ))}
-          </div>
-        )}
-        <div
-          ref={plotRef}
-          style={{ width: "100%", minHeight: isMobile ? 260 : 380 }}
-        />
-      </div>
-    );
-  };
+  // Chart card background — contrasts with bgHex
+  const cardBg = isLightBg ? "#1e293b" : "#ffffff";
+  const outerBg = isLightBg ? "#e2e8f0" : "#1a1a1a";
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        display: "flex",
-        flexDirection: "column",
-        background: "#f4f5f7",
-        fontFamily: "'Inter',-apple-system,sans-serif",
-      }}
+      className="fixed inset-0 z-[99999] flex flex-col font-sans"
+      style={{ background: "#0a0a0a" }}
     >
-      {/* Top bar */}
+      {/* Top Bar */}
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "0 12px",
-          height: 52,
-          background: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          flexShrink: 0,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        }}
+        className="flex items-center gap-2 px-4 h-[52px] shrink-0 border-b border-[#252525]"
+        style={{ background: "#1a1a1a" }}
       >
         <button
           onClick={onClose}
-          style={{
-            width: 34,
-            height: 34,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "1.5px solid #e5e7eb",
-            borderRadius: 9,
-            background: "none",
-            cursor: "pointer",
-            color: "#6b7280",
-            flexShrink: 0,
-          }}
+          className="w-[34px] h-[34px] flex items-center justify-center border border-[#333] rounded-[9px] bg-transparent cursor-pointer text-[#888] hover:text-white hover:border-[#555] transition-colors"
         >
           <svg
             width="14"
@@ -3611,387 +3035,813 @@ export default function ChartEditor({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flex: 1,
-            minWidth: 0,
-          }}
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Untitled chart"
+          className="bg-transparent border-none outline-none text-sm font-bold text-slate-200 flex-1"
+        />
+        <span className="text-[#666] text-base">|</span>
+        <input
+          value={subtitle}
+          onChange={(e) => setSubtitle(e.target.value)}
+          placeholder="Add subtitle…"
+          className="bg-transparent border-none outline-none text-[13px] text-[#999] max-w-[220px]"
+        />
+        <button
+          onClick={() => handleExport("png")}
+          className="px-3 py-1.5 text-[11px] font-semibold rounded-[7px] border border-[#333] bg-[#222] text-[#ccc] cursor-pointer hover:bg-[#333] transition-colors"
         >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Untitled chart"
-            style={{
-              background: "none",
-              border: "none",
-              outline: "none",
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#111827",
-              minWidth: 0,
-              maxWidth: isMobileLayout ? 120 : 280,
-            }}
-          />
-          {!isMobileLayout && (
-            <>
-              <span style={{ color: "#e5e7eb", fontSize: 16 }}>|</span>
-              <input
-                value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
-                placeholder="Add subtitle…"
-                style={{
-                  background: "none",
-                  border: "none",
-                  outline: "none",
-                  fontSize: 13,
-                  color: "#9ca3af",
-                  minWidth: 0,
-                  maxWidth: 220,
-                }}
-              />
-            </>
-          )}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexShrink: 0,
-          }}
+          PNG
+        </button>
+        <button
+          onClick={() => handleExport("svg")}
+          className="px-3 py-1.5 text-[11px] font-semibold rounded-[7px] border border-[#333] bg-[#222] text-[#ccc] cursor-pointer hover:bg-[#333] transition-colors"
         >
-          {isMobileLayout ? (
-            <>
-              <button
-                onClick={() => handleExport("png")}
-                style={{
-                  padding: "6px 12px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  borderRadius: 7,
-                  border: "1.5px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#6b7280",
-                  cursor: "pointer",
-                }}
-              >
-                PNG
-              </button>
-              <button
-                onClick={() => setPanelOpen((v) => !v)}
-                style={{
-                  padding: "6px 12px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: "none",
-                  background: "linear-gradient(135deg,#06b6d4,#0891b2)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                >
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-                Edit
-              </button>
-            </>
-          ) : (
-            <>
-              {(["PNG", "SVG", "JPEG"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => handleExport(f.toLowerCase())}
-                  style={{
-                    padding: "6px 13px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    borderRadius: 7,
-                    border: "1.5px solid #e5e7eb",
-                    background: "#fff",
-                    color: "#6b7280",
-                    cursor: "pointer",
-                  }}
-                >
-                  {f}
-                </button>
-              ))}
-              <button
-                onClick={onClose}
-                style={{
-                  padding: "7px 18px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: "none",
-                  background: "linear-gradient(135deg,#06b6d4,#0891b2)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  boxShadow: "0 2px 8px rgba(6,182,212,0.35)",
-                }}
-              >
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                >
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Export & Publish
-              </button>
-            </>
-          )}
-        </div>
+          SVG
+        </button>
       </div>
 
       {/* Body */}
-      {isMobileLayout ? (
+      <div className="flex flex-1 min-h-0">
+        {/* Chart Area — takes all remaining space */}
         <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-            position: "relative",
-          }}
+          className="flex-1 flex items-center justify-center relative p-8"
+          style={{ background: outerBg }}
         >
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-              minHeight: 0,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
+          {/* Decorative dots pattern for light bg */}
+          {isLightBg && (
             <div
+              className="absolute inset-0 opacity-30"
               style={{
-                position: "absolute",
-                inset: 0,
-                pointerEvents: "none",
                 backgroundImage:
-                  "radial-gradient(circle,#d1d5db 1.2px,transparent 1.2px)",
-                backgroundSize: "22px 22px",
-                opacity: 0.4,
+                  "radial-gradient(circle, #94a3b8 1px, transparent 1px)",
+                backgroundSize: "28px 28px",
               }}
             />
-            {chartCanvas(true)}
-          </div>
-          {panelOpen && (
-            <>
+          )}
+
+          <div
+            className="relative w-full flex flex-col shadow-2xl overflow-hidden"
+            style={{
+              background: cardBg,
+              borderRadius,
+              boxShadow: isLightBg
+                ? "0 28px 80px rgba(0,0,0,0.85), 0 4px 20px rgba(0,0,0,0.5)"
+                : "0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12)",
+              maxWidth: "calc(100% - 0px)",
+              minHeight: 480,
+            }}
+          >
+            {/* Card header */}
+            {(title || subtitle || showWatermark) && (
               <div
+                className="flex items-start justify-between px-6 pt-5 pb-3"
                 style={{
-                  position: "fixed",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.3)",
-                  zIndex: 100,
-                }}
-                onClick={() => setPanelOpen(false)}
-              />
-              <div
-                style={{
-                  position: "fixed",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  zIndex: 101,
-                  background: "#fff",
-                  borderRadius: "20px 20px 0 0",
-                  boxShadow: "0 -8px 40px rgba(0,0,0,0.2)",
-                  display: "flex",
-                  flexDirection: "column",
-                  maxHeight: "75vh",
-                  animation: "slideUp 0.25s cubic-bezier(0.16,1,0.3,1) both",
+                  borderBottom: title
+                    ? `1px solid ${isLightBg ? "#252525" : "#e5e7eb"}`
+                    : "none",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    padding: "12px 0 4px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 4,
-                      borderRadius: 2,
-                      background: "#e5e7eb",
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    borderBottom: "1px solid #e5e7eb",
-                    flexShrink: 0,
-                  }}
-                >
-                  {TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTab(t.id as any)}
+                <div>
+                  {title && (
+                    <h3
+                      className="m-0 font-bold leading-snug"
                       style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 3,
-                        padding: "10px 0 9px",
-                        border: "none",
-                        background: "none",
-                        cursor: "pointer",
-                        borderBottom:
-                          tab === t.id
-                            ? "2.5px solid #06b6d4"
-                            : "2.5px solid transparent",
-                        color: tab === t.id ? "#06b6d4" : "#9ca3af",
+                        fontSize: titleSize,
+                        color: isLightBg ? "#f1f5f9" : "#111827",
+                        fontFamily,
                       }}
                     >
-                      {t.icon}
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 700,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {t.label}
-                      </span>
-                    </button>
-                  ))}
+                      {title}
+                    </h3>
+                  )}
+                  {subtitle && (
+                    <p
+                      className="mt-1 mb-0 text-xs"
+                      style={{
+                        color: isLightBg ? "rgba(255,255,255,0.4)" : "#9ca3af",
+                        fontFamily,
+                      }}
+                    >
+                      {subtitle}
+                    </p>
+                  )}
                 </div>
-                {renderPanel()}
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 36,
-              minWidth: 0,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                pointerEvents: "none",
-                backgroundImage:
-                  "radial-gradient(circle,#d1d5db 1.2px,transparent 1.2px)",
-                backgroundSize: "22px 22px",
-                opacity: 0.4,
-              }}
-            />
-            {chartCanvas(false)}
-            <p
-              style={{
-                marginTop: 14,
-                fontSize: 10,
-                color: "#b0b8c4",
-                fontFamily: "monospace",
-              }}
-            >
-              Drag to zoom · Double-click to reset · Scroll to pan
-            </p>
-          </div>
-          <div
-            style={{
-              width: 308,
-              background: "#fff",
-              borderLeft: "1px solid #e5e7eb",
-              display: "flex",
-              flexDirection: "column",
-              flexShrink: 0,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                borderBottom: "1px solid #e5e7eb",
-                flexShrink: 0,
-              }}
-            >
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id as any)}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 3,
-                    padding: "10px 0 9px",
-                    border: "none",
-                    background: "none",
-                    cursor: "pointer",
-                    borderBottom:
-                      tab === t.id
-                        ? "2.5px solid #06b6d4"
-                        : "2.5px solid transparent",
-                    color: tab === t.id ? "#06b6d4" : "#9ca3af",
-                    transition: "color 0.12s",
-                  }}
-                >
-                  {t.icon}
+                {showWatermark && (
                   <span
+                    className="text-[10px] font-semibold whitespace-nowrap mt-0.5"
                     style={{
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
+                      color: isLightBg ? "rgba(255,255,255,0.15)" : "#d1d5db",
                     }}
                   >
-                    {t.label}
+                    ✦ Graphix
                   </span>
-                </button>
-              ))}
-            </div>
-            {renderPanel()}
+                )}
+              </div>
+            )}
+
+            {annotations.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-6 pt-2">
+                {annotations.map((a, i) => (
+                  <span
+                    key={i}
+                    className="text-[10px] px-2.5 py-0.5 rounded-full font-mono"
+                    style={{
+                      background: "rgba(6,182,212,0.1)",
+                      color: "#06b6d4",
+                      border: "1px solid rgba(6,182,212,0.25)",
+                    }}
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* The actual Plotly chart */}
+            <div ref={plotRef} className="w-full" style={{ minHeight: 420 }} />
           </div>
         </div>
-      )}
+
+        {/* Right Panel */}
+        <div
+          className="w-[320px] flex flex-col shrink-0 overflow-hidden border-l border-[#252525]"
+          style={{ background: "#1a1a1a" }}
+        >
+          {/* Tabs */}
+          <div className="flex border-b border-[#252525] shrink-0">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id as any)}
+                className="flex-1 py-2.5 border-none bg-transparent cursor-pointer text-[9px] font-bold uppercase tracking-wider transition-colors"
+                style={{
+                  borderBottom:
+                    tab === t.id
+                      ? "2.5px solid #06b6d4"
+                      : "2.5px solid transparent",
+                  color: tab === t.id ? "#06b6d4" : "#666",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Panel content */}
+          <div className="flex-1 overflow-y-auto bg-white">
+            {/* ─── GRAPH TAB ─── */}
+            {tab === "graph" && (
+              <>
+                <div className="px-4 pt-3 pb-1.5">
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (e.target.value) setActiveGroup(null);
+                    }}
+                    placeholder="Search chart types…"
+                    className="w-full px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 outline-none"
+                  />
+                </div>
+                {!searchQuery && (
+                  <div
+                    className="flex gap-1.5 px-4 pb-2 overflow-x-auto"
+                    style={{ scrollbarWidth: "none" }}
+                  >
+                    {CHART_GROUPS_ORDER.map((g) => {
+                      const isActive = activeGroup === g.id;
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() => setActiveGroup(isActive ? null : g.id)}
+                          className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer whitespace-nowrap transition-all"
+                          style={{
+                            border: isActive
+                              ? `1.5px solid ${g.color}`
+                              : "1.5px solid #e5e7eb",
+                            background: isActive ? `${g.color}18` : "#fafafa",
+                            color: isActive ? g.color : "#9ca3af",
+                          }}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {(searchQuery || activeGroup) && (
+                  <div className="px-4 pb-4">
+                    {searchQuery && (
+                      <p className="text-[10px] text-gray-400 mb-2 tracking-wide">
+                        {filteredTypes.length} result
+                        {filteredTypes.length !== 1 ? "s" : ""}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {filteredTypes.map((ct) => {
+                        const isActive = chartTypeId === ct.id;
+                        const grpColor =
+                          CHART_GROUPS_ORDER.find((g) => g.id === ct.group)
+                            ?.color || "#06b6d4";
+                        return (
+                          <button
+                            key={ct.id}
+                            onClick={() => setChartTypeId(ct.id)}
+                            className="flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-[10px] cursor-pointer transition-all"
+                            style={{
+                              border: isActive
+                                ? `2px solid ${grpColor}`
+                                : "1.5px solid #e5e7eb",
+                              background: isActive
+                                ? `${grpColor}0f`
+                                : "#fafafa",
+                              color: isActive ? grpColor : "#6b7280",
+                            }}
+                          >
+                            {ct.icon}
+                            <span className="text-[9px] font-semibold text-center leading-tight">
+                              {ct.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {!searchQuery && !activeGroup && (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-[11px] text-gray-400">
+                      Select a category above or search to browse all{" "}
+                      {CHART_TYPES.length} chart types
+                    </p>
+                  </div>
+                )}
+                <Sec title="Data Labels" open={false}>
+                  <Toggle
+                    label="Show values on chart"
+                    value={showLabels}
+                    onChange={setShowLabels}
+                  />
+                  <Toggle
+                    label="Show markers on lines"
+                    value={showMarkers}
+                    onChange={setShowMarkers}
+                  />
+                </Sec>
+                <Sec title="Legend" open={false}>
+                  <Toggle
+                    label="Show legend"
+                    value={showLegend}
+                    onChange={setShowLegend}
+                  />
+                  {showLegend && (
+                    <div>
+                      <p className="text-[11px] text-gray-400 mt-1 mb-1.5">
+                        Position
+                      </p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {(["top", "bottom", "left", "right"] as const).map(
+                          (pos) => (
+                            <button
+                              key={pos}
+                              onClick={() => setLegendPos(pos)}
+                              className="py-1.5 text-[10px] font-semibold rounded-[7px] cursor-pointer capitalize transition-all"
+                              style={{
+                                border:
+                                  legendPos === pos
+                                    ? "1.5px solid #06b6d4"
+                                    : "1.5px solid #e5e7eb",
+                                background:
+                                  legendPos === pos
+                                    ? "rgba(6,182,212,0.07)"
+                                    : "#fafafa",
+                                color:
+                                  legendPos === pos ? "#06b6d4" : "#9ca3af",
+                              }}
+                            >
+                              {pos}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Sec>
+                <Sec title="Watermark" open={false}>
+                  <Toggle
+                    label="Show Graphix branding"
+                    value={showWatermark}
+                    onChange={setShowWatermark}
+                  />
+                </Sec>
+              </>
+            )}
+
+            {/* ─── STYLE TAB ─── */}
+            {tab === "style" && (
+              <>
+                <Sec title="Color Palette">
+                  {PALETTES.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setPaletteIdx(i)}
+                      className="w-full flex items-center gap-2.5 px-2 py-[7px] rounded-lg cursor-pointer mb-0.5 transition-all"
+                      style={{
+                        border:
+                          paletteIdx === i
+                            ? "1.5px solid #06b6d4"
+                            : "1.5px solid transparent",
+                        background:
+                          paletteIdx === i
+                            ? "rgba(6,182,212,0.05)"
+                            : "transparent",
+                      }}
+                    >
+                      <div className="flex gap-[3px]">
+                        {p.colors.slice(0, 6).map((c, j) => (
+                          <span
+                            key={j}
+                            className="w-3.5 h-3.5 rounded-[3px] block"
+                            style={{ background: c }}
+                          />
+                        ))}
+                      </div>
+                      <span
+                        className="text-xs font-medium flex-1 text-left"
+                        style={{
+                          color: paletteIdx === i ? "#06b6d4" : "#374151",
+                        }}
+                      >
+                        {p.label}
+                      </span>
+                      {paletteIdx === i && (
+                        <span className="text-cyan-500 text-xs font-bold">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </Sec>
+                <Sec title="Background">
+                  <div className="grid grid-cols-4 gap-1.5 mb-3">
+                    {BG_PRESETS.map((b) => (
+                      <button
+                        key={b.id}
+                        onClick={() => setBgHex(b.hex)}
+                        className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-[9px] cursor-pointer transition-all"
+                        style={{
+                          border:
+                            bgHex === b.hex
+                              ? "2px solid #06b6d4"
+                              : "1.5px solid #e5e7eb",
+                          background:
+                            bgHex === b.hex
+                              ? "rgba(6,182,212,0.05)"
+                              : "#fafafa",
+                        }}
+                      >
+                        <span
+                          className="w-6 h-6 rounded-[6px] block border border-gray-300"
+                          style={{ background: b.hex }}
+                        />
+                        <span
+                          className="text-[9.5px] font-semibold"
+                          style={{
+                            color: bgHex === b.hex ? "#06b6d4" : "#9ca3af",
+                          }}
+                        >
+                          {b.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[11px] text-gray-400 w-[74px] shrink-0">
+                      Custom
+                    </span>
+                    <div className="flex-1 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={customBg}
+                        onChange={(e) => {
+                          setCustomBg(e.target.value);
+                          setBgHex(e.target.value);
+                        }}
+                        className="w-8 h-8 border border-gray-200 rounded-[7px] cursor-pointer p-0.5"
+                      />
+                      <span className="text-[11px] text-gray-400 font-mono">
+                        {customBg.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </Sec>
+                <Sec title="Typography">
+                  <div className="mb-2.5">
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      Font family
+                    </p>
+                    <select
+                      value={fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value)}
+                      className="w-full px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 text-gray-900 outline-none"
+                    >
+                      {FONTS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Slider
+                    label="Base font size"
+                    value={fontSize}
+                    min={8}
+                    max={18}
+                    unit="px"
+                    onChange={setFontSize}
+                  />
+                  <Slider
+                    label="Title font size"
+                    value={titleSize}
+                    min={12}
+                    max={36}
+                    unit="px"
+                    onChange={setTitleSize}
+                  />
+                </Sec>
+                <Sec title="Marks & Lines" open={false}>
+                  <Slider
+                    label="Opacity"
+                    value={opacity}
+                    min={20}
+                    max={100}
+                    unit="%"
+                    onChange={setOpacity}
+                  />
+                  <Slider
+                    label="Line width"
+                    value={lineWidth}
+                    min={1}
+                    max={8}
+                    onChange={setLineWidth}
+                  />
+                  <Slider
+                    label="Marker size"
+                    value={markerSize}
+                    min={3}
+                    max={20}
+                    onChange={setMarkerSize}
+                  />
+                  <Slider
+                    label="Bar gap"
+                    value={barGap}
+                    min={0}
+                    max={60}
+                    unit="%"
+                    onChange={setBarGap}
+                  />
+                  <Slider
+                    label="Fill opacity"
+                    value={fillOpacity}
+                    min={5}
+                    max={80}
+                    unit="%"
+                    onChange={setFillOpacity}
+                  />
+                  <Slider
+                    label="Border width"
+                    value={borderWidth}
+                    min={0}
+                    max={5}
+                    onChange={setBorderWidth}
+                  />
+                  <Toggle
+                    label="Smooth curves (spline)"
+                    value={smooth}
+                    onChange={setSmooth}
+                  />
+                </Sec>
+                <Sec title="Card" open={false}>
+                  <Slider
+                    label="Border radius"
+                    value={borderRadius}
+                    min={0}
+                    max={28}
+                    unit="px"
+                    onChange={setBorderRadius}
+                  />
+                </Sec>
+              </>
+            )}
+
+            {/* ─── AXES TAB ─── */}
+            {tab === "axes" && (
+              <>
+                <Sec title="Axis Labels">
+                  <div className="mb-2.5">
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      X-Axis label
+                    </p>
+                    <TxtInput
+                      value={xLabel}
+                      onChange={setXLabel}
+                      placeholder="e.g. Month"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      Y-Axis label
+                    </p>
+                    <TxtInput
+                      value={yLabel}
+                      onChange={setYLabel}
+                      placeholder="e.g. Revenue ($)"
+                    />
+                  </div>
+                </Sec>
+                <Sec title="Grid & Lines">
+                  <Toggle
+                    label="Show grid lines"
+                    value={showGrid}
+                    onChange={setShowGrid}
+                  />
+                  <Toggle
+                    label="Show zero line"
+                    value={showZero}
+                    onChange={setShowZero}
+                  />
+                  <Toggle
+                    label="Show tick labels"
+                    value={showTicks}
+                    onChange={setShowTicks}
+                  />
+                </Sec>
+                <Sec title="Scale">
+                  <Toggle
+                    label="Log scale — X axis"
+                    value={logX}
+                    onChange={setLogX}
+                  />
+                  <Toggle
+                    label="Log scale — Y axis"
+                    value={logY}
+                    onChange={setLogY}
+                  />
+                  <Toggle
+                    label="Reverse X axis"
+                    value={reverseX}
+                    onChange={setReverseX}
+                  />
+                  <Toggle
+                    label="Reverse Y axis"
+                    value={reverseY}
+                    onChange={setReverseY}
+                  />
+                </Sec>
+                <Sec title="X-Axis Rotation" open={false}>
+                  <Slider
+                    label="Tick angle"
+                    value={xAngle}
+                    min={-90}
+                    max={90}
+                    unit="°"
+                    onChange={setXAngle}
+                  />
+                </Sec>
+              </>
+            )}
+
+            {/* ─── ANNOTATE TAB ─── */}
+            {tab === "annotate" && (
+              <>
+                <Sec title="Title & Subtitle">
+                  <div className="mb-2.5">
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      Chart title
+                    </p>
+                    <TxtInput
+                      value={title}
+                      onChange={setTitle}
+                      placeholder="Add a title…"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 mb-1.5">Subtitle</p>
+                    <TxtInput
+                      value={subtitle}
+                      onChange={setSubtitle}
+                      placeholder="Optional subtitle…"
+                    />
+                  </div>
+                </Sec>
+                <Sec title="Annotation Labels">
+                  <div className="flex gap-1.5 mb-2.5">
+                    <input
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newNote.trim()) {
+                          setAnnotations((a) => [...a, newNote.trim()]);
+                          setNewNote("");
+                        }
+                      }}
+                      placeholder="e.g. Peak Q3 · Enter to add"
+                      className="flex-1 px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        if (newNote.trim()) {
+                          setAnnotations((a) => [...a, newNote.trim()]);
+                          setNewNote("");
+                        }
+                      }}
+                      className="px-3 py-[7px] text-xs font-bold rounded-lg border-none bg-cyan-500 text-white cursor-pointer hover:bg-cyan-600 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {annotations.map((a, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between px-2.5 py-[7px] rounded-lg bg-gray-50 border border-gray-200 mb-1.5"
+                    >
+                      <span className="text-[11px] text-gray-700">{a}</span>
+                      <button
+                        onClick={() =>
+                          setAnnotations((an) => an.filter((_, j) => j !== i))
+                        }
+                        className="border-none bg-transparent text-gray-300 cursor-pointer text-sm p-0 hover:text-red-400 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </Sec>
+              </>
+            )}
+
+            {/* ─── EXPORT TAB ─── */}
+            {tab === "export" && (
+              <>
+                <Sec title="Dimensions">
+                  <div className="mb-2.5">
+                    <p className="text-[11px] text-gray-400 mb-1.5">Width px</p>
+                    <input
+                      type="number"
+                      value={exportW}
+                      onChange={(e) => setExportW(Number(e.target.value))}
+                      className="w-full px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 outline-none font-mono"
+                    />
+                  </div>
+                  <div className="mb-2.5">
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      Height px
+                    </p>
+                    <input
+                      type="number"
+                      value={exportH}
+                      onChange={(e) => setExportH(Number(e.target.value))}
+                      className="w-full px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 outline-none font-mono"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 mt-2">
+                    {[
+                      { l: "Square", w: 800, h: 800 },
+                      { l: "Landscape", w: 1200, h: 700 },
+                      { l: "Portrait", w: 700, h: 1000 },
+                      { l: "4K UHD", w: 3840, h: 2160 },
+                      { l: "Twitter", w: 1200, h: 675 },
+                      { l: "Instagram", w: 1080, h: 1080 },
+                      { l: "Slide 16:9", w: 1920, h: 1080 },
+                      { l: "Slide 4:3", w: 1024, h: 768 },
+                    ].map((p) => {
+                      const active = exportW === p.w && exportH === p.h;
+                      return (
+                        <button
+                          key={p.l}
+                          onClick={() => {
+                            setExportW(p.w);
+                            setExportH(p.h);
+                          }}
+                          className="py-[7px] px-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-all text-left"
+                          style={{
+                            border: active
+                              ? "1.5px solid #06b6d4"
+                              : "1.5px solid #e5e7eb",
+                            background: active
+                              ? "rgba(6,182,212,0.06)"
+                              : "#fafafa",
+                            color: active ? "#06b6d4" : "#6b7280",
+                          }}
+                        >
+                          {p.l}
+                          <span className="block text-[9px] text-gray-400 font-mono mt-0.5">
+                            {p.w}×{p.h}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Sec>
+                <Sec title="Download">
+                  <div className="flex flex-col gap-2">
+                    {[
+                      {
+                        fmt: "png",
+                        label: "PNG",
+                        desc: "Best for web & docs",
+                        primary: true,
+                      },
+                      {
+                        fmt: "svg",
+                        label: "SVG",
+                        desc: "Vector, infinite scale",
+                        primary: false,
+                      },
+                      {
+                        fmt: "jpeg",
+                        label: "JPEG",
+                        desc: "Compressed, smaller",
+                        primary: false,
+                      },
+                    ].map(({ fmt, label, desc, primary }) => (
+                      <button
+                        key={fmt}
+                        onClick={() => handleExport(fmt)}
+                        className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] cursor-pointer text-left transition-all hover:opacity-90"
+                        style={{
+                          border: primary ? "none" : "1.5px solid #e5e7eb",
+                          background: primary
+                            ? "linear-gradient(135deg,#06b6d4,#0891b2)"
+                            : "#fafafa",
+                          color: primary ? "#fff" : "#374151",
+                        }}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        >
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <div>
+                          <div className="text-xs font-bold">
+                            Download {label}
+                          </div>
+                          <div className="text-[10px] opacity-65 mt-0.5">
+                            {desc}
+                          </div>
+                        </div>
+                        <span className="ml-auto text-[9px] font-mono opacity-50">
+                          {exportW}×{exportH}
+                        </span>
+                      </button>
+                    ))}
+
+                    {/* Save to Database button — currently disabled/commented-out */}
+                    <button
+                      disabled
+                      // onClick={handleSaveToDatabase}
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] border border-dashed border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60 text-left"
+                      title="Wire handleSaveToDatabase to your API endpoint to enable this"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                      <div>
+                        <div className="text-xs font-bold">
+                          Save to Database
+                        </div>
+                        <div className="text-[10px] opacity-65 mt-0.5">
+                          Connect API endpoint to enable
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </Sec>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>,
     document.body,
   );

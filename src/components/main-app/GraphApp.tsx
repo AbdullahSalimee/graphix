@@ -27,25 +27,34 @@ interface Conversation {
 
 const STORAGE_KEY = "graphix_conversations_v2";
 
-function loadFromStorage(): { conversations: Conversation[]; activeId: string } | null {
+function loadFromStorage(): {
+  conversations: Conversation[];
+  activeId: string;
+} | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.conversations?.length) return null;
     return parsed;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function saveToStorage(conversations: Conversation[], activeId: string) {
   try {
-    // Only persist successfully completed AI messages (not loading states)
-    const toSave = conversations.map(c => ({
+    const toSave = conversations.map((c) => ({
       ...c,
-      messages: c.messages.filter(m => m.status !== "loading"),
+      messages: c.messages.filter((m) => m.status !== "loading"),
     }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ conversations: toSave, activeId }));
-  } catch { /* quota exceeded — silently ignore */ }
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ conversations: toSave, activeId }),
+    );
+  } catch {
+    /* quota exceeded — silently ignore */
+  }
 }
 
 export default function GraphApp() {
@@ -64,59 +73,69 @@ export default function GraphApp() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 640) setSidebarOpen(true);
+    if (typeof window !== "undefined" && window.innerWidth >= 640)
+      setSidebarOpen(true);
   }, []);
 
-  // Persist to localStorage whenever conversations or activeId change
   useEffect(() => {
     if (typeof window !== "undefined") saveToStorage(conversations, activeId);
   }, [conversations, activeId]);
 
   // Auto-select latest AI chart whenever active conversation changes
   useEffect(() => {
-    const conv = conversations.find(c => c.id === activeId);
-    const aiMsgs = conv?.messages.filter(m => m.from === "ai" && m.status === "success" && m.content?.data) ?? [];
+    const conv = conversations.find((c) => c.id === activeId);
+    const aiMsgs =
+      conv?.messages.filter(
+        (m) => m.from === "ai" && m.status === "success" && m.content?.data,
+      ) ?? [];
     setSelectedAiId(aiMsgs.at(-1)?.id ?? null);
   }, [activeId]);
 
-  const activeConv = conversations.find(c => c.id === activeId);
+  const activeConv = conversations.find((c) => c.id === activeId);
   const hasMessages = (activeConv?.messages?.length ?? 0) > 0;
 
   const updateMessages = useCallback(
     (convId: string, updater: Message[] | ((prev: Message[]) => Message[])) => {
-      setConversations(prev =>
-        prev.map(c => {
+      setConversations((prev) =>
+        prev.map((c) => {
           if (c.id !== convId) return c;
-          const messages = typeof updater === "function" ? updater(c.messages) : updater;
-          const firstUser = messages.find(m => m.from === "user");
+          const messages =
+            typeof updater === "function" ? updater(c.messages) : updater;
+          const firstUser = messages.find((m) => m.from === "user");
           const newTitle = firstUser
-            ? firstUser.content.slice(0, 30) + (firstUser.content.length > 30 ? "…" : "")
+            ? firstUser.content.slice(0, 30) +
+              (firstUser.content.length > 30 ? "…" : "")
             : c.title;
           return { ...c, messages, title: newTitle };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   const newConversation = () => {
-    const hasEmpty = conversations.some(c => c.title === "New conversation" && c.messages.length === 0);
+    const hasEmpty = conversations.some(
+      (c) => c.title === "New conversation" && c.messages.length === 0,
+    );
     if (hasEmpty) {
-      const empty = conversations.find(c => c.title === "New conversation" && c.messages.length === 0)!;
+      const empty = conversations.find(
+        (c) => c.title === "New conversation" && c.messages.length === 0,
+      )!;
       setActiveId(empty.id);
     } else {
       const c = createConversation();
-      setConversations(prev => [c, ...prev]);
+      setConversations((prev) => [c, ...prev]);
       setActiveId(c.id);
     }
     setSelectedAiId(null);
-    if (typeof window !== "undefined" && window.innerWidth < 640) setSidebarOpen(false);
+    if (typeof window !== "undefined" && window.innerWidth < 640)
+      setSidebarOpen(false);
   };
 
   const handleSelect = (id: string) => {
     setActiveId(id);
-    // selectedAiId will auto-update via the useEffect above
-    if (typeof window !== "undefined" && window.innerWidth < 640) setSidebarOpen(false);
+    if (typeof window !== "undefined" && window.innerWidth < 640)
+      setSidebarOpen(false);
   };
 
   const handleSend = async (
@@ -145,14 +164,29 @@ export default function GraphApp() {
       status: "loading",
     };
 
-    // Append both user + new loading AI slot (never overwrite previous charts)
-    updateMessages(convId, msgs => [...msgs, userMsg, loadingAiMsg]);
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CONTEXT MEMORY: Get the most recent successful AI chart as context
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const conv = conversations.find((c) => c.id === convId);
+    const aiMessages =
+      conv?.messages.filter(
+        (m) => m.from === "ai" && m.status === "success" && m.content?.data,
+      ) ?? [];
+    const previousChart = aiMessages.at(-1)?.content ?? null;
+
+    // Append both user + new loading AI slot
+    updateMessages(convId, (msgs) => [...msgs, userMsg, loadingAiMsg]);
     setSelectedAiId(newAiId);
     setIsLoading(true);
 
+    // If this is a prebuilt config from template, skip API
     if (prebuiltConfig) {
-      updateMessages(convId, msgs =>
-        msgs.map(m => m.id === newAiId ? { ...m, content: prebuiltConfig, status: "success" as const } : m)
+      updateMessages(convId, (msgs) =>
+        msgs.map((m) =>
+          m.id === newAiId
+            ? { ...m, content: prebuiltConfig, status: "success" as const }
+            : m,
+        ),
       );
       setIsLoading(false);
       return;
@@ -162,32 +196,86 @@ export default function GraphApp() {
       const res = await fetch("https://graphy-server.vercel.app/api/chart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input, fileContent }),
+        body: JSON.stringify({
+          prompt: input,
+          fileContent,
+          previousChart, // ← Send previous chart context
+        }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Server error ${res.status}`);
       }
+
       const config = await res.json();
 
       if (config.error) {
-        updateMessages(convId, msgs =>
-          msgs.map(m => m.id === newAiId ? { ...m, content: { error: config.error }, status: "success" as const } : m)
+        updateMessages(convId, (msgs) =>
+          msgs.map((m) =>
+            m.id === newAiId
+              ? {
+                  ...m,
+                  content: { error: config.error },
+                  status: "success" as const,
+                }
+              : m,
+          ),
         );
         setIsLoading(false);
         return;
       }
 
-      updateMessages(convId, msgs =>
-        msgs.map(m => m.id === newAiId ? { ...m, content: config, status: "success" as const } : m)
-      );
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // SMART EDIT vs CREATE:
+      // If action is "edit", REPLACE the previous chart instead of appending
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (config.action === "edit" && aiMessages.length > 0) {
+        const prevAiId = aiMessages.at(-1)!.id;
 
+        updateMessages(convId, (msgs) => {
+          // Remove the loading message we just added
+          const withoutLoading = msgs.filter((m) => m.id !== newAiId);
+
+          // Replace the previous AI chart with the edited version
+          return withoutLoading.map((m) =>
+            m.id === prevAiId
+              ? {
+                  ...m,
+                  content: { data: config.data, layout: config.layout },
+                  status: "success" as const,
+                }
+              : m,
+          );
+        });
+
+        // Keep selection on the edited chart
+        setSelectedAiId(prevAiId);
+      } else {
+        // Normal "create" flow — add as new chart
+        updateMessages(convId, (msgs) =>
+          msgs.map((m) =>
+            m.id === newAiId
+              ? {
+                  ...m,
+                  content: { data: config.data, layout: config.layout },
+                  status: "success" as const,
+                }
+              : m,
+          ),
+        );
+      }
     } catch (err: any) {
-      updateMessages(convId, msgs =>
-        msgs.map(m => m.id === newAiId
-          ? { ...m, content: err.message || "Failed to generate chart", status: "error" as const }
-          : m
-        )
+      updateMessages(convId, (msgs) =>
+        msgs.map((m) =>
+          m.id === newAiId
+            ? {
+                ...m,
+                content: err.message || "Failed to generate chart",
+                status: "error" as const,
+              }
+            : m,
+        ),
       );
     } finally {
       setIsLoading(false);
@@ -195,17 +283,25 @@ export default function GraphApp() {
   };
 
   return (
-    <div className="graph-app-root fixed inset-0 overflow-hidden" style={{ background: "#09090f" }}>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js" async />
+    <div
+      className="graph-app-root fixed inset-0 overflow-hidden"
+      style={{ background: "#09090f" }}
+    >
+      <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"
+        async
+      />
       <StarField />
 
       <div className="flex h-dvh relative z-10">
-
         {/* Mobile backdrop */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 z-[9] sm:hidden"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+            style={{
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(4px)",
+            }}
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -223,7 +319,6 @@ export default function GraphApp() {
 
         {/* CENTER — main area */}
         <div className="flex-1 flex flex-col min-w-0 relative">
-
           {/* Topbar */}
           <div
             className="flex items-center gap-2 px-3 sm:px-4 py-2.5 flex-shrink-0"
@@ -236,7 +331,10 @@ export default function GraphApp() {
             {!sidebarOpen && (
               <button
                 className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 transition-all"
-                style={{ color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
+                style={{
+                  color: "rgba(255,255,255,0.4)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open sidebar"
               >
@@ -245,7 +343,10 @@ export default function GraphApp() {
             )}
             <span
               className="text-sm font-medium truncate flex-1 min-w-0"
-              style={{ color: "rgba(255,255,255,0.55)", letterSpacing: "-0.01em" }}
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                letterSpacing: "-0.01em",
+              }}
             >
               {activeConv?.title || "Graphix"}
             </span>
@@ -253,7 +354,6 @@ export default function GraphApp() {
 
           {/* Body */}
           <div className="flex-1 flex min-h-0">
-
             {/* Template panel — left, only when chart exists */}
             {hasMessages && <ChartTemplatePanel />}
 
@@ -269,7 +369,9 @@ export default function GraphApp() {
                   />
                 </div>
               )}
-              {hasMessages && <InputBar onSend={handleSend} isLoading={isLoading} />}
+              {hasMessages && (
+                <InputBar onSend={handleSend} isLoading={isLoading} />
+              )}
             </div>
           </div>
         </div>
@@ -282,7 +384,6 @@ export default function GraphApp() {
             onSelectAiId={setSelectedAiId}
           />
         )}
-
       </div>
     </div>
   );
@@ -290,7 +391,15 @@ export default function GraphApp() {
 
 function MenuIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="12" x2="21" y2="12" />
       <line x1="3" y1="18" x2="21" y2="18" />

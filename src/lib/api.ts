@@ -12,6 +12,22 @@ function authHeaders(token: string) {
   };
 }
 
+// ── Token helper ──────────────────────────────────────────────
+// Token is stored by Zustand's persist middleware under "graphix-store"
+// as: { state: { token: "eyJ...", isAuthenticated: true }, version: 0 }
+// NOT as a plain string under "graphix_token".
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null; // SSR guard
+  try {
+    const raw = localStorage.getItem("graphix-store");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────────
 
 export async function apiLogin(email: string, password: string) {
@@ -76,4 +92,71 @@ export async function apiUpdateChartTitle(token: string, id: string, title: stri
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to update chart");
   return data;
+}
+
+
+// ── Feedback ──────────────────────────────────────────────────
+ 
+/** Submit feedback — public, no token required.
+ *  Optionally pass a token so the backend links the row to the user. */
+export async function submitFeedback(
+  payload: { name: string; email: string; thoughts: string; rating?: number },
+  token?: string
+) {
+  const res = await fetch(`${API}/api/feedback`, {
+    method: "POST",
+    headers: token
+      ? authHeaders(token)
+      : { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name:     payload.name,
+      email:    payload.email,
+      thoughts: payload.thoughts,
+      rating:   payload.rating ?? 5,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to submit feedback")
+  else console.log("Feedback submitted:", data);
+  return data as {
+    id: string;
+    authorName: string;
+    message: string;
+    rating: number;
+    createdAt: string;
+  };
+}
+ 
+/** Fetch the latest public feedbacks (landing-page testimonials). */
+export async function apiFetchFeedbacks() {
+  const res = await fetch(`${API}/api/feedback`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to fetch feedbacks");
+  return data as {
+    id: string;
+    authorName: string;
+    message: string;
+    rating: number;
+    createdAt: string;
+  }[];
+}
+ 
+/** Fetch only the current user's submitted feedbacks (auth required). */
+export async function apiFetchMyFeedbacks(token: string) {
+  const res = await fetch(`${API}/api/feedback/mine`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to fetch your feedbacks");
+  return data as {
+    id: string;
+    authorName: string;
+    message: string;
+    rating: number;
+    createdAt: string;
+  }[];
 }

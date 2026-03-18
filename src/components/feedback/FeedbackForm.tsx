@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { set, z } from "zod";
+import { getStoredToken, submitFeedback } from "@/lib/api";
 
+// ── Validation schema (mirrors backend) ───────────────────────
 const feedbackSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(60),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -16,43 +18,7 @@ const feedbackSchema = z.object({
 
 type FeedbackInput = z.infer<typeof feedbackSchema>;
 
-// ── Animated counter ─────────────────────────────────────
-function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        obs.disconnect();
-        let start = 0;
-        const step = target / 60;
-        const id = setInterval(() => {
-          start += step;
-          if (start >= target) {
-            setVal(target);
-            clearInterval(id);
-            return;
-          }
-          setVal(Math.floor(start));
-        }, 16);
-      },
-      { threshold: 0.4 },
-    );
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [target]);
-
-  return (
-    <span ref={ref}>
-      {val.toLocaleString()}
-      {suffix}
-    </span>
-  );
-}
-
-// ── Reason card ──────────────────────────────────────────
+// ── Reason card ───────────────────────────────────────────────
 function ReasonCard({
   num,
   title,
@@ -68,27 +34,29 @@ function ReasonCard({
   const [vis, setVis] = useState(false);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
     const obs = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
+      ([entry]) => {
+        if (entry.isIntersecting) {
           setVis(true);
           obs.disconnect();
         }
       },
-      { threshold: 0.15 },
+      { threshold: 0.2 },
     );
-    if (ref.current) obs.observe(ref.current);
+    obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   return (
     <div
       ref={ref}
-      className="border border-[#1e2227] bg-[#0d1014] p-6 transition-all duration-700"
+      className="bg-[#090b0e] p-6 border-r border-b border-[#1e2227] last:border-r-0"
       style={{
+        transition: `opacity 0.5s ease ${delay}, transform 0.5s ease ${delay}`,
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(24px)",
-        transitionDelay: delay,
       }}
     >
       <span className="font-syne font-extrabold text-[2rem] text-[#00d4c8] opacity-20 leading-none block mb-3">
@@ -102,8 +70,93 @@ function ReasonCard({
   );
 }
 
-export default function FeedbackForm() {
+// ── Testimonial ticker ────────────────────────────────────────
+const testimonials = [
+  {
+    quote:
+      "I left a note about the export flow. Three weeks later it was redesigned. Never happened with any other tool.",
+    author: "Arya S., Growth Lead",
+  },
+  {
+    quote:
+      "Mentioned a missing chart type in passing. It shipped in the next update. These people actually listen.",
+    author: "James K., Data Analyst",
+  },
+  {
+    quote:
+      "Got a personal reply from the founder within a day. Not a weekly digest. Your message lands directly in front of someone on the product team within hours.",
+    author: "Priya M., Startup Founder",
+  },
+];
+
+function TestimonialTicker() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setIdx((i) => (i + 1) % testimonials.length),
+      5000,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  const t = testimonials[idx];
+  return (
+    <div
+      key={idx}
+      className="mt-8 border border-[#1e2227] p-6 text-center"
+      style={{ animation: "fadeUp 0.4s ease both" }}
+    >
+      <p className="text-[#6b7280] text-[0.88rem] leading-[1.8] italic mb-3">
+        &ldquo;{t.quote}&rdquo;
+      </p>
+      <span className="text-[0.72rem] uppercase tracking-widest text-[#00d4c8]">
+        — {t.author}
+      </span>
+    </div>
+  );
+}
+
+// ── Counter (animates to target number) ───────────────────────
+function Counter({ target, suffix }: { target: number; suffix: string }) {
+  const [val, setVal] = useState(0);
+  const startedRef = useRef(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !startedRef.current) {
+          startedRef.current = true;
+          const start = Date.now();
+          const duration = 1400;
+          const tick = () => {
+            const p = Math.min((Date.now() - start) / duration, 1);
+            setVal(Math.round(p * target));
+            if (p < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.5 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [target]);
+
+  return (
+    <span ref={ref}>
+      {val.toLocaleString()}
+      {suffix}
+    </span>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────
+export default function FeedbackFormPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const [heroVis, setHeroVis] = useState(false);
 
@@ -122,9 +175,24 @@ export default function FeedbackForm() {
   const thoughts = watch("thoughts", "");
 
   const onSubmit = async (data: FeedbackInput) => {
-    await new Promise((r) => setTimeout(r, 1400));
-    console.log("Feedback:", data);
-    setSubmitted(true);
+    setServerError(null);
+    const token = getStoredToken() ?? undefined;
+    try {
+      // Only grab token if user is logged in — never send "Bearer null"
+      await submitFeedback(
+        { name: data.name, email: data.email, thoughts: data.thoughts },
+        token,
+      );
+      setSubmitted(true);
+    } catch (err: unknown) {
+      token
+        ? setServerError("You must be logged in to submit feedback.")
+        : setServerError(
+            err instanceof Error
+              ? err.message
+              : "Something went wrong. Please try again.",
+          );
+    }
   };
 
   const fieldCls = (hasError: boolean) =>
@@ -135,91 +203,49 @@ export default function FeedbackForm() {
     }`;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)",
-        backgroundSize: "40px 40px",
-      }}
-    >
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity:0; transform:translateY(20px); }
-          to   { opacity:1; transform:translateY(0);    }
-        }
-        @keyframes drawCheck {
-          from { stroke-dashoffset:30; }
-          to   { stroke-dashoffset:0;  }
-        }
-        @keyframes pulseRing {
-          0%   { transform:scale(1);    opacity:0.6; }
-          50%  { transform:scale(1.08); opacity:1;   }
-          100% { transform:scale(1);    opacity:0.6; }
-        }
-        @keyframes ticker {
-          0%   { transform:translateY(0);    opacity:1; }
-          40%  { transform:translateY(-12px);opacity:0; }
-          60%  { transform:translateY(12px); opacity:0; }
-          100% { transform:translateY(0);    opacity:1; }
-        }
-        .pulse-ring { animation: pulseRing 2.8s ease-in-out infinite; }
-      `}</style>
-
-      {/* ══════════════════════════════════════
-          HERO SECTION
-      ══════════════════════════════════════ */}
-      <section className="relative flex flex-col items-center text-center px-6 pt-40 pb-28 overflow-hidden">
-        {/* Glow orb */}
+    <div>
+      {/* ── HERO ──────────────────────────────────────────── */}
+      <section
+        ref={heroRef}
+        className="pt-24 pb-20 px-6 text-center border-b border-[#1e2227]"
+        style={{ background: "#090b0e" }}
+      >
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(0,212,200,0.07) 0%, transparent 65%)",
-          }}
-        />
-
-        {/* Pill tag */}
-        <div
-          className="inline-flex items-center gap-2 border border-[#1e2227] rounded-full px-4 py-1.5 text-[0.68rem] uppercase tracking-[0.12em] text-[#00d4c8] mb-8"
+          className="inline-block text-[0.7rem] uppercase tracking-[0.18em] text-[#00d4c8] border border-[#00d4c8]/30 px-4 py-1.5 mb-8"
           style={{
             opacity: heroVis ? 1 : 0,
-            transform: heroVis ? "translateY(0)" : "translateY(16px)",
-            transition: "opacity 0.6s ease, transform 0.6s ease",
+            transition: "opacity 0.5s ease 0.1s",
           }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00d4c8] animate-pulse" />
-          Your voice matters
+          Your voice shapes Graphix
         </div>
 
-        {/* Headline */}
         <h1
-          className="font-syne font-extrabold text-[clamp(2.4rem,6vw,4.2rem)] leading-[1.0] tracking-tight text-white mb-6 max-w-[720px]"
+          className="font-syne font-extrabold text-[clamp(2.4rem,5vw,4rem)] text-white leading-[1.1] tracking-tight mb-6"
           style={{
             opacity: heroVis ? 1 : 0,
             transform: heroVis ? "translateY(0)" : "translateY(20px)",
-            transition: "opacity 0.6s ease 0.1s, transform 0.6s ease 0.1s",
+            transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
           }}
         >
-          Tell us what's
+          Tell us what you
           <br />
-          <span className="text-[#00d4c8]">on your mind.</span>
+          <span className="text-[#00d4c8]">really think.</span>
         </h1>
 
-        {/* Subtext */}
         <p
-          className="text-[#6b7280] text-[1rem] leading-[1.85] max-w-[500px] mb-16"
+          className="text-[#6b7280] max-w-[480px] mx-auto leading-[1.85] text-[0.95rem] mb-12"
           style={{
             opacity: heroVis ? 1 : 0,
             transform: heroVis ? "translateY(0)" : "translateY(20px)",
             transition: "opacity 0.6s ease 0.2s, transform 0.6s ease 0.2s",
           }}
         >
-          We're not asking out of habit. Every word you write lands in front of
-          a real person and changes something real about this product.
+          We&apos;re not asking out of habit. Every word you write lands in
+          front of a real person and changes something real about this product.
         </p>
 
-        {/* ── STATS ROW ── */}
+        {/* Stats row */}
         <div
           className="flex flex-wrap justify-center gap-px border border-[#1e2227] bg-[#1e2227]"
           style={{
@@ -248,18 +274,16 @@ export default function FeedbackForm() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          WHY WE NEED YOUR FEEDBACK
-      ══════════════════════════════════════ */}
-      <section className="px-6 pb-24 max-w-[900px] mx-auto">
+      {/* ── WHY FEEDBACK MATTERS ──────────────────────────── */}
+      <section className="px-6 pb-24 max-w-[900px] mx-auto pt-20">
         <div className="text-center mb-12">
           <h2 className="font-syne font-extrabold text-[clamp(1.6rem,3vw,2.4rem)] text-white tracking-tight mb-3">
             Why your feedback
             <span className="text-[#00d4c8]"> actually matters.</span>
           </h2>
           <p className="text-[#6b7280] text-[0.9rem] max-w-[440px] mx-auto leading-relaxed">
-            Not a survey. Not a box to check. Here's what happens when you hit
-            send.
+            Not a survey. Not a box to check. Here&apos;s what happens when you
+            hit send.
           </p>
         </div>
 
@@ -289,14 +313,9 @@ export default function FeedbackForm() {
             desc="When you share a pain point, you're almost certainly voicing what dozens of others felt but never said."
           />
         </div>
-
-        {/* Testimonial */}
-        <TestimonialTicker />
       </section>
 
-      {/* ══════════════════════════════════════
-          FORM SECTION
-      ══════════════════════════════════════ */}
+      {/* ── FORM ─────────────────────────────────────────── */}
       <section className="px-6 pb-32">
         <div className="max-w-[560px] mx-auto">
           {submitted ? (
@@ -323,15 +342,13 @@ export default function FeedbackForm() {
                 </h2>
                 <p className="text-[#6b7280] text-[0.95rem] leading-[1.8] max-w-[380px]">
                   Your thoughts just landed in a real inbox, in front of a real
-                  person who genuinely cares. We'll read every word.
+                  person who genuinely cares. We&apos;ll read every word.
                 </p>
               </div>
             </div>
           ) : (
             <div style={{ animation: "fadeUp 0.5s ease 0.1s both" }}>
-              {/* Form header */}
-
-              <div className="w-full my-5 h-6 bg-[repeating-linear-gradient(-45deg,black_0px,white_5px,transparent_5px,transparent_10px)]"></div>
+              <div className="w-full my-5 h-6 bg-[repeating-linear-gradient(-45deg,black_0px,white_5px,transparent_5px,transparent_10px)]" />
 
               <div className="mb-8 text-center">
                 <h2 className="font-syne font-extrabold text-[1.6rem] text-white tracking-tight mb-2">
@@ -342,12 +359,20 @@ export default function FeedbackForm() {
                 </p>
               </div>
 
+              {/* Server-level error banner */}
+              {serverError && (
+                <div className="mb-4 border border-red-500/40 bg-red-500/10 text-red-400 text-[0.82rem] px-4 py-3">
+                  {serverError}
+                </div>
+              )}
+
               <form
                 onSubmit={handleSubmit(onSubmit)}
                 noValidate
                 className="flex flex-col gap-5"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Name */}
                   <div className="flex flex-col gap-2">
                     <label className="text-[0.72rem] uppercase tracking-[0.1em] text-[#6b7280]">
                       Name
@@ -366,6 +391,7 @@ export default function FeedbackForm() {
                     )}
                   </div>
 
+                  {/* Email */}
                   <div className="flex flex-col gap-2">
                     <label className="text-[0.72rem] uppercase tracking-[0.1em] text-[#6b7280]">
                       Email
@@ -385,6 +411,7 @@ export default function FeedbackForm() {
                   </div>
                 </div>
 
+                {/* Thoughts */}
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <label className="text-[0.72rem] uppercase tracking-[0.1em] text-[#6b7280]">
@@ -408,6 +435,7 @@ export default function FeedbackForm() {
                   )}
                 </div>
 
+                {/* Submit */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -428,86 +456,12 @@ export default function FeedbackForm() {
                 No spam. No follow-ups unless you want them. Just a small team
                 that genuinely listens.
               </p>
+
+              <TestimonialTicker />
             </div>
           )}
         </div>
       </section>
-    </div>
-  );
-}
-
-// ── Testimonial ticker ───────────────────────────────────
-const testimonials = [
-  {
-    quote:
-      "I left a note about the export flow. Three weeks later it was redesigned. Never happened with any other tool.",
-    author: "Arya S., Growth Lead",
-  },
-  {
-    quote:
-      "Mentioned a missing chart type in passing. It shipped in the next update. These people actually listen.",
-    author: "James K., Data Analyst",
-  },
-  {
-    quote:
-      "Got a personal reply from the founder within a day. That's when I knew this team was different.",
-    author: "Priya M., Startup Founder",
-  },
-  {
-    quote:
-      "My feedback turned into a feature that now saves our team 3 hours a week. Wildly worth two minutes.",
-    author: "Tom R., Product Manager",
-  },
-];
-
-function TestimonialTicker() {
-  const [idx, setIdx] = useState(0);
-  const [anim, setAnim] = useState(false);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setAnim(true);
-      setTimeout(() => {
-        setIdx((i) => (i + 1) % testimonials.length);
-        setAnim(false);
-      }, 400);
-    }, 4000);
-    return () => clearInterval(id);
-  }, []);
-
-  const t = testimonials[idx];
-
-  return (
-    <div className="mt-px border border-[#1e2227] bg-[#0d1014] px-8 py-7 relative overflow-hidden">
-      {/* Teal left bar */}
-      <div className="absolute left-0 top-6 bottom-6 w-[3px] bg-[#00d4c8] opacity-60 rounded-full" />
-
-      <div
-        style={{
-          opacity: anim ? 0 : 1,
-          transform: anim ? "translateY(-10px)" : "translateY(0)",
-          transition: "opacity 0.35s ease, transform 0.35s ease",
-        }}
-      >
-        <p className="text-white text-[0.9rem] leading-[1.75] mb-4 pl-5">
-          "{t.quote}"
-        </p>
-        <p className="text-[#00d4c8] text-[0.75rem] font-syne font-semibold pl-5">
-          — {t.author}
-        </p>
-      </div>
-
-      {/* Dots */}
-      <div className="flex gap-1.5 mt-4 pl-5">
-        {testimonials.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setIdx(i)}
-            className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-            style={{ background: i === idx ? "#00d4c8" : "#1e2227" }}
-          />
-        ))}
-      </div>
     </div>
   );
 }

@@ -34,14 +34,217 @@ function detectType(traces: any[]): string {
   const t = traces[0];
   const type = (t.type || "").toLowerCase();
   const mode = (t.mode || "").toLowerCase();
+  if (type === "heatmap") return "heatmap";
+  if (type === "waterfall") return "waterfall";
+  if (type === "scatterpolar" || type === "barpolar") return "radar";
   if (type === "pie") return t.hole ? "donut" : "pie";
-  if (type === "scatter" && mode.includes("lines") && t.fill) return "area";
-  if (type === "scatter" && mode.includes("lines")) return "line";
+  if (type === "scatter3d") return "scatter3d";
+  if (type === "surface") return "surface";
+  if (type === "funnel") return "funnel";
+  if (type === "bar") return "bar";
+  if (type === "scatter") {
+    if (mode.includes("lines") && (t.fill === "tonexty" || t.fill === "tozeroy")) return "area";
+    if (mode.includes("lines")) return "line";
+    return "scatter";
+  }
+  if (type === "histogram") return "histogram";
+  if (type === "box") return "box";
+  if (type === "violin") return "violin";
   return type || "bar";
 }
 
-function buildLayout(base: any) {
+const PALETTE_FULL = [
+  "#6366f1","#ec4899","#10b981","#f59e0b","#ef4444","#06b6d4",
+  "#f97316","#8b5cf6","#14b8a6","#84cc16","#fb923c","#a855f7",
+  "#22d3ee","#e11d48","#16a34a","#d97706","#7c3aed","#0284c7",
+];
+
+function getPaletteOffset(data: any[]): number {
+  try {
+    const name = data[0]?.name || "";
+    const firstY = data[0]?.y?.[0] ?? data[0]?.x?.[0] ?? 0;
+    const len = data[0]?.y?.length ?? data[0]?.x?.length ?? 1;
+    let hash = len + Math.round(Math.abs(Number(firstY)));
+    for (let k = 0; k < name.length; k++) hash += name.charCodeAt(k);
+    return hash % PALETTE_FULL.length;
+  } catch { return 0; }
+}
+
+function paletteColor(traceIndex: number, offset: number) {
+  return PALETTE_FULL[(traceIndex + offset) % PALETTE_FULL.length];
+}
+
+function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any } {
+  if (!data?.length) return { data, layout };
+  const chartType = detectType(data);
+  const offset = getPaletteOffset(data);
+
+  if (chartType === "line" || chartType === "area" || chartType === "scatter") {
+    return {
+      data: data.map((trace, i) => {
+        const clr = paletteColor(i, offset);
+        return {
+          ...trace,
+          type: "scatter",
+          mode: trace.mode || (chartType === "scatter" ? "markers" : "lines+markers"),
+          marker: {
+            ...(trace.marker || {}),
+            color: trace.marker?.color || clr,
+            size: trace.marker?.size || (chartType === "scatter" ? 9 : 7),
+            opacity: 0.9,
+            line: { color: "rgba(255,255,255,0.15)", width: 1 },
+          },
+          line: {
+            ...(trace.line || {}),
+            color: trace.line?.color || clr,
+            width: trace.line?.width || 2.5,
+          },
+          fillcolor: trace.fill ? (trace.line?.color || trace.marker?.color || clr) + "22" : undefined,
+        };
+      }),
+      layout,
+    };
+  }
+
+  if (chartType === "heatmap") {
+    return {
+      data: [{ ...data[0], type: "heatmap", colorscale: data[0].colorscale || "Viridis", showscale: true, hoverongaps: false }],
+      layout: { ...layout, xaxis: { ...(layout.xaxis || {}), side: "bottom" } },
+    };
+  }
+
+  if (chartType === "waterfall") {
+    const trace = data[0];
+    const yVals: number[] = trace.y || trace.values || [];
+    const measure = trace.measure || yVals.map((_: any, idx: number) =>
+      idx === 0 ? "absolute" : idx === yVals.length - 1 ? "total" : "relative"
+    );
+    return {
+      data: [{
+        ...trace, type: "waterfall", measure,
+        connector: { line: { color: "rgba(255,255,255,0.08)", width: 1, dash: "dot" } },
+        increasing: { marker: { color: "#10b981" } },
+        decreasing: { marker: { color: "#ef4444" } },
+        totals: { marker: { color: "#6366f1" } },
+        textposition: "outside",
+        text: trace.text || undefined,
+      }],
+      layout,
+    };
+  }
+
+  if (chartType === "radar") {
+    return {
+      data: data.map((trace, i) => {
+        const clr = paletteColor(i, offset);
+        return { ...trace, type: "scatterpolar", fill: trace.fill || "toself", marker: { color: clr, size: 5 }, line: { color: clr, width: 2 } };
+      }),
+      layout: {
+        ...layout,
+        polar: {
+          ...(layout.polar || {}),
+          radialaxis: { visible: true, range: [0, 100], ...(layout.polar?.radialaxis || {}) },
+          angularaxis: { ...(layout.polar?.angularaxis || {}) },
+        },
+      },
+    };
+  }
+
+  // Everything else (bar, pie, donut, histogram, box, violin, funnel, histogram2dcontour, etc.)
   return {
+    data: data.map((trace, i) => {
+      const clr = paletteColor(i, offset);
+      const isPie = trace.type === "pie" || trace.type === "donut";
+      const isBar = trace.type === "bar";
+      const isSingleTrace = data.length === 1;
+      const barColors = isBar && isSingleTrace
+        ? (trace.x || trace.y || []).map((_: any, idx: number) => paletteColor(idx, offset))
+        : undefined;
+      // Special types (histogram2dcontour, contour, etc.) — pass through untouched
+      const isSpecial = ["histogram2dcontour","histogram2d","contour","densitymapbox","choropleth","scattergeo","parcats","parcoords","sankey","treemap","sunburst","icicle","funnelarea","indicator","table","ohlc","candlestick","scattermapbox"].includes((trace.type || "").toLowerCase());
+      if (isSpecial) return trace;
+      return {
+        ...trace,
+        marker: {
+          ...(trace.marker || {}),
+          color: isPie ? PALETTE_FULL : barColors || trace.marker?.color || clr,
+          size: trace.marker?.size || 7,
+          line: { color: "rgba(255,255,255,0.1)", width: isPie ? 2 : 1 },
+        },
+        line: { ...(trace.line || {}), color: trace.line?.color || clr, width: trace.line?.width || 2.5 },
+        fillcolor: trace.fill ? (trace.line?.color || clr) + "22" : undefined,
+      };
+    }),
+    layout,
+  };
+}
+
+const SUBPLOT_TYPES = new Set([
+  "histogram2dcontour","histogram2d","contour","densitymapbox",
+  "choropleth","scattergeo","parcats","parcoords","sankey",
+  "treemap","sunburst","icicle","funnelarea","indicator","table",
+  "ohlc","candlestick","scattermapbox",
+]);
+
+function isSubplotChart(data: any[], base: any): boolean {
+  // Has multiple axis domains (xaxis2, yaxis2, etc.) → subplot layout
+  const hasSubplotAxes = Object.keys(base || {}).some(k => /^[xy]axis[2-9]/.test(k));
+  const hasSubplotType = data?.some((t: any) => SUBPLOT_TYPES.has((t.type || "").toLowerCase()));
+  return hasSubplotAxes || hasSubplotType;
+}
+
+function darkAxis(base: any, extra: Record<string, any> = {}) {
+  return {
+    ...base,
+    tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
+    gridcolor: "rgba(255,255,255,0.04)",
+    linecolor: "rgba(255,255,255,0.06)",
+    zerolinecolor: "rgba(255,255,255,0.06)",
+    automargin: true,
+    ...extra,
+  };
+}
+
+function buildLayout(base: any, chartType?: string, rawData?: any[]) {
+  const isRadar = chartType === "radar";
+  const isHeatmap = chartType === "heatmap";
+  // Subplot-based charts: only apply font/title/autosize, leave bgcolors and axes alone
+  const isSubplot = isSubplotChart(rawData || [], base);
+
+  if (isSubplot) {
+    const result: any = {
+      ...base,
+      autosize: true,
+      title: undefined,
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      font: { color: "rgba(255,255,255,0.45)", size: 11, family: "DM Mono, monospace" },
+    };
+    // Theme ALL axes (including subplot axes xaxis2, yaxis2, etc.) with dark colors
+    Object.keys({ ...base, xaxis: 1, yaxis: 1, xaxis2: 1, yaxis2: 1, xaxis3: 1, yaxis3: 1 }).forEach(k => {
+      if (/^[xy]axis\d*$/.test(k)) {
+        result[k] = {
+          ...(base[k] || {}),
+          tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
+          gridcolor: "rgba(255,255,255,0.04)",
+          linecolor: "rgba(255,255,255,0.06)",
+          zerolinecolor: "rgba(255,255,255,0.06)",
+          automargin: true,
+          // Subplot panel background must be transparent too
+          ...(base[k] || {}),
+          tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
+          gridcolor: "rgba(255,255,255,0.04)",
+          linecolor: "rgba(255,255,255,0.06)",
+          zerolinecolor: "rgba(255,255,255,0.06)",
+        };
+      }
+    });
+    // Force all subplot panel backgrounds to transparent via Plotly's geo/scene/etc
+    result.geo = { ...(base.geo || {}), bgcolor: "rgba(0,0,0,0)" };
+    return result;
+  }
+
+  const result: any = {
     ...base,
     autosize: true,
     paper_bgcolor: "rgba(0,0,0,0)",
@@ -60,28 +263,35 @@ function buildLayout(base: any) {
       font: { size: 11, color: "rgba(255,255,255,0.6)" },
       orientation: "h",
       x: 0.5,
-      y: -0.22,
+      y: isRadar ? -0.15 : -0.22,
       xanchor: "center",
       yanchor: "top",
     },
     margin: { t: 10, l: 55, r: 24, b: 72 },
-    xaxis: {
-      ...(base.xaxis || {}),
-      gridcolor: "rgba(255,255,255,0.04)",
-      linecolor: "rgba(255,255,255,0.06)",
-      zerolinecolor: "rgba(255,255,255,0.06)",
-      tickfont: { color: "rgba(255,255,255,0.3)", size: 10 },
-      automargin: true,
-    },
-    yaxis: {
-      ...(base.yaxis || {}),
-      gridcolor: "rgba(255,255,255,0.04)",
-      linecolor: "rgba(255,255,255,0.06)",
-      zerolinecolor: "rgba(255,255,255,0.06)",
-      tickfont: { color: "rgba(255,255,255,0.3)", size: 10 },
-      automargin: true,
-    },
+    hovermode: "closest",
   };
+  if (!isRadar) {
+    result.xaxis = darkAxis(base.xaxis || {}, { tickangle: isHeatmap ? -30 : 0, showgrid: !isHeatmap });
+    result.yaxis = darkAxis(base.yaxis || {}, { showgrid: !isHeatmap });
+  }
+  if (isRadar) {
+    result.polar = {
+      ...(base.polar || {}),
+      bgcolor: "rgba(0,0,0,0)",
+      radialaxis: {
+        visible: true,
+        gridcolor: "rgba(255,255,255,0.07)",
+        tickfont: { size: 9, color: "rgba(255,255,255,0.3)" },
+        ...(base.polar?.radialaxis || {}),
+      },
+      angularaxis: {
+        gridcolor: "rgba(255,255,255,0.07)",
+        tickfont: { size: 10, color: "rgba(255,255,255,0.4)" },
+        ...(base.polar?.angularaxis || {}),
+      },
+    };
+  }
+  return result;
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
@@ -843,7 +1053,10 @@ function PremiumTooltip({
         display: "none",
       }}
     >
-      <style>{`@keyframes ttIn{from{opacity:0;transform:scale(0.93) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+      <style>{`@keyframes ttIn{from{opacity:0;transform:scale(0.93) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+#main-chart-div rect.bg { fill: transparent !important; }
+#main-chart-div .subplot rect.bg { fill: transparent !important; }
+`}</style>
       <div
         style={{
           background: "#fff",
@@ -942,7 +1155,7 @@ function PremiumTooltip({
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function SingleChartArea({ messages }: { messages: Message[] }) {
+export default function SingleChartArea({ messages, selectedAiId }: { messages: Message[]; selectedAiId?: string | null }) {
   const divRef = useRef<any>(null);
   const cardRef = useRef<any>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -951,7 +1164,9 @@ export default function SingleChartArea({ messages }: { messages: Message[] }) {
   const originalDataRef = useRef<any>(null);
   const originalLayoutRef = useRef<any>(null);
 
-  const aiMsg = messages.filter((m) => m.from === "ai").at(-1);
+  const aiMsg = selectedAiId
+    ? messages.find(m => m.id === selectedAiId && m.from === "ai") ?? messages.filter(m => m.from === "ai").at(-1)
+    : messages.filter(m => m.from === "ai").at(-1);
 
   const showTooltip = useCallback((mx: number, my: number, data: any) => {
     const el = tooltipRef.current;
@@ -1047,24 +1262,11 @@ export default function SingleChartArea({ messages }: { messages: Message[] }) {
       const rawData = aiMsg.content.data || [];
       const rawLayout = aiMsg.content.layout || {};
       const chartType = detectType(rawData);
-      const is3D = chartType === "scatter3d" || chartType === "surface";
+      const THREED_TYPES = new Set(["scatter3d", "surface", "mesh3d", "cone", "streamtube", "isosurface", "volume"]);
+      const is3D = rawData.some((t: any) => THREED_TYPES.has((t.type || "").toLowerCase()));
 
-      const data = rawData.map((trace: any, i: number) => {
-        if (trace.type === "pie") return trace;
-        if (!trace.marker?.color && !trace.line?.color) {
-          return {
-            ...trace,
-            marker: {
-              ...(trace.marker || {}),
-              color: PALETTE[i % PALETTE.length],
-            },
-            line: { ...(trace.line || {}), color: PALETTE[i % PALETTE.length] },
-          };
-        }
-        return trace;
-      });
-
-      const layout = buildLayout(rawLayout);
+      const { data, layout: processedLayout } = preprocessTraces(rawData, rawLayout);
+      const layout = buildLayout(processedLayout, chartType, rawData);
       if (!is3D)
         layout.hoverlabel = {
           bgcolor: "rgba(0,0,0,0)",
@@ -1087,6 +1289,29 @@ export default function SingleChartArea({ messages }: { messages: Message[] }) {
         displayModeBar: false,
         scrollZoom: false,
       });
+
+      // For subplot charts (histogram2dcontour etc.) Plotly bakes white fills into
+      // SVG <rect> elements that no layout property can override. Fix them via DOM.
+      if (isSubplotChart(rawData, rawLayout)) {
+        const fixSubplotBg = () => {
+          if (!divRef.current) return;
+          divRef.current.querySelectorAll("rect.bg").forEach((el: Element) => {
+            (el as SVGRectElement).style.fill = "transparent";
+          });
+          // Also catch any rect with explicit white fill
+          divRef.current.querySelectorAll("rect[style*='fill: rgb(255, 255, 255)'], rect[style*='fill: white'], rect[fill='white'], rect[fill='#fff'], rect[fill='#ffffff']").forEach((el: Element) => {
+            (el as SVGRectElement).style.fill = "transparent";
+          });
+        };
+        // Run immediately and after a short delay for async Plotly rendering
+        fixSubplotBg();
+        setTimeout(fixSubplotBg, 50);
+        setTimeout(fixSubplotBg, 200);
+        // Watch for any re-renders
+        const obs = new MutationObserver(fixSubplotBg);
+        obs.observe(divRef.current, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "fill"] });
+        setTimeout(() => obs.disconnect(), 5000);
+      }
 
       // Keep current state in sync so toolbar changes persist as context for next AI call
       const syncCurrent = () => {
@@ -1156,7 +1381,7 @@ export default function SingleChartArea({ messages }: { messages: Message[] }) {
       if (divRef.current && window.Plotly && aiMsg?.content?.layout)
         window.Plotly.relayout(
           divRef.current,
-          buildLayout(aiMsg.content.layout),
+          buildLayout(aiMsg.content.layout, detectType(aiMsg.content.data || []), aiMsg.content.data || []),
         );
     };
     window.addEventListener("resize", onResize);
@@ -1371,6 +1596,7 @@ export default function SingleChartArea({ messages }: { messages: Message[] }) {
                 minHeight: 400,
                 opacity: isLoading ? 0.2 : 1,
                 transition: "opacity 0.3s",
+                display: isTextError ? "none" : "block",
               }}
             />
             <PremiumTooltip tooltipRef={tooltipRef} />

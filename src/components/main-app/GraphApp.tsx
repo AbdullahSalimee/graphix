@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "./Sidebar";
 import SingleChartArea from "./SingleChartArea";
 import ChartTemplatePanel from "./ChartTemplatePanel";
@@ -25,23 +25,71 @@ interface Conversation {
   messages: Message[];
 }
 
-const INITIAL_CONV = createConversation();
+const STORAGE_KEY = "graphix_conversations_v2";
+
+function loadFromStorage(): {
+  conversations: Conversation[];
+  activeId: string;
+} | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.conversations?.length) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveToStorage(conversations: Conversation[], activeId: string) {
+  try {
+    const toSave = conversations.map((c) => ({
+      ...c,
+      messages: c.messages.filter((m) => m.status !== "loading"),
+    }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ conversations: toSave, activeId }),
+    );
+  } catch {
+    /* quota exceeded — silently ignore */
+  }
+}
 
 export default function GraphApp() {
-  const [conversations, setConversations] = useState<Conversation[]>([
-    INITIAL_CONV,
-  ]);
-  const [activeId, setActiveId] = useState<string>(INITIAL_CONV.id);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    if (typeof window === "undefined") return [createConversation()];
+    const stored = loadFromStorage();
+    return stored?.conversations ?? [createConversation()];
+  });
+  const [activeId, setActiveId] = useState<string>(() => {
+    if (typeof window === "undefined") return conversations[0]?.id ?? "";
+    const stored = loadFromStorage();
+    return stored?.activeId ?? conversations[0]?.id ?? "";
+  });
+  const [selectedAiId, setSelectedAiId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [chatHistory, setChatHistory] = useState<
-    { role: string; content: string }[]
-  >([]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth >= 640)
       setSidebarOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") saveToStorage(conversations, activeId);
+  }, [conversations, activeId]);
+
+  // Auto-select latest AI chart whenever active conversation changes
+  useEffect(() => {
+    const conv = conversations.find((c) => c.id === activeId);
+    const aiMsgs =
+      conv?.messages.filter(
+        (m) => m.from === "ai" && m.status === "success" && m.content?.data,
+      ) ?? [];
+    setSelectedAiId(aiMsgs.at(-1)?.id ?? null);
+  }, [activeId]);
 
   const activeConv = conversations.find((c) => c.id === activeId);
   const hasMessages = (activeConv?.messages?.length ?? 0) > 0;
@@ -78,15 +126,14 @@ export default function GraphApp() {
       const c = createConversation();
       setConversations((prev) => [c, ...prev]);
       setActiveId(c.id);
-      setChatHistory([]);
     }
+    setSelectedAiId(null);
     if (typeof window !== "undefined" && window.innerWidth < 640)
       setSidebarOpen(false);
   };
 
   const handleSelect = (id: string) => {
     setActiveId(id);
-    setChatHistory([]);
     if (typeof window !== "undefined" && window.innerWidth < 640)
       setSidebarOpen(false);
   };
@@ -99,6 +146,7 @@ export default function GraphApp() {
   ) => {
     if (!input.trim() || isLoading || !activeId) return;
     const convId = activeId;
+    const newAiId = crypto.randomUUID();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -109,47 +157,36 @@ export default function GraphApp() {
       fileName,
     };
 
-    // Keep only one AI message slot — update in place
-    updateMessages(convId, (msgs) => {
-      const withUser = [...msgs, userMsg];
-      const hasAi = withUser.some((m) => m.from === "ai");
-      if (hasAi) {
-        return withUser.map((m) =>
-          m.from === "ai"
-            ? { ...m, status: "loading" as const, content: "" }
-            : m,
-        );
-      }
-      return [
-        ...withUser,
-        {
-          id: "ai-chart",
-          from: "ai" as const,
-          content: "",
-          status: "loading" as const,
-        },
-      ];
-    });
+    const loadingAiMsg: Message = {
+      id: newAiId,
+      from: "ai",
+      content: "",
+      status: "loading",
+    };
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CONTEXT MEMORY: Get the most recent successful AI chart as context
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const conv = conversations.find((c) => c.id === convId);
+    const aiMessages =
+      conv?.messages.filter(
+        (m) => m.from === "ai" && m.status === "success" && m.content?.data,
+      ) ?? [];
+    const previousChart = aiMessages.at(-1)?.content ?? null;
+
+    // Append both user + new loading AI slot
+    updateMessages(convId, (msgs) => [...msgs, userMsg, loadingAiMsg]);
+    setSelectedAiId(newAiId);
     setIsLoading(true);
 
+    // If this is a prebuilt config from template, skip API
     if (prebuiltConfig) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
-          m.from === "ai"
+          m.id === newAiId
             ? { ...m, content: prebuiltConfig, status: "success" as const }
             : m,
         ),
-      );
-      setChatHistory((h) =>
-        [
-          ...h,
-          { role: "user", content: input },
-          {
-            role: "assistant",
-            content: JSON.stringify(prebuiltConfig).slice(0, 300),
-          },
-        ].slice(-6),
       );
       setIsLoading(false);
       return;
@@ -162,19 +199,21 @@ export default function GraphApp() {
         body: JSON.stringify({
           prompt: input,
           fileContent,
-          history: chatHistory,
+          previousChart, // ← Send previous chart context
         }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Server error ${res.status}`);
       }
+
       const config = await res.json();
 
       if (config.error) {
         updateMessages(convId, (msgs) =>
           msgs.map((m) =>
-            m.from === "ai"
+            m.id === newAiId
               ? {
                   ...m,
                   content: { error: config.error },
@@ -187,25 +226,49 @@ export default function GraphApp() {
         return;
       }
 
-      updateMessages(convId, (msgs) =>
-        msgs.map((m) =>
-          m.from === "ai"
-            ? { ...m, content: config, status: "success" as const }
-            : m,
-        ),
-      );
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // SMART EDIT vs CREATE:
+      // If action is "edit", REPLACE the previous chart instead of appending
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (config.action === "edit" && aiMessages.length > 0) {
+        const prevAiId = aiMessages.at(-1)!.id;
 
-      setChatHistory((h) =>
-        [
-          ...h,
-          { role: "user", content: input },
-          { role: "assistant", content: JSON.stringify(config).slice(0, 300) },
-        ].slice(-6),
-      );
+        updateMessages(convId, (msgs) => {
+          // Remove the loading message we just added
+          const withoutLoading = msgs.filter((m) => m.id !== newAiId);
+
+          // Replace the previous AI chart with the edited version
+          return withoutLoading.map((m) =>
+            m.id === prevAiId
+              ? {
+                  ...m,
+                  content: { data: config.data, layout: config.layout },
+                  status: "success" as const,
+                }
+              : m,
+          );
+        });
+
+        // Keep selection on the edited chart
+        setSelectedAiId(prevAiId);
+      } else {
+        // Normal "create" flow — add as new chart
+        updateMessages(convId, (msgs) =>
+          msgs.map((m) =>
+            m.id === newAiId
+              ? {
+                  ...m,
+                  content: { data: config.data, layout: config.layout },
+                  status: "success" as const,
+                }
+              : m,
+          ),
+        );
+      }
     } catch (err: any) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
-          m.from === "ai"
+          m.id === newAiId
             ? {
                 ...m,
                 content: err.message || "Failed to generate chart",
@@ -300,7 +363,10 @@ export default function GraphApp() {
                 <WaveHero onSend={handleSend} isLoading={isLoading} />
               ) : (
                 <div className="flex-1 min-h-0 flex">
-                  <SingleChartArea messages={activeConv?.messages ?? []} />
+                  <SingleChartArea
+                    messages={activeConv?.messages ?? []}
+                    selectedAiId={selectedAiId}
+                  />
                 </div>
               )}
               {hasMessages && (
@@ -310,9 +376,13 @@ export default function GraphApp() {
           </div>
         </div>
 
-        {/* RIGHT — message history sidebar */}
+        {/* RIGHT — chart history sidebar */}
         {hasMessages && (
-          <MessageHistorySidebar messages={activeConv?.messages ?? []} />
+          <MessageHistorySidebar
+            messages={activeConv?.messages ?? []}
+            selectedAiId={selectedAiId}
+            onSelectAiId={setSelectedAiId}
+          />
         )}
       </div>
     </div>

@@ -16,10 +16,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { useAppStore } from "@/store/appStore";
-
-const { setToken } = useAppStore();
-
 // ── Route categories ──────────────────────────────────────────
 
 // Requires a valid session — redirect to /signin if no cookie
@@ -37,10 +33,7 @@ export function middleware(request: NextRequest) {
 
   // Read token from cookie (set by LoginForm/SignupForm after successful auth)
   const token = request.cookies.get("graphix_token")?.value;
-  
-  if (token) {
-    setToken(token); // Sync cookie token to Zustand on every request (SSR + client)
-  }
+
   const isProtected = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/"),
   );

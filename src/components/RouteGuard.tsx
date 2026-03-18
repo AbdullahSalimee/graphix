@@ -21,24 +21,30 @@ interface Props {
   redirectTo?: string;
 }
 
-export default function RouteGuard({ children, redirectTo = "/signin" }: Props) {
+export default function RouteGuard({
+  children,
+  redirectTo = "/signin",
+}: Props) {
   const router = useRouter();
-  const { isAuthenticated, isBootstrapped, isBootstrapping } = useAppStore();
+  const { isAuthenticated, isBootstrapped, isBootstrapping, _hasHydrated } =
+    useAppStore();
 
   useEffect(() => {
-    // If definitely not authenticated, redirect immediately
-    if (!isAuthenticated) {
+    // ✅ KEY FIX: Only redirect AFTER Zustand has read from localStorage
+    if (_hasHydrated && !isAuthenticated) {
       router.replace(redirectTo);
     }
-  }, [isAuthenticated, router, redirectTo]);
+  }, [_hasHydrated, isAuthenticated, router, redirectTo]);
 
-  // Not authenticated — show nothing while redirect happens
+  // ✅ While localStorage is being read, show nothing (not a redirect)
+  if (!_hasHydrated) {
+    return null;
+  }
+
   if (!isAuthenticated) {
     return null;
   }
 
-  // Authenticated but still loading bootstrap — AppBootstrapper already shows spinner
-  // so we return null here to avoid double-rendering
   if (!isBootstrapped && isBootstrapping) {
     return null;
   }

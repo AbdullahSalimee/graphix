@@ -90,6 +90,9 @@ interface AppState {
   token: string | null;
   isAuthenticated: boolean;
 
+  _hasHydrated: boolean; // ✅ ADD THIS
+  setHasHydrated: (v: boolean) => void; // ✅ ADD THIS
+
   // ── User-specific data (private) ──────────────────────────
   user: User | null;
   subscription: Subscription | null;
@@ -126,6 +129,8 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       token: null,
       isAuthenticated: false,
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
       user: null,
       subscription: null,
       savedCharts: [],
@@ -229,6 +234,9 @@ export const useAppStore = create<AppState>()(
     {
       name: "graphix-store",
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true); // ✅ fires when localStorage is done reading
+      },
       partialize: (state) => ({
         token: state.token,
         isAuthenticated: state.isAuthenticated,

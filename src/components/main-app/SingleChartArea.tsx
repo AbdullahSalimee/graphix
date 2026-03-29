@@ -74,14 +74,27 @@ function paletteColor(traceIndex: number, offset: number) {
   return PALETTE_FULL[(traceIndex + offset) % PALETTE_FULL.length];
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FIXED: Helper to check if AI provided colors
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function hasAIColor(trace: any): boolean {
+  if (trace.marker?.color && trace.marker.color !== 'undefined') return true;
+  if (trace.line?.color && trace.line.color !== 'undefined') return true;
+  return false;
+}
+
 function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any } {
   if (!data?.length) return { data, layout };
   const chartType = detectType(data);
   const offset = getPaletteOffset(data);
+  
+  // FIXED: Check if ANY trace has AI-provided colors
+  const hasCustomColors = data.some(trace => hasAIColor(trace));
 
   if (chartType === "line" || chartType === "area" || chartType === "scatter") {
     return {
       data: data.map((trace, i) => {
+        // FIXED: Use AI color if provided, otherwise use palette
         const clr = paletteColor(i, offset);
         return {
           ...trace,
@@ -89,14 +102,14 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
           mode: trace.mode || (chartType === "scatter" ? "markers" : "lines+markers"),
           marker: {
             ...(trace.marker || {}),
-            color: trace.marker?.color || clr,
+            color: hasCustomColors ? trace.marker?.color : (trace.marker?.color || clr),
             size: trace.marker?.size || (chartType === "scatter" ? 9 : 7),
             opacity: 0.9,
             line: { color: "rgba(255,255,255,0.15)", width: 1 },
           },
           line: {
             ...(trace.line || {}),
-            color: trace.line?.color || clr,
+            color: hasCustomColors ? trace.line?.color : (trace.line?.color || clr),
             width: trace.line?.width || 2.5,
           },
           fillcolor: trace.fill ? (trace.line?.color || trace.marker?.color || clr) + "22" : undefined,
@@ -137,7 +150,16 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
     return {
       data: data.map((trace, i) => {
         const clr = paletteColor(i, offset);
-        return { ...trace, type: "scatterpolar", fill: trace.fill || "toself", marker: { color: clr, size: 5 }, line: { color: clr, width: 2 } };
+        // FIXED: Respect AI colors
+        const markerColor = hasCustomColors ? trace.marker?.color : (trace.marker?.color || clr);
+        const lineColor = hasCustomColors ? trace.line?.color : (trace.line?.color || clr);
+        return { 
+          ...trace, 
+          type: "scatterpolar", 
+          fill: trace.fill || "toself", 
+          marker: { color: markerColor, size: 5 }, 
+          line: { color: lineColor, width: 2 } 
+        };
       }),
       layout: {
         ...layout,
@@ -157,21 +179,31 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
       const isPie = trace.type === "pie" || trace.type === "donut";
       const isBar = trace.type === "bar";
       const isSingleTrace = data.length === 1;
-      const barColors = isBar && isSingleTrace
+      
+      // FIXED: Only generate bar colors if AI didn't provide them
+      const barColors = isBar && isSingleTrace && !hasCustomColors
         ? (trace.x || trace.y || []).map((_: any, idx: number) => paletteColor(idx, offset))
         : undefined;
+      
       // Special types (histogram2dcontour, contour, etc.) — pass through untouched
       const isSpecial = ["histogram2dcontour","histogram2d","contour","densitymapbox","choropleth","scattergeo","parcats","parcoords","sankey","treemap","sunburst","icicle","funnelarea","indicator","table","ohlc","candlestick","scattermapbox"].includes((trace.type || "").toLowerCase());
       if (isSpecial) return trace;
+      
       return {
         ...trace,
         marker: {
           ...(trace.marker || {}),
-          color: isPie ? PALETTE_FULL : barColors || trace.marker?.color || clr,
+          color: hasCustomColors 
+            ? trace.marker?.color 
+            : (isPie ? PALETTE_FULL : barColors || trace.marker?.color || clr),
           size: trace.marker?.size || 7,
           line: { color: "rgba(255,255,255,0.1)", width: isPie ? 2 : 1 },
         },
-        line: { ...(trace.line || {}), color: trace.line?.color || clr, width: trace.line?.width || 2.5 },
+        line: { 
+          ...(trace.line || {}), 
+          color: hasCustomColors ? trace.line?.color : (trace.line?.color || clr), 
+          width: trace.line?.width || 2.5 
+        },
         fillcolor: trace.fill ? (trace.line?.color || clr) + "22" : undefined,
       };
     }),

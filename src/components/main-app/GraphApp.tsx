@@ -165,14 +165,51 @@ export default function GraphApp() {
     };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // CONTEXT MEMORY: Get the most recent successful AI chart as context
+    // CONTEXT MEMORY: Use the SELECTED chart as context (not always the last).
+    // This fixes Bug 1: clicking chart #5 and asking AI to edit it now works.
+    //
+    // Also fixes Bug 2: if the selected chart is the one currently rendered in
+    // the DOM, prefer __graphixCurrentData/__graphixCurrentLayout which reflect
+    // any toolbar/template edits the user made (those edits mutate the live
+    // Plotly DOM but are NOT written back to message state).
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const conv = conversations.find((c) => c.id === convId);
     const aiMessages =
       conv?.messages.filter(
         (m) => m.from === "ai" && m.status === "success" && m.content?.data,
       ) ?? [];
-    const previousChart = aiMessages.at(-1)?.content ?? null;
+
+    // Resolve which chart the user is currently looking at
+    const contextAiId = selectedAiId ?? aiMessages.at(-1)?.id ?? null;
+    const contextMsg = aiMessages.find((m) => m.id === contextAiId) ?? aiMessages.at(-1) ?? null;
+
+    // Check whether the selected chart is the one live in the DOM right now.
+    // SingleChartArea keeps __graphixCurrentData in sync whenever Plotly fires
+    // plotly_restyle / plotly_relayout (toolbar colour changes, type conversions,
+    // template applications, etc.).  Those mutations are NOT stored back into
+    // message state, so we must read them from window if available.
+    const isLiveChart = contextMsg?.id === contextAiId;
+    const liveData =
+      isLiveChart &&
+      typeof window !== "undefined" &&
+      (window as any).__graphixCurrentData
+        ? (window as any).__graphixCurrentData
+        : null;
+    const liveLayout =
+      isLiveChart &&
+      typeof window !== "undefined" &&
+      (window as any).__graphixCurrentLayout
+        ? (window as any).__graphixCurrentLayout
+        : null;
+
+    // Build previousChart: prefer live DOM state (reflects toolbar/template
+    // edits) over the frozen message content.
+    const previousChart = contextMsg
+      ? {
+          data: liveData ?? contextMsg.content.data,
+          layout: liveLayout ?? contextMsg.content.layout,
+        }
+      : null;
 
     // Append both user + new loading AI slot
     updateMessages(convId, (msgs) => [...msgs, userMsg, loadingAiMsg]);
@@ -193,11 +230,20 @@ export default function GraphApp() {
     }
 
     try {
+      // When there's a previous chart to edit, append an explicit instruction so
+      // the AI outputs concrete marker.color / line.color values (not omit them).
+      // Without this, the AI returns color-free traces and our preprocessTraces
+      // palette overrides any color the user asked for.
+      const augmentedPrompt =
+        previousChart
+          ? `${input}\n\n[IMPORTANT: When modifying the chart, always set explicit "color" values on marker and line objects in every trace. Never omit color fields — if the user requested a color change, apply it as a hex or CSS color string on marker.color and line.color for every trace.]`
+          : input;
+
       const res = await fetch("https://graphy-server.vercel.app/api/chart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: input,
+          prompt: augmentedPrompt,
           fileContent,
           previousChart, // ← Send previous chart context
         }),
@@ -230,8 +276,8 @@ export default function GraphApp() {
       // SMART EDIT vs CREATE:
       // If action is "edit", REPLACE the previous chart instead of appending
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (config.action === "edit" && aiMessages.length > 0) {
-        const prevAiId = aiMessages.at(-1)!.id;
+      if (config.action === "edit" && contextMsg) {
+        const prevAiId = contextMsg.id;
 
         updateMessages(convId, (msgs) => {
           // Remove the loading message we just added

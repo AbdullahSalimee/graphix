@@ -5,6 +5,12 @@ import ChartEditor from "./ChartEditor";
 declare global {
   interface Window {
     Plotly: any;
+    // FIX: Per-chart storage keyed by message ID.
+    // Previously a single __graphixCurrentData was shared globally — so
+    // toolbar edits to chart #3 (3D) would overwrite the state for chart #1,
+    // and when you selected chart #1 and said "make it red", GraphApp would
+    // read chart #3's data as context and send THAT to the AI.
+    __graphixChartData: Record<string, { data: any[]; layout: any }>;
   }
 }
 
@@ -43,7 +49,11 @@ function detectType(traces: any[]): string {
   if (type === "funnel") return "funnel";
   if (type === "bar") return "bar";
   if (type === "scatter") {
-    if (mode.includes("lines") && (t.fill === "tonexty" || t.fill === "tozeroy")) return "area";
+    if (
+      mode.includes("lines") &&
+      (t.fill === "tonexty" || t.fill === "tozeroy")
+    )
+      return "area";
     if (mode.includes("lines")) return "line";
     return "scatter";
   }
@@ -54,9 +64,24 @@ function detectType(traces: any[]): string {
 }
 
 const PALETTE_FULL = [
-  "#6366f1","#ec4899","#10b981","#f59e0b","#ef4444","#06b6d4",
-  "#f97316","#8b5cf6","#14b8a6","#84cc16","#fb923c","#a855f7",
-  "#22d3ee","#e11d48","#16a34a","#d97706","#7c3aed","#0284c7",
+  "#6366f1",
+  "#ec4899",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#f97316",
+  "#8b5cf6",
+  "#14b8a6",
+  "#84cc16",
+  "#fb923c",
+  "#a855f7",
+  "#22d3ee",
+  "#e11d48",
+  "#16a34a",
+  "#d97706",
+  "#7c3aed",
+  "#0284c7",
 ];
 
 function getPaletteOffset(data: any[]): number {
@@ -67,52 +92,75 @@ function getPaletteOffset(data: any[]): number {
     let hash = len + Math.round(Math.abs(Number(firstY)));
     for (let k = 0; k < name.length; k++) hash += name.charCodeAt(k);
     return hash % PALETTE_FULL.length;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }
 
 function paletteColor(traceIndex: number, offset: number) {
   return PALETTE_FULL[(traceIndex + offset) % PALETTE_FULL.length];
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FIXED: Helper to check if AI provided colors
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function hasAIColor(trace: any): boolean {
-  if (trace.marker?.color && trace.marker.color !== 'undefined') return true;
-  if (trace.line?.color && trace.line.color !== 'undefined') return true;
+  if (trace.marker?.color && trace.marker.color !== "undefined") return true;
+  if (trace.line?.color && trace.line.color !== "undefined") return true;
   return false;
 }
 
-function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any } {
+const THREED_TYPES = new Set([
+  "scatter3d",
+  "surface",
+  "mesh3d",
+  "cone",
+  "streamtube",
+  "isosurface",
+  "volume",
+]);
+function is3DChart(traces: any[]): boolean {
+  return (
+    traces?.some((t: any) => THREED_TYPES.has((t.type || "").toLowerCase())) ??
+    false
+  );
+}
+
+function preprocessTraces(
+  data: any[],
+  layout: any,
+): { data: any[]; layout: any } {
   if (!data?.length) return { data, layout };
   const chartType = detectType(data);
   const offset = getPaletteOffset(data);
-  
-  // FIXED: Check if ANY trace has AI-provided colors
-  const hasCustomColors = data.some(trace => hasAIColor(trace));
+  const hasCustomColors = data.some((trace) => hasAIColor(trace));
 
   if (chartType === "line" || chartType === "area" || chartType === "scatter") {
     return {
       data: data.map((trace, i) => {
-        // FIXED: Use AI color if provided, otherwise use palette
         const clr = paletteColor(i, offset);
         return {
           ...trace,
           type: "scatter",
-          mode: trace.mode || (chartType === "scatter" ? "markers" : "lines+markers"),
+          mode:
+            trace.mode ||
+            (chartType === "scatter" ? "markers" : "lines+markers"),
           marker: {
             ...(trace.marker || {}),
-            color: hasCustomColors ? trace.marker?.color : (trace.marker?.color || clr),
+            color: hasCustomColors
+              ? trace.marker?.color
+              : trace.marker?.color || clr,
             size: trace.marker?.size || (chartType === "scatter" ? 9 : 7),
             opacity: 0.9,
             line: { color: "rgba(255,255,255,0.15)", width: 1 },
           },
           line: {
             ...(trace.line || {}),
-            color: hasCustomColors ? trace.line?.color : (trace.line?.color || clr),
+            color: hasCustomColors
+              ? trace.line?.color
+              : trace.line?.color || clr,
             width: trace.line?.width || 2.5,
           },
-          fillcolor: trace.fill ? (trace.line?.color || trace.marker?.color || clr) + "22" : undefined,
+          fillcolor: trace.fill
+            ? (trace.line?.color || trace.marker?.color || clr) + "22"
+            : undefined,
         };
       }),
       layout,
@@ -121,7 +169,15 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
 
   if (chartType === "heatmap") {
     return {
-      data: [{ ...data[0], type: "heatmap", colorscale: data[0].colorscale || "Viridis", showscale: true, hoverongaps: false }],
+      data: [
+        {
+          ...data[0],
+          type: "heatmap",
+          colorscale: data[0].colorscale || "Viridis",
+          showscale: true,
+          hoverongaps: false,
+        },
+      ],
       layout: { ...layout, xaxis: { ...(layout.xaxis || {}), side: "bottom" } },
     };
   }
@@ -129,19 +185,31 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
   if (chartType === "waterfall") {
     const trace = data[0];
     const yVals: number[] = trace.y || trace.values || [];
-    const measure = trace.measure || yVals.map((_: any, idx: number) =>
-      idx === 0 ? "absolute" : idx === yVals.length - 1 ? "total" : "relative"
-    );
+    const measure =
+      trace.measure ||
+      yVals.map((_: any, idx: number) =>
+        idx === 0
+          ? "absolute"
+          : idx === yVals.length - 1
+            ? "total"
+            : "relative",
+      );
     return {
-      data: [{
-        ...trace, type: "waterfall", measure,
-        connector: { line: { color: "rgba(255,255,255,0.08)", width: 1, dash: "dot" } },
-        increasing: { marker: { color: "#10b981" } },
-        decreasing: { marker: { color: "#ef4444" } },
-        totals: { marker: { color: "#6366f1" } },
-        textposition: "outside",
-        text: trace.text || undefined,
-      }],
+      data: [
+        {
+          ...trace,
+          type: "waterfall",
+          measure,
+          connector: {
+            line: { color: "rgba(255,255,255,0.08)", width: 1, dash: "dot" },
+          },
+          increasing: { marker: { color: "#10b981" } },
+          decreasing: { marker: { color: "#ef4444" } },
+          totals: { marker: { color: "#6366f1" } },
+          textposition: "outside",
+          text: trace.text || undefined,
+        },
+      ],
       layout,
     };
   }
@@ -150,59 +218,87 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
     return {
       data: data.map((trace, i) => {
         const clr = paletteColor(i, offset);
-        // FIXED: Respect AI colors
-        const markerColor = hasCustomColors ? trace.marker?.color : (trace.marker?.color || clr);
-        const lineColor = hasCustomColors ? trace.line?.color : (trace.line?.color || clr);
-        return { 
-          ...trace, 
-          type: "scatterpolar", 
-          fill: trace.fill || "toself", 
-          marker: { color: markerColor, size: 5 }, 
-          line: { color: lineColor, width: 2 } 
+        return {
+          ...trace,
+          type: "scatterpolar",
+          fill: trace.fill || "toself",
+          marker: {
+            color: hasCustomColors
+              ? trace.marker?.color
+              : trace.marker?.color || clr,
+            size: 5,
+          },
+          line: {
+            color: hasCustomColors
+              ? trace.line?.color
+              : trace.line?.color || clr,
+            width: 2,
+          },
         };
       }),
       layout: {
         ...layout,
         polar: {
           ...(layout.polar || {}),
-          radialaxis: { visible: true, range: [0, 100], ...(layout.polar?.radialaxis || {}) },
+          radialaxis: {
+            visible: true,
+            range: [0, 100],
+            ...(layout.polar?.radialaxis || {}),
+          },
           angularaxis: { ...(layout.polar?.angularaxis || {}) },
         },
       },
     };
   }
 
-  // Everything else (bar, pie, donut, histogram, box, violin, funnel, histogram2dcontour, etc.)
   return {
     data: data.map((trace, i) => {
       const clr = paletteColor(i, offset);
       const isPie = trace.type === "pie" || trace.type === "donut";
       const isBar = trace.type === "bar";
-      const isSingleTrace = data.length === 1;
-      
-      // FIXED: Only generate bar colors if AI didn't provide them
-      const barColors = isBar && isSingleTrace && !hasCustomColors
-        ? (trace.x || trace.y || []).map((_: any, idx: number) => paletteColor(idx, offset))
-        : undefined;
-      
-      // Special types (histogram2dcontour, contour, etc.) — pass through untouched
-      const isSpecial = ["histogram2dcontour","histogram2d","contour","densitymapbox","choropleth","scattergeo","parcats","parcoords","sankey","treemap","sunburst","icicle","funnelarea","indicator","table","ohlc","candlestick","scattermapbox"].includes((trace.type || "").toLowerCase());
+      const barColors =
+        isBar && data.length === 1 && !hasCustomColors
+          ? (trace.x || trace.y || []).map((_: any, idx: number) =>
+              paletteColor(idx, offset),
+            )
+          : undefined;
+      const isSpecial = [
+        "histogram2dcontour",
+        "histogram2d",
+        "contour",
+        "densitymapbox",
+        "choropleth",
+        "scattergeo",
+        "parcats",
+        "parcoords",
+        "sankey",
+        "treemap",
+        "sunburst",
+        "icicle",
+        "funnelarea",
+        "indicator",
+        "table",
+        "ohlc",
+        "candlestick",
+        "scattermapbox",
+      ].includes((trace.type || "").toLowerCase());
       if (isSpecial) return trace;
-      
       return {
         ...trace,
         marker: {
           ...(trace.marker || {}),
-          color: hasCustomColors 
-            ? trace.marker?.color 
-            : (isPie ? PALETTE_FULL : barColors || trace.marker?.color || clr),
+          color: hasCustomColors
+            ? trace.marker?.color
+            : isPie
+              ? PALETTE_FULL
+              : barColors || trace.marker?.color || clr,
           size: trace.marker?.size || 7,
           line: { color: "rgba(255,255,255,0.1)", width: isPie ? 2 : 1 },
         },
-        line: { 
-          ...(trace.line || {}), 
-          color: hasCustomColors ? trace.line?.color : (trace.line?.color || clr), 
-          width: trace.line?.width || 2.5 
+        line: {
+          ...(trace.line || {}),
+          color: hasCustomColors ? trace.line?.color : trace.line?.color || clr,
+          width: trace.line?.width || 2.5,
         },
         fillcolor: trace.fill ? (trace.line?.color || clr) + "22" : undefined,
       };
@@ -212,17 +308,31 @@ function preprocessTraces(data: any[], layout: any): { data: any[]; layout: any 
 }
 
 const SUBPLOT_TYPES = new Set([
-  "histogram2dcontour","histogram2d","contour","densitymapbox",
-  "choropleth","scattergeo","parcats","parcoords","sankey",
-  "treemap","sunburst","icicle","funnelarea","indicator","table",
-  "ohlc","candlestick","scattermapbox",
+  "histogram2dcontour",
+  "histogram2d",
+  "contour",
+  "densitymapbox",
+  "choropleth",
+  "scattergeo",
+  "parcats",
+  "parcoords",
+  "sankey",
+  "treemap",
+  "sunburst",
+  "icicle",
+  "funnelarea",
+  "indicator",
+  "table",
+  "ohlc",
+  "candlestick",
+  "scattermapbox",
 ]);
-
 function isSubplotChart(data: any[], base: any): boolean {
-  // Has multiple axis domains (xaxis2, yaxis2, etc.) → subplot layout
-  const hasSubplotAxes = Object.keys(base || {}).some(k => /^[xy]axis[2-9]/.test(k));
-  const hasSubplotType = data?.some((t: any) => SUBPLOT_TYPES.has((t.type || "").toLowerCase()));
-  return hasSubplotAxes || hasSubplotType;
+  return (
+    Object.keys(base || {}).some((k) => /^[xy]axis[2-9]/.test(k)) ||
+    (data?.some((t: any) => SUBPLOT_TYPES.has((t.type || "").toLowerCase())) ??
+      false)
+  );
 }
 
 function darkAxis(base: any, extra: Record<string, any> = {}) {
@@ -240,42 +350,34 @@ function darkAxis(base: any, extra: Record<string, any> = {}) {
 function buildLayout(base: any, chartType?: string, rawData?: any[]) {
   const isRadar = chartType === "radar";
   const isHeatmap = chartType === "heatmap";
-  // Subplot-based charts: only apply font/title/autosize, leave bgcolors and axes alone
-  const isSubplot = isSubplotChart(rawData || [], base);
-
-  if (isSubplot) {
+  if (isSubplotChart(rawData || [], base)) {
     const result: any = {
       ...base,
       autosize: true,
       title: undefined,
       paper_bgcolor: "rgba(0,0,0,0)",
       plot_bgcolor: "rgba(0,0,0,0)",
-      font: { color: "rgba(255,255,255,0.45)", size: 11, family: "DM Mono, monospace" },
+      font: {
+        color: "rgba(255,255,255,0.45)",
+        size: 11,
+        family: "DM Mono, monospace",
+      },
     };
-    // Theme ALL axes (including subplot axes xaxis2, yaxis2, etc.) with dark colors
-    Object.keys({ ...base, xaxis: 1, yaxis: 1, xaxis2: 1, yaxis2: 1, xaxis3: 1, yaxis3: 1 }).forEach(k => {
-      if (/^[xy]axis\d*$/.test(k)) {
-        result[k] = {
-          ...(base[k] || {}),
-          tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
-          gridcolor: "rgba(255,255,255,0.04)",
-          linecolor: "rgba(255,255,255,0.06)",
-          zerolinecolor: "rgba(255,255,255,0.06)",
-          automargin: true,
-          // Subplot panel background must be transparent too
-          ...(base[k] || {}),
-          tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
-          gridcolor: "rgba(255,255,255,0.04)",
-          linecolor: "rgba(255,255,255,0.06)",
-          zerolinecolor: "rgba(255,255,255,0.06)",
-        };
-      }
-    });
-    // Force all subplot panel backgrounds to transparent via Plotly's geo/scene/etc
+    Object.keys({ ...base, xaxis: 1, yaxis: 1, xaxis2: 1, yaxis2: 1 }).forEach(
+      (k) => {
+        if (/^[xy]axis\d*$/.test(k))
+          result[k] = {
+            ...(base[k] || {}),
+            tickfont: { size: 10, color: "rgba(255,255,255,0.3)" },
+            gridcolor: "rgba(255,255,255,0.04)",
+            linecolor: "rgba(255,255,255,0.06)",
+            zerolinecolor: "rgba(255,255,255,0.06)",
+          };
+      },
+    );
     result.geo = { ...(base.geo || {}), bgcolor: "rgba(0,0,0,0)" };
     return result;
   }
-
   const result: any = {
     ...base,
     autosize: true,
@@ -303,10 +405,13 @@ function buildLayout(base: any, chartType?: string, rawData?: any[]) {
     hovermode: "closest",
   };
   if (!isRadar) {
-    result.xaxis = darkAxis(base.xaxis || {}, { tickangle: isHeatmap ? -30 : 0, showgrid: !isHeatmap });
+    result.xaxis = darkAxis(base.xaxis || {}, {
+      tickangle: isHeatmap ? -30 : 0,
+      showgrid: !isHeatmap,
+    });
     result.yaxis = darkAxis(base.yaxis || {}, { showgrid: !isHeatmap });
   }
-  if (isRadar) {
+  if (isRadar)
     result.polar = {
       ...(base.polar || {}),
       bgcolor: "rgba(0,0,0,0)",
@@ -322,7 +427,6 @@ function buildLayout(base: any, chartType?: string, rawData?: any[]) {
         ...(base.polar?.angularaxis || {}),
       },
     };
-  }
   return result;
 }
 
@@ -441,7 +545,6 @@ const CONVERT_TYPES = [
     ),
   },
 ];
-
 const PALETTES_TB = [
   {
     id: "vivid",
@@ -535,10 +638,12 @@ function TbBtn({
 
 function InlineToolbar({
   divRef,
+  messageId,
   onOpenEditor,
   onResetData,
 }: {
   divRef: React.RefObject<any>;
+  messageId: string;
   onOpenEditor: () => void;
   onResetData: () => void;
 }) {
@@ -554,6 +659,21 @@ function InlineToolbar({
   const popupRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLDivElement>(null);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // FIX: Save toolbar edits under the specific message ID so GraphApp can
+  // look up edits for chart #1 without getting contaminated by chart #3.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const syncPerChartData = useCallback(() => {
+    if (!divRef.current || !messageId) return;
+    if (!window.__graphixChartData) window.__graphixChartData = {};
+    window.__graphixChartData[messageId] = {
+      data: (divRef.current as any).data,
+      layout: (divRef.current as any).layout,
+    };
+    (window as any).__graphixCurrentData = (divRef.current as any).data;
+    (window as any).__graphixCurrentLayout = (divRef.current as any).layout;
+  }, [divRef, messageId]);
 
   const openPopup = (which: "convert" | "palette") => {
     if (btnRef.current) {
@@ -579,12 +699,14 @@ function InlineToolbar({
       "xaxis.zeroline": n,
       "yaxis.zeroline": n,
     } as any);
+    setTimeout(syncPerChartData, 50);
   };
   const toggleLegend = () => {
     if (!divRef.current || !window.Plotly) return;
     const n = !legendOn;
     setLegendOn(n);
     window.Plotly.relayout(divRef.current, { showlegend: n } as any);
+    setTimeout(syncPerChartData, 50);
   };
   const toggleLabels = () => {
     if (!divRef.current || !window.Plotly) return;
@@ -609,6 +731,7 @@ function InlineToolbar({
           [i],
         );
     });
+    setTimeout(syncPerChartData, 50);
   };
   const toggleBg = () => {
     if (!divRef.current || !window.Plotly) return;
@@ -623,6 +746,7 @@ function InlineToolbar({
       "xaxis.gridcolor": n ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.04)",
       "yaxis.gridcolor": n ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.04)",
     } as any);
+    setTimeout(syncPerChartData, 50);
   };
   const resetZoom = () => {
     if (!divRef.current || !window.Plotly) return;
@@ -650,6 +774,7 @@ function InlineToolbar({
           [i],
         );
     });
+    setTimeout(syncPerChartData, 50);
   };
   const convertChart = (type: (typeof CONVERT_TYPES)[0]) => {
     if (!divRef.current || !window.Plotly) return;
@@ -674,6 +799,7 @@ function InlineToolbar({
       if (type.id === "area") u.fill = ["tozeroy"];
       window.Plotly.restyle(divRef.current, u, [i]);
     });
+    setTimeout(syncPerChartData, 50);
   };
   const download = async (fmt: string) => {
     if (!divRef.current || !window.Plotly) return;
@@ -691,8 +817,8 @@ function InlineToolbar({
   };
 
   return (
-      <div
-          className="my-auto"
+    <div
+      className="my-auto"
       style={{
         width: 48,
         background: "#09090b",
@@ -707,7 +833,6 @@ function InlineToolbar({
         scrollbarWidth: "none",
       }}
     >
-      {/* Editor button */}
       <button
         onClick={onOpenEditor}
         title="Open in editor"
@@ -738,11 +863,8 @@ function InlineToolbar({
           <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
         </svg>
       </button>
-
       <Divider />
-
-      {/* Convert */}
-      <div ref={btnRef} style={{ position: "relative" }}>
+      <div ref={btnRef}>
         <TbBtn
           onClick={() => openPopup("convert")}
           title="Convert chart type"
@@ -762,8 +884,6 @@ function InlineToolbar({
           </svg>
         </TbBtn>
       </div>
-
-      {/* Palette */}
       <TbBtn
         onClick={() => openPopup("palette")}
         title="Color palette"
@@ -790,9 +910,7 @@ function InlineToolbar({
             ))}
         </div>
       </TbBtn>
-
       <Divider />
-
       <TbBtn
         onClick={toggleGrid}
         title={gridOn ? "Hide grid" : "Show grid"}
@@ -872,9 +990,7 @@ function InlineToolbar({
           <line x1="21" y1="12" x2="23" y2="12" />
         </svg>
       </TbBtn>
-
       <Divider />
-
       <TbBtn onClick={resetZoom} title="Reset zoom">
         <svg
           width="13"
@@ -902,9 +1018,7 @@ function InlineToolbar({
           <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
         </svg>
       </TbBtn>
-
       <Divider />
-
       {(["png", "svg", "jpeg"] as const).map((fmt) => (
         <TbBtn
           key={fmt}
@@ -938,8 +1052,6 @@ function InlineToolbar({
           )}
         </TbBtn>
       ))}
-
-      {/* Popups rendered via portal-like fixed positioning */}
       {(showConvert || showPalettes) && (
         <>
           <div
@@ -1068,7 +1180,6 @@ function InlineToolbar({
   );
 }
 
-// ── Premium Tooltip ───────────────────────────────────────────────────────────
 function PremiumTooltip({
   tooltipRef,
 }: {
@@ -1085,10 +1196,7 @@ function PremiumTooltip({
         display: "none",
       }}
     >
-      <style>{`@keyframes ttIn{from{opacity:0;transform:scale(0.93) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
-#main-chart-div rect.bg { fill: transparent !important; }
-#main-chart-div .subplot rect.bg { fill: transparent !important; }
-`}</style>
+      <style>{`@keyframes ttIn{from{opacity:0;transform:scale(0.93) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}#main-chart-div rect.bg{fill:transparent!important}`}</style>
       <div
         style={{
           background: "#fff",
@@ -1186,8 +1294,13 @@ function PremiumTooltip({
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-export default function SingleChartArea({ messages, selectedAiId }: { messages: Message[]; selectedAiId?: string | null }) {
+export default function SingleChartArea({
+  messages,
+  selectedAiId,
+}: {
+  messages: Message[];
+  selectedAiId?: string | null;
+}) {
   const divRef = useRef<any>(null);
   const cardRef = useRef<any>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -1195,10 +1308,13 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
   const [aiMessage, setAiMessage] = useState<Message | null>(null);
   const originalDataRef = useRef<any>(null);
   const originalLayoutRef = useRef<any>(null);
+  const lastRenderedIdRef = useRef<string | null>(null);
+  const lastWas3DRef = useRef<boolean>(false);
 
   const aiMsg = selectedAiId
-    ? messages.find(m => m.id === selectedAiId && m.from === "ai") ?? messages.filter(m => m.from === "ai").at(-1)
-    : messages.filter(m => m.from === "ai").at(-1);
+    ? (messages.find((m) => m.id === selectedAiId && m.from === "ai") ??
+      messages.filter((m) => m.from === "ai").at(-1))
+    : messages.filter((m) => m.from === "ai").at(-1);
 
   const showTooltip = useCallback((mx: number, my: number, data: any) => {
     const el = tooltipRef.current;
@@ -1207,10 +1323,10 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
       CARD_H = 120,
       GAP = 12;
     const cardRect = cardRef.current?.getBoundingClientRect();
-    const rx = cardRect ? mx - cardRect.left : mx;
-    const ry = cardRect ? my - cardRect.top : my;
-    let left = rx - CARD_W - GAP;
-    let top = ry - CARD_H / 2;
+    const rx = cardRect ? mx - cardRect.left : mx,
+      ry = cardRect ? my - cardRect.top : my;
+    let left = rx - CARD_W - GAP,
+      top = ry - CARD_H / 2;
     if (left < 8) left = rx + GAP;
     if (cardRect && left + CARD_W > cardRect.width - 8)
       left = cardRect.width - CARD_W - 8;
@@ -1220,17 +1336,17 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
     el.style.left = left + "px";
     el.style.top = top + "px";
     el.style.display = "block";
-    const bar = el.querySelector("#tt-bar") as HTMLElement;
-    const dot = el.querySelector("#tt-dot") as HTMLElement;
-    const name = el.querySelector("#tt-name") as HTMLElement;
-    const val = el.querySelector("#tt-val") as HTMLElement;
-    const delta = el.querySelector("#tt-delta") as HTMLElement;
-    const label = el.querySelector("#tt-label") as HTMLElement;
+    const bar = el.querySelector("#tt-bar") as HTMLElement,
+      dot = el.querySelector("#tt-dot") as HTMLElement,
+      name = el.querySelector("#tt-name") as HTMLElement,
+      val = el.querySelector("#tt-val") as HTMLElement,
+      delta = el.querySelector("#tt-delta") as HTMLElement,
+      label = el.querySelector("#tt-label") as HTMLElement;
     if (bar) bar.style.background = data.color;
     if (dot) dot.style.background = data.color;
     if (name) name.textContent = data.seriesName;
     const n = Number(data.value);
-    let valStr = isNaN(n)
+    const valStr = isNaN(n)
       ? String(data.value)
       : Math.abs(n) >= 1_000_000
         ? (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"
@@ -1242,10 +1358,10 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
     if (val) val.textContent = valStr;
     if (label) label.textContent = data.label;
     if (delta) {
-      const hasDelta = data.prevValue != null && data.prevValue !== 0;
-      if (hasDelta) {
-        const pct = ((n - data.prevValue) / Math.abs(data.prevValue)) * 100;
-        const pos = pct >= 0;
+      const hd = data.prevValue != null && data.prevValue !== 0;
+      if (hd) {
+        const pct = ((n - data.prevValue) / Math.abs(data.prevValue)) * 100,
+          pos = pct >= 0;
         delta.style.display = "inline-flex";
         delta.style.color = pos ? "#10b981" : "#ef4444";
         delta.style.background = pos
@@ -1294,12 +1410,15 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
       const rawData = aiMsg.content.data || [];
       const rawLayout = aiMsg.content.layout || {};
       const chartType = detectType(rawData);
-      const THREED_TYPES = new Set(["scatter3d", "surface", "mesh3d", "cone", "streamtube", "isosurface", "volume"]);
-      const is3D = rawData.some((t: any) => THREED_TYPES.has((t.type || "").toLowerCase()));
+      const currentIs3D = is3DChart(rawData);
+      const isNewChart = lastRenderedIdRef.current !== aiMsg.id;
+      const needsPurge = isNewChart && (lastWas3DRef.current || currentIs3D);
 
-      const { data, layout: processedLayout } = preprocessTraces(rawData, rawLayout);
-      const layout = buildLayout(processedLayout, chartType, rawData);
-      if (!is3D)
+      if (needsPurge) window.Plotly.purge(divRef.current);
+
+      const { data, layout: pl } = preprocessTraces(rawData, rawLayout);
+      const layout = buildLayout(pl, chartType, rawData);
+      if (!currentIs3D)
         layout.hoverlabel = {
           bgcolor: "rgba(0,0,0,0)",
           bordercolor: "rgba(0,0,0,0)",
@@ -1308,61 +1427,73 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
 
       originalDataRef.current = JSON.parse(JSON.stringify(data));
       originalLayoutRef.current = JSON.parse(JSON.stringify(layout));
-      // Save on window so ChartTemplatePanel can always read original data
       (window as any).__graphixOriginalData = JSON.parse(JSON.stringify(data));
       (window as any).__graphixOriginalLayout = JSON.parse(
         JSON.stringify(layout),
       );
 
-      // Notify template panel to clear active selection on new chart
       window.dispatchEvent(new CustomEvent("graphix-new-chart"));
-      window.Plotly.newPlot(divRef.current, data, layout, {
+      window.Plotly.react(divRef.current, data, layout, {
         responsive: true,
         displayModeBar: false,
         scrollZoom: false,
       });
 
-      // For subplot charts (histogram2dcontour etc.) Plotly bakes white fills into
-      // SVG <rect> elements that no layout property can override. Fix them via DOM.
-      if (isSubplotChart(rawData, rawLayout)) {
-        const fixSubplotBg = () => {
-          if (!divRef.current) return;
-          divRef.current.querySelectorAll("rect.bg").forEach((el: Element) => {
-            (el as SVGRectElement).style.fill = "transparent";
-          });
-          // Also catch any rect with explicit white fill
-          divRef.current.querySelectorAll("rect[style*='fill: rgb(255, 255, 255)'], rect[style*='fill: white'], rect[fill='white'], rect[fill='#fff'], rect[fill='#ffffff']").forEach((el: Element) => {
-            (el as SVGRectElement).style.fill = "transparent";
-          });
+      lastRenderedIdRef.current = aiMsg.id;
+      lastWas3DRef.current = currentIs3D;
+
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // FIX: Seed per-chart store immediately on render so GraphApp always
+      // reads the correct chart's data, keyed by this chart's message ID.
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      if (!window.__graphixChartData) window.__graphixChartData = {};
+      window.__graphixChartData[aiMsg.id] = { data, layout };
+      (window as any).__graphixCurrentData = data;
+      (window as any).__graphixCurrentLayout = layout;
+
+      const syncPerChart = () => {
+        if (!divRef.current) return;
+        if (!window.__graphixChartData) window.__graphixChartData = {};
+        window.__graphixChartData[aiMsg.id] = {
+          data: (divRef.current as any).data,
+          layout: (divRef.current as any).layout,
         };
-        // Run immediately and after a short delay for async Plotly rendering
-        fixSubplotBg();
-        setTimeout(fixSubplotBg, 50);
-        setTimeout(fixSubplotBg, 200);
-        // Watch for any re-renders
-        const obs = new MutationObserver(fixSubplotBg);
-        obs.observe(divRef.current, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "fill"] });
+        (window as any).__graphixCurrentData = (divRef.current as any).data;
+        (window as any).__graphixCurrentLayout = (divRef.current as any).layout;
+      };
+      divRef.current.on("plotly_restyle", syncPerChart);
+      divRef.current.on("plotly_relayout", syncPerChart);
+
+      if (isSubplotChart(rawData, rawLayout)) {
+        const fix = () => {
+          if (!divRef.current) return;
+          divRef.current
+            .querySelectorAll(
+              "rect.bg,rect[style*='fill: rgb(255, 255, 255)'],rect[fill='white'],rect[fill='#fff'],rect[fill='#ffffff']",
+            )
+            .forEach((el: Element) => {
+              (el as SVGRectElement).style.fill = "transparent";
+            });
+        };
+        fix();
+        setTimeout(fix, 50);
+        setTimeout(fix, 200);
+        const obs = new MutationObserver(fix);
+        obs.observe(divRef.current, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["style", "fill"],
+        });
         setTimeout(() => obs.disconnect(), 5000);
       }
 
-      // Keep current state in sync so toolbar changes persist as context for next AI call
-      const syncCurrent = () => {
-        if (divRef.current) {
-          (window as any).__graphixCurrentData = (divRef.current as any).data;
-          (window as any).__graphixCurrentLayout = (
-            divRef.current as any
-          ).layout;
-        }
-      };
-      divRef.current.on("plotly_restyle", syncCurrent);
-      divRef.current.on("plotly_relayout", syncCurrent);
-
-      if (!is3D) {
+      if (!currentIs3D) {
         divRef.current.on("plotly_hover", (eventData: any) => {
           const pt = eventData?.points?.[0];
           if (!pt) return;
-          const traceIdx = pt.curveNumber ?? 0;
-          const ptIdx = pt.pointNumber ?? pt.pointIndex ?? 0;
+          const traceIdx = pt.curveNumber ?? 0,
+            ptIdx = pt.pointNumber ?? pt.pointIndex ?? 0;
           const traceColor = pt.data?.marker?.color;
           const color =
             typeof traceColor === "string"
@@ -1388,18 +1519,18 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
                 : (pt.value ?? "");
           const yArr: number[] = pt.data?.y || [];
           const prevValue = ptIdx > 0 ? yArr[ptIdx - 1] : null;
-          const tooltipData = {
+          const td = {
             label: xVal,
             value: val,
             seriesName: pt.data?.name || "Value",
             color: typeof color === "string" ? color : stableColor(traceIdx),
             prevValue,
           };
-          (tooltipRef as any)._setData?.(tooltipData);
+          (tooltipRef as any)._setData?.(td);
           showTooltip(
             (eventData.event as MouseEvent).clientX,
             (eventData.event as MouseEvent).clientY,
-            tooltipData,
+            td,
           );
         });
         divRef.current.on("plotly_unhover", hideTooltip);
@@ -1413,7 +1544,11 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
       if (divRef.current && window.Plotly && aiMsg?.content?.layout)
         window.Plotly.relayout(
           divRef.current,
-          buildLayout(aiMsg.content.layout, detectType(aiMsg.content.data || []), aiMsg.content.data || []),
+          buildLayout(
+            aiMsg.content.layout,
+            detectType(aiMsg.content.data || []),
+            aiMsg.content.data || [],
+          ),
         );
     };
     window.addEventListener("resize", onResize);
@@ -1428,13 +1563,19 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
       originalLayoutRef.current,
       { responsive: true, displayModeBar: false },
     );
+    if (aiMsg?.id) {
+      if (!window.__graphixChartData) window.__graphixChartData = {};
+      window.__graphixChartData[aiMsg.id] = {
+        data: JSON.parse(JSON.stringify(originalDataRef.current)),
+        layout: JSON.parse(JSON.stringify(originalLayoutRef.current)),
+      };
+    }
     (window as any).__graphixCurrentData = JSON.parse(
       JSON.stringify(originalDataRef.current),
     );
     (window as any).__graphixCurrentLayout = JSON.parse(
       JSON.stringify(originalLayoutRef.current),
     );
-    // Tell template panel to clear its active selection
     window.dispatchEvent(new CustomEvent("graphix-reset-template"));
   };
 
@@ -1456,9 +1597,7 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
           onClose={() => setEditorOpen(false)}
         />
       )}
-
       <div style={{ flex: 1, display: "flex", minHeight: 0, minWidth: 0 }}>
-        {/* Chart card */}
         <div
           ref={cardRef}
           style={{
@@ -1474,7 +1613,6 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
             position: "relative",
           }}
         >
-          {/* Header */}
           <div
             style={{
               display: "flex",
@@ -1524,8 +1662,6 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
               </span>
             </div>
           </div>
-
-          {/* Chart area */}
           <div style={{ flex: 1, position: "relative", minHeight: 400 }}>
             {isLoading && (
               <div
@@ -1634,11 +1770,10 @@ export default function SingleChartArea({ messages, selectedAiId }: { messages: 
             <PremiumTooltip tooltipRef={tooltipRef} />
           </div>
         </div>
-
-        {/* Toolbar — vertical bar, same style as template panel */}
         {aiMessage && (
           <InlineToolbar
             divRef={divRef}
+            messageId={aiMessage.id}
             onOpenEditor={() => setEditorOpen(true)}
             onResetData={resetData}
           />

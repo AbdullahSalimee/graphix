@@ -165,13 +165,26 @@ export default function GraphApp() {
     };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // CONTEXT MEMORY: Use the SELECTED chart as context (not always the last).
-    // This fixes Bug 1: clicking chart #5 and asking AI to edit it now works.
+    // FIX: Build previousChart from the SELECTED chart's frozen message
+    // content ONLY — never from window.__graphixCurrentData.
     //
-    // Also fixes Bug 2: if the selected chart is the one currently rendered in
-    // the DOM, prefer __graphixCurrentData/__graphixCurrentLayout which reflect
-    // any toolbar/template edits the user made (those edits mutate the live
-    // Plotly DOM but are NOT written back to message state).
+    // WHY THIS WAS BROKEN:
+    // window.__graphixCurrentData holds whatever chart is currently rendered
+    // in the DOM (SingleChartArea's div). When you have a 3D chart rendered
+    // and you click a different chart in the sidebar (selectedAiId changes),
+    // the DOM still shows the 3D chart — so window.__graphixCurrentData still
+    // has the 3D chart's data. Then when you say "make it red", the AI
+    // receives the 3D chart as context and edits THAT instead of your
+    // selected chart.
+    //
+    // THE FIX:
+    // Read previousChart directly from the frozen message state (which is
+    // keyed by message ID). This is always accurate regardless of what's
+    // currently rendered in the DOM.
+    //
+    // TOOLBAR EDITS (palette changes, type conversions, etc.) are stored
+    // per-chart in window.__graphixChartData[messageId] by SingleChartArea,
+    // so we can still pick those up without reading the wrong chart.
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const conv = conversations.find((c) => c.id === convId);
     const aiMessages =
@@ -179,44 +192,34 @@ export default function GraphApp() {
         (m) => m.from === "ai" && m.status === "success" && m.content?.data,
       ) ?? [];
 
-    // Resolve which chart the user is currently looking at
+    // Resolve which chart the user has selected
     const contextAiId = selectedAiId ?? aiMessages.at(-1)?.id ?? null;
-    const contextMsg = aiMessages.find((m) => m.id === contextAiId) ?? aiMessages.at(-1) ?? null;
+    const contextMsg =
+      aiMessages.find((m) => m.id === contextAiId) ?? aiMessages.at(-1) ?? null;
 
-    // Check whether the selected chart is the one live in the DOM right now.
-    // SingleChartArea keeps __graphixCurrentData in sync whenever Plotly fires
-    // plotly_restyle / plotly_relayout (toolbar colour changes, type conversions,
-    // template applications, etc.).  Those mutations are NOT stored back into
-    // message state, so we must read them from window if available.
-    const isLiveChart = contextMsg?.id === contextAiId;
-    const liveData =
-      isLiveChart &&
-      typeof window !== "undefined" &&
-      (window as any).__graphixCurrentData
-        ? (window as any).__graphixCurrentData
-        : null;
-    const liveLayout =
-      isLiveChart &&
-      typeof window !== "undefined" &&
-      (window as any).__graphixCurrentLayout
-        ? (window as any).__graphixCurrentLayout
-        : null;
+    let previousChart: { data: any[]; layout: any } | null = null;
 
-    // Build previousChart: prefer live DOM state (reflects toolbar/template
-    // edits) over the frozen message content.
-    const previousChart = contextMsg
-      ? {
-          data: liveData ?? contextMsg.content.data,
-          layout: liveLayout ?? contextMsg.content.layout,
-        }
-      : null;
+    if (contextMsg) {
+      // Check if the user made toolbar/template edits to this specific chart.
+      // SingleChartArea now stores edits keyed by message ID so we never
+      // accidentally read a different chart's state.
+      const perChartData =
+        typeof window !== "undefined"
+          ? (window as any).__graphixChartData?.[contextMsg.id]
+          : null;
 
-    // Append both user + new loading AI slot
+      previousChart = {
+        data: perChartData?.data ?? contextMsg.content.data,
+        layout: perChartData?.layout ?? contextMsg.content.layout,
+      };
+    }
+
+    // Append user message + loading AI slot
     updateMessages(convId, (msgs) => [...msgs, userMsg, loadingAiMsg]);
     setSelectedAiId(newAiId);
     setIsLoading(true);
 
-    // If this is a prebuilt config from template, skip API
+    // If this is a prebuilt config from CSV fast-path, skip API
     if (prebuiltConfig) {
       updateMessages(convId, (msgs) =>
         msgs.map((m) =>
@@ -230,22 +233,17 @@ export default function GraphApp() {
     }
 
     try {
-      // When there's a previous chart to edit, append an explicit instruction so
-      // the AI outputs concrete marker.color / line.color values (not omit them).
-      // Without this, the AI returns color-free traces and our preprocessTraces
-      // palette overrides any color the user asked for.
-      const augmentedPrompt =
-        previousChart
-          ? `${input}\n\n[IMPORTANT: When modifying the chart, always set explicit "color" values on marker and line objects in every trace. Never omit color fields — if the user requested a color change, apply it as a hex or CSS color string on marker.color and line.color for every trace.]`
-          : input;
+      const augmentedPrompt = previousChart
+        ? `${input}\n\n[IMPORTANT: When modifying the chart, always set explicit "color" values on marker and line objects in every trace. Never omit color fields — if the user requested a color change, apply it as a hex or CSS color string on marker.color and line.color for every trace.]`
+        : input;
 
-      const res = await fetch("https://graphy-server.vercel.app/api/chart", {
+      const res = await fetch("http://localhost:3001/api/chart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: augmentedPrompt,
           fileContent,
-          previousChart, // ← Send previous chart context
+          previousChart,
         }),
       });
 
@@ -272,18 +270,15 @@ export default function GraphApp() {
         return;
       }
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // SMART EDIT vs CREATE:
       // If action is "edit", REPLACE the previous chart instead of appending
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (config.action === "edit" && contextMsg) {
         const prevAiId = contextMsg.id;
 
         updateMessages(convId, (msgs) => {
-          // Remove the loading message we just added
           const withoutLoading = msgs.filter((m) => m.id !== newAiId);
-
-          // Replace the previous AI chart with the edited version
           return withoutLoading.map((m) =>
             m.id === prevAiId
               ? {
@@ -295,7 +290,13 @@ export default function GraphApp() {
           );
         });
 
-        // Keep selection on the edited chart
+        // Also clear any stale per-chart toolbar state for the edited chart
+        if (typeof window !== "undefined") {
+          if ((window as any).__graphixChartData) {
+            delete (window as any).__graphixChartData[prevAiId];
+          }
+        }
+
         setSelectedAiId(prevAiId);
       } else {
         // Normal "create" flow — add as new chart

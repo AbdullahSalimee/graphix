@@ -1,20 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import {
-  CYAN,
-  WHITE,
-  W08,
-  W12,
-  W20,
-  W35,
-  W55,
-  C08,
-  C18,
-  C35,
-} from "@/lib/Tokens";
+import { CYAN, W08, W20, C08 } from "@/lib/Tokens";
 import { IC } from "@/lib/Tokens";
-import { Chip, Ico } from "./UIKit";
+import { Ico } from "./UIKit";
 import ChartEditor from "@/components/main-app/ChartEditor";
 
 declare global {
@@ -23,117 +12,209 @@ declare global {
   }
 }
 
+// ── Load Plotly once per page ─────────────────────────────────
+function usePlotlyReady(cb: () => void) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.Plotly) {
+      cb();
+      return;
+    }
+    const existing = document.getElementById("plotly-cdn");
+    if (existing) {
+      existing.addEventListener("load", cb);
+      return () => existing.removeEventListener("load", cb);
+    }
+    const s = document.createElement("script");
+    s.id = "plotly-cdn";
+    s.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js";
+    s.async = true;
+    s.onload = cb;
+    document.head.appendChild(s);
+  }, []);
+}
+
+// ── Detect chart type label from traces ───────────────────────
+function detectChartType(data: any[]): string {
+  if (!data?.length) return "CHART";
+  const t = data[0];
+  const type = (t.type || "").toLowerCase();
+  const mode = (t.mode || "").toLowerCase();
+  if (type === "scatter3d") return "3D SCATTER";
+  if (type === "surface") return "SURFACE";
+  if (type === "mesh3d") return "3D MESH";
+  if (type === "cone") return "3D CONE";
+  if (type === "streamtube") return "STREAM";
+  if (type === "isosurface") return "ISO";
+  if (type === "volume") return "VOLUME";
+  if (type === "pie") return t.hole ? "DONUT" : "PIE";
+  if (type === "funnel") return "FUNNEL";
+  if (type === "waterfall") return "WATERFALL";
+  if (type === "sunburst") return "SUNBURST";
+  if (type === "treemap") return "TREEMAP";
+  if (type === "heatmap") return "HEATMAP";
+  if (type === "contour") return "CONTOUR";
+  if (type === "histogram") return "HISTOGRAM";
+  if (type === "histogram2d") return "HIST 2D";
+  if (type === "box") return "BOX";
+  if (type === "violin") return "VIOLIN";
+  if (type === "candlestick") return "CANDLESTICK";
+  if (type === "ohlc") return "OHLC";
+  if (type === "bar") return "BAR";
+  if (type === "scatter" && mode.includes("lines") && t.fill) return "AREA";
+  if (type === "scatter" && mode.includes("lines")) return "LINE";
+  if (type === "scatter") return "SCATTER";
+  return type.toUpperCase() || "CHART";
+}
+
 // ── Mini Plotly preview ───────────────────────────────────────
 function PlotlyMini({ chartConfig }: { chartConfig: Record<string, any> }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(
+    typeof window !== "undefined" && !!window.Plotly,
+  );
+
+  usePlotlyReady(() => setReady(true));
 
   useEffect(() => {
-    if (!ref.current || typeof window === "undefined") return;
-    const render = () => {
-      if (!window.Plotly || !ref.current) return;
-      try {
-        const data = (chartConfig.data ?? []).map((trace: any) => ({
-          ...trace,
-          hoverinfo: "none",
-        }));
-        const layout = {
-          paper_bgcolor: "transparent",
-          plot_bgcolor: "transparent",
-          margin: { t: 2, b: 2, l: 2, r: 2 },
-          showlegend: false,
-          xaxis: { visible: false, fixedrange: true },
-          yaxis: { visible: false, fixedrange: true },
-          height: 88,
-          title: "",
-          annotations: [],
+    if (!ready || !ref.current) return;
+    try {
+      const rawData: any[] = chartConfig.data ?? [];
+      if (!rawData.length) return;
+
+      const is3D = rawData.some((t: any) =>
+        [
+          "scatter3d",
+          "surface",
+          "mesh3d",
+          "cone",
+          "streamtube",
+          "isosurface",
+          "volume",
+        ].includes((t.type || "").toLowerCase()),
+      );
+
+      const data = rawData.map((trace: any) => ({
+        ...trace,
+        hoverinfo: "none",
+        text: undefined,
+        texttemplate: undefined,
+        textposition: undefined,
+        // hide colorbar/colorscale legend in mini preview
+        showscale: false,
+        colorbar: undefined,
+        marker: trace.marker
+          ? { ...trace.marker, showscale: false, colorbar: undefined }
+          : undefined,
+      }));
+
+      const base: any = {
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        margin: { t: 2, b: 2, l: 2, r: 2, pad: 0 },
+        showlegend: false,
+        height: 150,
+        title: "",
+        annotations: [],
+      };
+
+      if (is3D) {
+        // 3D: keep the original scene but strip axis labels/titles and fix camera
+        const origScene = chartConfig.layout?.scene ?? {};
+        base.scene = {
+          ...origScene,
+          bgcolor: "rgba(0,0,0,0)",
+          xaxis: {
+            ...(origScene.xaxis ?? {}),
+            showticklabels: false,
+            title: "",
+            showgrid: true,
+            zeroline: false,
+            gridcolor: "rgba(255,255,255,0.08)",
+          },
+          yaxis: {
+            ...(origScene.yaxis ?? {}),
+            showticklabels: false,
+            title: "",
+            showgrid: true,
+            zeroline: false,
+            gridcolor: "rgba(255,255,255,0.08)",
+          },
+          zaxis: {
+            ...(origScene.zaxis ?? {}),
+            showticklabels: false,
+            title: "",
+            showgrid: true,
+            zeroline: false,
+            gridcolor: "rgba(255,255,255,0.08)",
+          },
+          camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
+          aspectmode: "cube",
         };
-        window.Plotly.react(ref.current, data, layout, {
-          displayModeBar: false,
-          responsive: true,
-          staticPlot: true,
-        });
-      } catch {}
-    };
-    if (window.Plotly) {
-      render();
-    } else {
-      const t = setInterval(() => {
-        if (window.Plotly) {
-          clearInterval(t);
-          render();
-        }
-      }, 200);
-      return () => clearInterval(t);
-    }
-  }, [chartConfig]);
+      } else {
+        base.xaxis = {
+          visible: false,
+          fixedrange: true,
+          showgrid: false,
+          zeroline: false,
+        };
+        base.yaxis = {
+          visible: false,
+          fixedrange: true,
+          showgrid: false,
+          zeroline: false,
+        };
+        base.polar = {
+          bgcolor: "rgba(0,0,0,0)",
+          radialaxis: { visible: false },
+          angularaxis: { visible: false },
+        };
+      }
+
+      // staticPlot breaks WebGL/3D — only use it for flat charts
+      window.Plotly.react(ref.current, data, base, {
+        displayModeBar: false,
+        responsive: true,
+        staticPlot: !is3D,
+      });
+    } catch {}
+  }, [ready, chartConfig]);
+
+  if (!ready) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: 150,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 14,
+            height: 14,
+            border: "2px solid rgba(6,182,212,0.25)",
+            borderTopColor: "#06b6d4",
+            borderRadius: "50%",
+            animation: "gcSpin 0.8s linear infinite",
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
       ref={ref}
-      style={{ width: "100%", height: 88, pointerEvents: "none" }}
+      style={{ width: "100%", height: 150, pointerEvents: "none" }}
     />
   );
 }
 
-// ── Sparkline fallback ────────────────────────────────────────
-function Sparkline({ data, hover }: { data: number[]; hover: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    c.width = c.offsetWidth * 2;
-    c.height = c.offsetHeight * 2;
-    ctx.scale(2, 2);
-    const W = c.offsetWidth,
-      H = c.offsetHeight;
-    const mn = Math.min(...data),
-      mx = Math.max(...data),
-      rng = mx - mn || 1;
-    const pts = data.map((v, i) => ({
-      x: (i / (data.length - 1)) * W,
-      y: H - ((v - mn) / rng) * (H - 18) - 9,
-    }));
-    ctx.clearRect(0, 0, W, H);
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(
-      0,
-      hover ? "rgba(8,145,178,0.30)" : "rgba(255,255,255,0.07)",
-    );
-    g.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, H);
-    ctx.lineTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      const cx = (pts[i - 1].x + pts[i].x) / 2;
-      ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-    }
-    ctx.lineTo(pts[pts.length - 1].x, H);
-    ctx.closePath();
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      const cx = (pts[i - 1].x + pts[i].x) / 2;
-      ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-    }
-    ctx.strokeStyle = hover ? CYAN : "rgba(255,255,255,0.55)";
-    ctx.lineWidth = hover ? 2 : 1.5;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.stroke();
-    const last = pts[pts.length - 1];
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, hover ? 3.5 : 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = hover ? CYAN : WHITE;
-    ctx.fill();
-  }, [data, hover]);
-  return <canvas ref={ref} style={{ width: "100%", height: "100%" }} />;
-}
-
-// ── GraphCard ────────────────────────────────────────────────
+// ── GraphCard ─────────────────────────────────────────────────
 export default function GraphCard({
   graph,
   index = 0,
@@ -147,9 +228,23 @@ export default function GraphCard({
   const [editorOpen, setEditorOpen] = useState(false);
   const plotRef = useRef<any>(null);
 
-  const hasPlotly = !!graph.chartConfig?.data?.length;
+  const hasPlotly =
+    Array.isArray(graph.chartConfig?.data) && graph.chartConfig.data.length > 0;
 
-  // ChartEditor reads `message.content.data` / `.layout`
+  const chartType = hasPlotly
+    ? detectChartType(graph.chartConfig.data)
+    : (graph.tag ?? "CHART").toUpperCase();
+
+  // Real title from layout or graph.title, never fall back to "Untitled Chart" if prompt exists
+  const chartTitle =
+    graph.chartConfig?.layout?.title?.text ||
+    (typeof graph.chartConfig?.layout?.title === "string"
+      ? graph.chartConfig.layout.title
+      : null) ||
+    (graph.title !== "Untitled Chart" ? graph.title : null) ||
+    graph.prompt?.slice(0, 40) ||
+    "Untitled Chart";
+
   const fakeMessage = hasPlotly
     ? {
         id: graph.id,
@@ -158,7 +253,7 @@ export default function GraphCard({
           data: graph.chartConfig.data,
           layout: {
             ...(graph.chartConfig.layout ?? {}),
-            title: { text: graph.title },
+            title: { text: chartTitle },
           },
         },
         status: "success" as const,
@@ -166,28 +261,31 @@ export default function GraphCard({
     : null;
 
   useEffect(() => {
-    const t = setTimeout(() => setVis(true), index * 65 + 80);
+    const t = setTimeout(() => setVis(true), index * 55 + 60);
     return () => clearTimeout(t);
   }, [index]);
 
   return (
     <>
+      <style>{`@keyframes gcSpin{to{transform:rotate(360deg)}}`}</style>
+
       <div
         onMouseEnter={() => setHov(true)}
         onMouseLeave={() => setHov(false)}
         onClick={() => hasPlotly && setEditorOpen(true)}
         style={{
           border: `1px solid ${hov ? CYAN : W08}`,
-          borderRadius: 6,
+          borderRadius: 8,
           overflow: "hidden",
           cursor: hasPlotly ? "pointer" : "default",
           position: "relative",
           display: "flex",
           flexDirection: "column",
           opacity: vis ? 1 : 0,
-          transform: vis ? "none" : "translateY(14px)",
+          transform: vis ? "none" : "translateY(12px)",
           transition:
-            "opacity 0.4s ease, transform 0.4s ease, border-color 0.2s",
+            "opacity 0.35s ease, transform 0.35s ease, border-color 0.2s",
+          background: "#111212",
         }}
       >
         {/* top accent */}
@@ -198,31 +296,46 @@ export default function GraphCard({
               ? `linear-gradient(90deg,${CYAN},transparent)`
               : "transparent",
             transition: "background 0.3s",
+            flexShrink: 0,
           }}
         />
 
-        {/* preview */}
+        {/* ── PREVIEW (large) ── */}
         <div
           style={{
-            height: 100,
             position: "relative",
-            background: hov ? C08 : "transparent",
-            padding: hasPlotly ? "5px 6px 2px" : "11px 14px 7px",
+            background: hov ? C08 : "rgba(255,255,255,0.015)",
             transition: "background 0.2s",
             overflow: "hidden",
+            flexShrink: 0,
           }}
         >
           {hasPlotly ? (
             <PlotlyMini chartConfig={graph.chartConfig} />
           ) : (
-            <Sparkline
-              data={graph.data ?? [10, 20, 15, 30, 25, 40, 35]}
-              hover={hov}
-            />
+            // no-data placeholder
+            <div
+              style={{
+                height: 150,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="1.5"
+              >
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </div>
           )}
-          <div style={{ position: "absolute", top: 9, left: 11 }}>
-            <Chip>{graph.tag}</Chip>
-          </div>
+
+          {/* star button — top right */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -230,152 +343,120 @@ export default function GraphCard({
             }}
             style={{
               position: "absolute",
-              top: 9,
-              right: 11,
-              background: "none",
-              border: "none",
+              top: 8,
+              right: 8,
+              zIndex: 3,
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(4px)",
+              border: `1px solid ${star ? CYAN : "rgba(255,255,255,0.1)"}`,
+              borderRadius: 6,
+              width: 26,
+              height: 26,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               cursor: "pointer",
+              transition: "all 0.15s",
             }}
           >
             <Ico
               d={IC.star}
-              size={13}
+              size={11}
               fill={star ? CYAN : "none"}
-              stroke={star ? CYAN : W20}
+              stroke={star ? CYAN : "rgba(255,255,255,0.4)"}
             />
           </button>
         </div>
 
-        {/* body */}
+        {/* ── FOOTER: title + type ── */}
         <div
           style={{
-            padding: "12px 14px",
+            padding: "10px 12px 11px",
             display: "flex",
-            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "space-between",
             gap: 8,
-            flex: 1,
+            borderTop: `1px solid ${W08}`,
+            flexShrink: 0,
           }}
         >
-          <div
+          <span
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: 8,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 12,
+              lineHeight: 1.3,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
             }}
           >
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  lineHeight: 1.3,
-                }}
-              >
-                {graph.title}
-              </div>
-              <div
-                style={{
-                  color: W35,
-                  fontSize: 12,
-                  marginTop: 3,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {graph.desc}
-              </div>
-            </div>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "2px 7px",
-                borderRadius: 2,
-                flexShrink: 0,
-                color: graph.up ? CYAN : W55,
-                background: graph.up ? C18 : W08,
-                border: `1px solid ${graph.up ? C35 : W12}`,
-              }}
-            >
-              {graph.trend}
-            </span>
-          </div>
-          <Chip>{graph.category}</Chip>
-          <div
+            {chartTitle}
+          </span>
+          <span
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderTop: `1px solid ${W08}`,
-              paddingTop: 9,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              padding: "2px 6px",
+              borderRadius: 3,
+              flexShrink: 0,
+              background: "rgba(6,182,212,0.12)",
+              border: "1px solid rgba(6,182,212,0.25)",
+              color: "#06b6d4",
+              fontFamily: "monospace",
             }}
           >
-            <span style={{ color: W20, fontSize: 12 }}>{graph.updated}</span>
-            <span
-              style={{
-                color: W20,
-                fontSize: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <Ico d={IC.eye} size={11} />
-              {graph.views}
-            </span>
-          </div>
+            {chartType}
+          </span>
         </div>
 
-        {/* hover CTA */}
+        {/* ── HOVER OVERLAY: open in editor ── */}
         <div
           style={{
-            opacity: hov ? 1 : 0,
-            transform: hov ? "none" : "translateY(5px)",
-            transition: "all 0.17s",
             position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(2px)",
             display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hov ? 1 : 0,
+            transition: "opacity 0.18s",
+            pointerEvents: hov ? "auto" : "none",
+            // don't cover the footer
+            bottom: 43,
           }}
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasPlotly) setEditorOpen(true);
-            }}
+          <div
             style={{
-              flex: 1,
-              padding: "8px",
               background: CYAN,
-              border: "none",
               color: "#111212",
               fontWeight: 800,
               fontSize: 11,
-              letterSpacing: "0.07em",
+              letterSpacing: "0.08em",
               textTransform: "uppercase",
-              cursor: "pointer",
-            }}
-          >
-            {hasPlotly ? "Open in Editor →" : "Open →"}
-          </button>
-          <button
-            style={{
-              padding: "8px 12px",
-              background: CYAN,
-              border: "none",
-              borderLeft: "1px solid rgba(255,255,255,0.18)",
-              color: "#111212",
-              cursor: "pointer",
+              padding: "8px 18px",
+              borderRadius: 6,
               display: "flex",
               alignItems: "center",
+              gap: 6,
             }}
           >
-            <Ico d={IC.shared} size={12} stroke="#111212" />
-          </button>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1" />
+            </svg>
+            Open in Editor
+          </div>
         </div>
       </div>
 

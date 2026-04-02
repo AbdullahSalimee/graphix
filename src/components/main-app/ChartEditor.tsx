@@ -1764,6 +1764,8 @@ function generateCandlestickData(sourceTraces: any[], showSlider: boolean) {
   ];
 }
 
+
+
 function generateFunnelData(
   sourceTraces: any[],
   palette: string[],
@@ -2236,6 +2238,7 @@ export default function ChartEditor({
   onClose,
 }: ChartEditorProps) {
   const plotRef = useRef<PlotlyHTMLElement>(null);
+  const userHasEdited = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<
     "graph" | "style" | "axes" | "annotate" | "export"
@@ -2357,6 +2360,7 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
   );
 
   const applyChart = useCallback(() => {
+    if (!userHasEdited.current) return;
     if (!plotRef.current || typeof window === "undefined" || !window.Plotly)
       return;
     const Plotly = window.Plotly;
@@ -2949,9 +2953,24 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
     isLightBg,
   ]);
 
-  useEffect(() => {
-    if (mounted) applyChart();
-  }, [mounted, applyChart]);
+ useEffect(() => {
+   if (!mounted || !plotRef.current || !window.Plotly) return;
+   if (userHasEdited.current) {
+     applyChart();
+   } else {
+     // First open — render original chart exactly as saved
+     const { data: liveData, layout: liveLayout } = getLiveData();
+     window.Plotly.react(
+       plotRef.current,
+       liveData,
+       {
+         ...liveLayout,
+         autosize: true,
+       },
+       { responsive: true, displayModeBar: false },
+     );
+   }
+ }, [mounted, applyChart, getLiveData]);
 
   const handleExport = (fmt: string) => {
     if (!plotRef.current || !window.Plotly) return;

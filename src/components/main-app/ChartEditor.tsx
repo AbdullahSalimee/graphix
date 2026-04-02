@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useAppStore } from "@/store/appStore";
-import { apiSaveChart } from "@/lib/api";
+import { apiSaveChart, apiUpdateChart } from "@/lib/api";
 
 declare global {
   interface Window {
@@ -20,6 +20,7 @@ interface ChartEditorProps {
   message: any;
   divRef: React.RefObject<PlotlyHTMLElement | null>;
   onClose: () => void;
+  existingChartId?: string;
 }
 
 type ChartTypeId =
@@ -1525,7 +1526,7 @@ function detectChartTypeId(traces: any[]): ChartTypeId {
   return "bar";
 }
 
-// ─── Synthetic data generators for chart types that need specific data formats ───
+// ─── Synthetic data generators ───────────────────────────────
 
 function generateBoxData(sourceTraces: any[], palette: string[]) {
   return sourceTraces.map((trace: any, i: number) => {
@@ -1585,7 +1586,6 @@ function generateHistogramData(
       marker: { color: palette[i % palette.length] },
     };
     if (variant === "overlaid-histogram") base.opacity = 0.7;
-    if (variant === "stacked-histogram") base.opacity = 1;
     if (variant === "cumulative-histogram") base.cumulative = { enabled: true };
     if (variant === "normalized-histogram") base.histnorm = "probability";
     return base;
@@ -1609,24 +1609,25 @@ function generate2DHistContour(sourceTraces: any[], palette: string[]) {
 
 function generateHeatmapData(sourceTraces: any[], variant: string) {
   if (sourceTraces[0]?.z) return sourceTraces;
-  const allTraces = sourceTraces;
-  const cols = allTraces.length;
+  const cols = sourceTraces.length;
   const rows = Math.max(
-    ...allTraces.map((t: any) => (t.y || t.x || []).length),
+    ...sourceTraces.map((t: any) => (t.y || t.x || []).length),
     4,
   );
   const z = Array.from({ length: rows }, (_, r) =>
     Array.from(
       { length: cols },
       (_, c) =>
-        allTraces[c]?.y?.[r] ?? allTraces[c]?.x?.[r] ?? Math.random() * 100,
+        sourceTraces[c]?.y?.[r] ??
+        sourceTraces[c]?.x?.[r] ??
+        Math.random() * 100,
     ),
   );
-  const xLabels = allTraces.map(
-    (t: any) => t.name || `Series ${allTraces.indexOf(t) + 1}`,
+  const xLabels = sourceTraces.map(
+    (t: any) => t.name || `Series ${sourceTraces.indexOf(t) + 1}`,
   );
   const yLabels = (
-    allTraces[0]?.x || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`)
+    sourceTraces[0]?.x || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`)
   ).map(String);
   const base: any = {
     type: "heatmap",
@@ -1654,7 +1655,6 @@ function generateContourData(sourceTraces: any[], variant: string) {
     if (variant === "contour-labels") base.contours = { showlabels: true };
     return [base];
   }
-  // Generate z matrix from traces
   const size = 20;
   const x = Array.from({ length: size }, (_, i) => i);
   const y = Array.from({ length: size }, (_, i) => i);
@@ -1694,12 +1694,11 @@ function generateParcoordData(sourceTraces: any[], palette: string[]) {
         ? (trace.y || trace.x || []).map(Number)
         : Array.from({ length: 20 }, () => Math.random() * 100),
   }));
-  if (dims.length < 2) {
+  if (dims.length < 2)
     dims.push({
       label: "Dim 2",
       values: Array.from({ length: 20 }, () => Math.random() * 100),
     });
-  }
   return [
     {
       type: "parcoords",
@@ -1747,8 +1746,7 @@ function generateCandlestickData(sourceTraces: any[], showSlider: boolean) {
   const high = trace0.high || open.map((o: number) => o + Math.random() * 10);
   const low = trace0.low || open.map((o: number) => o - Math.random() * 10);
   const close =
-    trace0.close ||
-    open.map((o: number, i: number) => o + (Math.random() - 0.5) * 8);
+    trace0.close || open.map((o: number) => o + (Math.random() - 0.5) * 8);
   return [
     {
       type: "candlestick",
@@ -1763,8 +1761,6 @@ function generateCandlestickData(sourceTraces: any[], showSlider: boolean) {
     },
   ];
 }
-
-
 
 function generateFunnelData(
   sourceTraces: any[],
@@ -2089,7 +2085,7 @@ const BG_PRESETS = [
   { id: "green", label: "Forest", hex: "#052e16" },
 ];
 
-// ─── Small sub-components ───
+// ─── Sub-components ───────────────────────────────────────────
 
 function Sec({
   title,
@@ -2230,12 +2226,13 @@ function TxtInput({
   );
 }
 
-// ─── Main Component ───
+// ─── Main Component ───────────────────────────────────────────
 
 export default function ChartEditor({
   message,
   divRef,
   onClose,
+  existingChartId,
 }: ChartEditorProps) {
   const plotRef = useRef<PlotlyHTMLElement>(null);
   const userHasEdited = useRef(false);
@@ -2259,8 +2256,12 @@ export default function ChartEditor({
       layout: message?.content?.layout || {},
     };
   }, [divRef, message]);
-const { token, isAuthenticated, addSavedChart } = useAppStore();
-  const [dbSaveStatus, setDbSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const { token, isAuthenticated, addSavedChart, updateSavedChart } =
+    useAppStore();
+  const [dbSaveStatus, setDbSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const [chartTypeId, setChartTypeId] = useState<ChartTypeId>("bar");
   const [paletteIdx, setPaletteIdx] = useState(0);
   const [bgHex, setBgHex] = useState("#111111");
@@ -2302,6 +2303,12 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
 
   const isLightBg = ["#ffffff", "#fafaf9", "#f3f4f6"].includes(bgHex);
 
+  // ── markEdited: called whenever user touches any control ──
+  const markEdited = () => {
+    userHasEdited.current = true;
+  };
+
+  // ── Mount effect: populate controls from original chart, then render it as-is ──
   useEffect(() => {
     const { data: liveData, layout: liveLayout } = getLiveData();
     setTitle(
@@ -2318,13 +2325,13 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
     setShowLegend(liveLayout.showlegend !== false);
     setShowGrid(liveLayout.xaxis?.showgrid !== false);
     setShowZero(liveLayout.xaxis?.zeroline !== false);
+    userHasEdited.current = false; // reset — don't run applyChart on first render
     setMounted(true);
   }, [getLiveData]);
 
   const buildPieData = useCallback(
     (rawData: any[], pal: string[], hole?: number) => {
       if (rawData.length === 0) return [];
-      // If already pie data, just update
       if (rawData[0]?.type === "pie") {
         return rawData.map((t: any) => ({
           ...t,
@@ -2360,7 +2367,7 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
   );
 
   const applyChart = useCallback(() => {
-    if (!userHasEdited.current) return;
+    if (!userHasEdited.current) return; // ← guard: never run on initial mount
     if (!plotRef.current || typeof window === "undefined" || !window.Plotly)
       return;
     const Plotly = window.Plotly;
@@ -2368,31 +2375,21 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
     const ct = CHART_TYPES.find((c) => c.id === chartTypeId) || CHART_TYPES[0];
     const pal = PALETTES[paletteIdx].colors;
 
-    // Card is the OPPOSITE of the outer bg:
-    //   outer bg dark  → card is white  → isCardLight = true  → dark text
-    //   outer bg light → card is slate  → isCardLight = false → light text
-    // isLightBg = outer bg is light (white/paper/light-gray)
-    // Card is OPPOSITE of outer bg: dark outer → white card, light outer → dark card
-    const isCardLight = !isLightBg; // white card when outer is dark
+    const isCardLight = !isLightBg;
     const cardBgColor = isCardLight ? "#ffffff" : "#1e293b";
-
     const textClr = isCardLight ? "#111827" : "rgba(255,255,255,0.85)";
     const gridClr = isCardLight ? "rgba(0,0,0,0.09)" : "rgba(255,255,255,0.08)";
     const lineClr = isCardLight ? "#d1d5db" : "rgba(255,255,255,0.12)";
 
     let data: any[];
 
-    // ─── Route to the right data builder ───
     switch (ct.id) {
-      // PIE / DONUT
       case "pie":
         data = buildPieData(liveData, pal, 0);
         break;
       case "donut":
         data = buildPieData(liveData, pal, 0.45);
         break;
-
-      // BOX PLOTS
       case "box":
       case "box-data":
       case "grouped-box":
@@ -2401,7 +2398,7 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
       case "rainbow-box":
         data = generateBoxData(liveData, pal);
         if (ct.id === "grouped-box")
-          data = data.map((d, i) => ({ ...d, boxpoints: "all", jitter: 0.3 }));
+          data = data.map((d) => ({ ...d, boxpoints: "all", jitter: 0.3 }));
         if (ct.id === "box-outliers")
           data = data.map((d) => ({ ...d, boxpoints: "outliers" }));
         if (ct.id === "rainbow-box")
@@ -2418,13 +2415,9 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           y: undefined,
         }));
         break;
-
-      // VIOLIN
       case "violin":
         data = generateViolinData(liveData, pal);
         break;
-
-      // HISTOGRAMS
       case "histogram":
       case "overlaid-histogram":
       case "stacked-histogram":
@@ -2437,57 +2430,41 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
       case "2d-histogram-slider":
         data = generate2DHistContour(liveData, pal);
         break;
-
-      // HEATMAPS
       case "heatmap":
       case "heatmap-categorical":
       case "heatmap-annotated":
         data = generateHeatmapData(liveData, ct.id);
         break;
-
-      // CONTOURS
       case "contour-simple":
       case "contour-basic":
       case "contour-lines":
       case "contour-labels":
         data = generateContourData(liveData, ct.id);
         break;
-
-      // TERNARY
       case "ternary":
       case "soil-ternary":
         data = generateTernaryData(liveData, pal);
         break;
-
-      // PARALLEL COORDS
       case "parallel-basic":
       case "parallel-coords":
       case "parallel-advanced":
         data = generateParcoordData(liveData, pal);
         break;
-
-      // WATERFALL
       case "waterfall":
       case "waterfall-multi":
         data = generateWaterfallData(liveData, pal);
         break;
-
-      // CANDLESTICK
       case "candlestick":
       case "candlestick-no-slider":
       case "candlestick-annotated":
         data = generateCandlestickData(liveData, ct.id === "candlestick");
         break;
-
-      // FUNNEL
       case "funnel":
         data = generateFunnelData(liveData, pal, false);
         break;
       case "funnel-stacked":
         data = generateFunnelData(liveData, pal, true);
         break;
-
-      // 3D SURFACE
       case "surface3d":
       case "surface3d-multi":
         if (liveData[0]?.z) {
@@ -2514,21 +2491,15 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           }
         }
         break;
-
-      // 3D MESH
       case "mesh3d":
-        if (liveData[0]?.i) {
-          data = liveData.map((t: any) => ({
-            ...t,
-            type: "mesh3d",
-            opacity: opacity / 100,
-          }));
-        } else {
-          data = generateMesh3DData(pal);
-        }
+        data = liveData[0]?.i
+          ? liveData.map((t: any) => ({
+              ...t,
+              type: "mesh3d",
+              opacity: opacity / 100,
+            }))
+          : generateMesh3DData(pal);
         break;
-
-      // 3D SCATTER / LINE
       case "scatter3d":
       case "ribbon3d":
       case "line3d":
@@ -2581,8 +2552,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           ];
         }
         break;
-
-      // ERROR BARS
       case "error-bars":
       case "horizontal-error":
       case "asymmetric-error":
@@ -2593,8 +2562,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
       case "bar-error":
         data = generateBarErrorData(liveData, pal);
         break;
-
-      // FILLED LINES (area charts)
       case "filled-lines":
         data = liveData.map((trace: any, i: number) => {
           const clr = pal[i % pal.length];
@@ -2631,8 +2598,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           };
         });
         break;
-
-      // TIME SERIES
       case "time-series":
       case "time-series-slider":
         data = liveData.map((trace: any, i: number) => ({
@@ -2646,8 +2611,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           },
         }));
         break;
-
-      // LOG PLOTS / AXES
       case "log-plots":
       case "log-axes":
         data = liveData.map((trace: any, i: number) => ({
@@ -2658,8 +2621,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           line: { color: pal[i % pal.length], width: lineWidth },
         }));
         break;
-
-      // DEFAULT: scatter/bar/line variants
       default:
         data = liveData.map((trace: any, i: number) => {
           const clr = pal[i % pal.length];
@@ -2720,9 +2681,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
             base.textposition = "outside";
             base.textfont = { size: fontSize, color: textClr };
           }
-          if (ct.id === "bar-rotated") {
-            // handled via layout xaxis tickangle
-          }
           if (
             ct.id === "bubble" ||
             ct.id === "bubble-size" ||
@@ -2754,7 +2712,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
         break;
     }
 
-    // ─── Build layout ───
     const legendConfig: Record<string, any> = {
       bottom: {
         orientation: "h",
@@ -2898,7 +2855,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
     if (ct.id === "stacked-histogram" || ct.id === "overlaid-histogram") {
       layout.barmode = ct.id === "stacked-histogram" ? "stack" : "overlay";
     }
-
     if (ct.id === "candlestick-no-slider") {
       layout.xaxis = {
         ...(layout.xaxis || {}),
@@ -2910,7 +2866,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
         rangeslider: { visible: true },
       };
     }
-
     if (ct.id === "funnel-stacked") {
       layout.funnelmode = "stack";
     }
@@ -2953,24 +2908,21 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
     isLightBg,
   ]);
 
- useEffect(() => {
-   if (!mounted || !plotRef.current || !window.Plotly) return;
-   if (userHasEdited.current) {
-     applyChart();
-   } else {
-     // First open — render original chart exactly as saved
-     const { data: liveData, layout: liveLayout } = getLiveData();
-     window.Plotly.react(
-       plotRef.current,
-       liveData,
-       {
-         ...liveLayout,
-         autosize: true,
-       },
-       { responsive: true, displayModeBar: false },
-     );
-   }
- }, [mounted, applyChart, getLiveData]);
+  // ── Render effect: on mount render original; after edits run applyChart ──
+  useEffect(() => {
+    if (!mounted || !plotRef.current || !window.Plotly) return;
+    if (userHasEdited.current) {
+      applyChart();
+    } else {
+      const { data: liveData, layout: liveLayout } = getLiveData();
+      window.Plotly.react(
+        plotRef.current,
+        liveData,
+        { ...liveLayout, autosize: true },
+        { responsive: true, displayModeBar: false },
+      );
+    }
+  }, [mounted, applyChart, getLiveData]);
 
   const handleExport = (fmt: string) => {
     if (!plotRef.current || !window.Plotly) return;
@@ -3003,12 +2955,24 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
           ? message.content.layout.title
           : message?.content?.layout?.title?.text) ||
         "Untitled Chart";
-      const saved = await apiSaveChart(token, {
-        title: chartTitle,
-        prompt: chartTitle,
-        chartConfig: chartJson,
-      });
-      addSavedChart(saved);
+
+      if (existingChartId) {
+        // UPDATE existing chart
+        const updated = await apiUpdateChart(token, existingChartId, {
+          title: chartTitle,
+          chartConfig: chartJson,
+        });
+        updateSavedChart(updated);
+      } else {
+        // CREATE new chart
+        const saved = await apiSaveChart(token, {
+          title: chartTitle,
+          prompt: chartTitle,
+          chartConfig: chartJson,
+        });
+        addSavedChart(saved);
+      }
+
       setDbSaveStatus("saved");
       setTimeout(() => setDbSaveStatus("idle"), 3000);
     } catch (err) {
@@ -3038,7 +3002,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
       ? CHART_TYPES.filter((ct) => ct.group === activeGroup)
       : [];
 
-  // Chart card background — contrasts with bgHex
   const cardBg = isLightBg ? "#1e293b" : "#ffffff";
   const outerBg = isLightBg ? "#e2e8f0" : "#1a1a1a";
 
@@ -3098,12 +3061,11 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
 
       {/* Body */}
       <div className="flex flex-1 min-h-0">
-        {/* Chart Area — takes all remaining space */}
+        {/* Chart Area */}
         <div
           className="flex-1 flex items-center justify-center relative p-8"
           style={{ background: outerBg }}
         >
-          {/* Decorative dots pattern for light bg */}
           {isLightBg && (
             <div
               className="absolute inset-0 opacity-30"
@@ -3114,7 +3076,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
               }}
             />
           )}
-
           <div
             className="relative w-full flex flex-col shadow-2xl overflow-hidden"
             style={{
@@ -3127,7 +3088,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
               minHeight: 480,
             }}
           >
-            {/* Card header */}
             {(title || subtitle || showWatermark) && (
               <div
                 className="flex items-start justify-between px-6 pt-5 pb-3"
@@ -3174,7 +3134,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                 )}
               </div>
             )}
-
             {annotations.length > 0 && (
               <div className="flex flex-wrap gap-1.5 px-6 pt-2">
                 {annotations.map((a, i) => (
@@ -3192,8 +3151,6 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                 ))}
               </div>
             )}
-
-            {/* The actual Plotly chart */}
             <div ref={plotRef} className="w-full" style={{ minHeight: 420 }} />
           </div>
         </div>
@@ -3240,28 +3197,9 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                   />
                 </div>
                 {!searchQuery && (
-                  // AFTER
                   <div
                     className="flex gap-1.5 px-4 pb-2 overflow-x-auto"
                     style={{ scrollbarWidth: "none" }}
-                    onMouseDown={(e) => {
-                      const el = e.currentTarget;
-                      let startX = e.pageX;
-                      let scrollLeft = el.scrollLeft;
-                      let isDragging = false;
-
-                      const onMove = (ev: MouseEvent) => {
-                        isDragging = true;
-                        el.scrollLeft = scrollLeft - (ev.pageX - startX);
-                      };
-                      const onUp = () => {
-                        document.removeEventListener("mousemove", onMove);
-                        document.removeEventListener("mouseup", onUp);
-                      };
-
-                      document.addEventListener("mousemove", onMove);
-                      document.addEventListener("mouseup", onUp);
-                    }}
                   >
                     {CHART_GROUPS_ORDER.map((g) => {
                       const isActive = activeGroup === g.id;
@@ -3301,7 +3239,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                         return (
                           <button
                             key={ct.id}
-                            onClick={() => setChartTypeId(ct.id)}
+                            onClick={() => {
+                              markEdited();
+                              setChartTypeId(ct.id as ChartTypeId);
+                            }}
                             className="flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-[10px] cursor-pointer transition-all"
                             style={{
                               border: isActive
@@ -3335,19 +3276,28 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                   <Toggle
                     label="Show values on chart"
                     value={showLabels}
-                    onChange={setShowLabels}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowLabels(v);
+                    }}
                   />
                   <Toggle
                     label="Show markers on lines"
                     value={showMarkers}
-                    onChange={setShowMarkers}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowMarkers(v);
+                    }}
                   />
                 </Sec>
                 <Sec title="Legend" open={false}>
                   <Toggle
                     label="Show legend"
                     value={showLegend}
-                    onChange={setShowLegend}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowLegend(v);
+                    }}
                   />
                   {showLegend && (
                     <div>
@@ -3359,7 +3309,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                           (pos) => (
                             <button
                               key={pos}
-                              onClick={() => setLegendPos(pos)}
+                              onClick={() => {
+                                markEdited();
+                                setLegendPos(pos);
+                              }}
                               className="py-1.5 text-[10px] font-semibold rounded-[7px] cursor-pointer capitalize transition-all"
                               style={{
                                 border:
@@ -3386,7 +3339,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                   <Toggle
                     label="Show Graphix branding"
                     value={showWatermark}
-                    onChange={setShowWatermark}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowWatermark(v);
+                    }}
                   />
                 </Sec>
               </>
@@ -3399,7 +3355,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                   {PALETTES.map((p, i) => (
                     <button
                       key={p.id}
-                      onClick={() => setPaletteIdx(i)}
+                      onClick={() => {
+                        markEdited();
+                        setPaletteIdx(i);
+                      }}
                       className="w-full flex items-center gap-2.5 px-2 py-[7px] rounded-lg cursor-pointer mb-0.5 transition-all"
                       style={{
                         border:
@@ -3442,7 +3401,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     {BG_PRESETS.map((b) => (
                       <button
                         key={b.id}
-                        onClick={() => setBgHex(b.hex)}
+                        onClick={() => {
+                          markEdited();
+                          setBgHex(b.hex);
+                        }}
                         className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-[9px] cursor-pointer transition-all"
                         style={{
                           border:
@@ -3479,6 +3441,7 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                         type="color"
                         value={customBg}
                         onChange={(e) => {
+                          markEdited();
                           setCustomBg(e.target.value);
                           setBgHex(e.target.value);
                         }}
@@ -3497,7 +3460,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     </p>
                     <select
                       value={fontFamily}
-                      onChange={(e) => setFontFamily(e.target.value)}
+                      onChange={(e) => {
+                        markEdited();
+                        setFontFamily(e.target.value);
+                      }}
                       className="w-full px-2.5 py-[7px] text-[11px] border border-gray-200 rounded-lg bg-gray-50 text-gray-900 outline-none"
                     >
                       {FONTS.map((f) => (
@@ -3513,7 +3479,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={8}
                     max={18}
                     unit="px"
-                    onChange={setFontSize}
+                    onChange={(v) => {
+                      markEdited();
+                      setFontSize(v);
+                    }}
                   />
                   <Slider
                     label="Title font size"
@@ -3521,7 +3490,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={12}
                     max={36}
                     unit="px"
-                    onChange={setTitleSize}
+                    onChange={(v) => {
+                      markEdited();
+                      setTitleSize(v);
+                    }}
                   />
                 </Sec>
                 <Sec title="Marks & Lines" open={false}>
@@ -3531,21 +3503,30 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={20}
                     max={100}
                     unit="%"
-                    onChange={setOpacity}
+                    onChange={(v) => {
+                      markEdited();
+                      setOpacity(v);
+                    }}
                   />
                   <Slider
                     label="Line width"
                     value={lineWidth}
                     min={1}
                     max={8}
-                    onChange={setLineWidth}
+                    onChange={(v) => {
+                      markEdited();
+                      setLineWidth(v);
+                    }}
                   />
                   <Slider
                     label="Marker size"
                     value={markerSize}
                     min={3}
                     max={20}
-                    onChange={setMarkerSize}
+                    onChange={(v) => {
+                      markEdited();
+                      setMarkerSize(v);
+                    }}
                   />
                   <Slider
                     label="Bar gap"
@@ -3553,7 +3534,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={0}
                     max={60}
                     unit="%"
-                    onChange={setBarGap}
+                    onChange={(v) => {
+                      markEdited();
+                      setBarGap(v);
+                    }}
                   />
                   <Slider
                     label="Fill opacity"
@@ -3561,19 +3545,28 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={5}
                     max={80}
                     unit="%"
-                    onChange={setFillOpacity}
+                    onChange={(v) => {
+                      markEdited();
+                      setFillOpacity(v);
+                    }}
                   />
                   <Slider
                     label="Border width"
                     value={borderWidth}
                     min={0}
                     max={5}
-                    onChange={setBorderWidth}
+                    onChange={(v) => {
+                      markEdited();
+                      setBorderWidth(v);
+                    }}
                   />
                   <Toggle
                     label="Smooth curves (spline)"
                     value={smooth}
-                    onChange={setSmooth}
+                    onChange={(v) => {
+                      markEdited();
+                      setSmooth(v);
+                    }}
                   />
                 </Sec>
                 <Sec title="Card" open={false}>
@@ -3583,7 +3576,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={0}
                     max={28}
                     unit="px"
-                    onChange={setBorderRadius}
+                    onChange={(v) => {
+                      markEdited();
+                      setBorderRadius(v);
+                    }}
                   />
                 </Sec>
               </>
@@ -3599,7 +3595,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     </p>
                     <TxtInput
                       value={xLabel}
-                      onChange={setXLabel}
+                      onChange={(v) => {
+                        markEdited();
+                        setXLabel(v);
+                      }}
                       placeholder="e.g. Month"
                     />
                   </div>
@@ -3609,7 +3608,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     </p>
                     <TxtInput
                       value={yLabel}
-                      onChange={setYLabel}
+                      onChange={(v) => {
+                        markEdited();
+                        setYLabel(v);
+                      }}
                       placeholder="e.g. Revenue ($)"
                     />
                   </div>
@@ -3618,39 +3620,60 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                   <Toggle
                     label="Show grid lines"
                     value={showGrid}
-                    onChange={setShowGrid}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowGrid(v);
+                    }}
                   />
                   <Toggle
                     label="Show zero line"
                     value={showZero}
-                    onChange={setShowZero}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowZero(v);
+                    }}
                   />
                   <Toggle
                     label="Show tick labels"
                     value={showTicks}
-                    onChange={setShowTicks}
+                    onChange={(v) => {
+                      markEdited();
+                      setShowTicks(v);
+                    }}
                   />
                 </Sec>
                 <Sec title="Scale">
                   <Toggle
                     label="Log scale — X axis"
                     value={logX}
-                    onChange={setLogX}
+                    onChange={(v) => {
+                      markEdited();
+                      setLogX(v);
+                    }}
                   />
                   <Toggle
                     label="Log scale — Y axis"
                     value={logY}
-                    onChange={setLogY}
+                    onChange={(v) => {
+                      markEdited();
+                      setLogY(v);
+                    }}
                   />
                   <Toggle
                     label="Reverse X axis"
                     value={reverseX}
-                    onChange={setReverseX}
+                    onChange={(v) => {
+                      markEdited();
+                      setReverseX(v);
+                    }}
                   />
                   <Toggle
                     label="Reverse Y axis"
                     value={reverseY}
-                    onChange={setReverseY}
+                    onChange={(v) => {
+                      markEdited();
+                      setReverseY(v);
+                    }}
                   />
                 </Sec>
                 <Sec title="X-Axis Rotation" open={false}>
@@ -3660,7 +3683,10 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                     min={-90}
                     max={90}
                     unit="°"
-                    onChange={setXAngle}
+                    onChange={(v) => {
+                      markEdited();
+                      setXAngle(v);
+                    }}
                   />
                 </Sec>
               </>
@@ -3859,7 +3885,7 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                       </button>
                     ))}
 
-                    {/* Save to Database button — currently disabled/commented-out */}
+                    {/* Save / Update button */}
                     <button
                       onClick={handleSaveToDatabase}
                       disabled={!isAuthenticated || dbSaveStatus === "saving"}
@@ -3936,14 +3962,20 @@ const { token, isAuthenticated, addSavedChart } = useAppStore();
                           {dbSaveStatus === "saving"
                             ? "Saving…"
                             : dbSaveStatus === "saved"
-                              ? "Saved to My Graphs ✓"
+                              ? existingChartId
+                                ? "Chart Updated ✓"
+                                : "Saved to My Graphs ✓"
                               : dbSaveStatus === "error"
                                 ? "Save failed — retry"
-                                : "Save to My Graphs"}
+                                : existingChartId
+                                  ? "Update Chart"
+                                  : "Save to My Graphs"}
                         </div>
                         <div className="text-[10px] opacity-65 mt-0.5">
                           {isAuthenticated
-                            ? "Appears in your dashboard"
+                            ? existingChartId
+                              ? "Overwrites the saved version"
+                              : "Appears in your dashboard"
                             : "Sign in to save"}
                         </div>
                       </div>

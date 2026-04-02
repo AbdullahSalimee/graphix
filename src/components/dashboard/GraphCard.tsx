@@ -44,23 +44,16 @@ function detectChartType(data: any[]): string {
   if (type === "scatter3d") return "3D SCATTER";
   if (type === "surface") return "SURFACE";
   if (type === "mesh3d") return "3D MESH";
-  if (type === "cone") return "3D CONE";
-  if (type === "streamtube") return "STREAM";
-  if (type === "isosurface") return "ISO";
-  if (type === "volume") return "VOLUME";
   if (type === "pie") return t.hole ? "DONUT" : "PIE";
   if (type === "funnel") return "FUNNEL";
   if (type === "waterfall") return "WATERFALL";
-  if (type === "sunburst") return "SUNBURST";
-  if (type === "treemap") return "TREEMAP";
   if (type === "heatmap") return "HEATMAP";
   if (type === "contour") return "CONTOUR";
   if (type === "histogram") return "HISTOGRAM";
-  if (type === "histogram2d") return "HIST 2D";
+  if (type === "histogram2dcontour") return "HIST 2D";
   if (type === "box") return "BOX";
   if (type === "violin") return "VIOLIN";
   if (type === "candlestick") return "CANDLESTICK";
-  if (type === "ohlc") return "OHLC";
   if (type === "bar") return "BAR";
   if (type === "scatter" && mode.includes("lines") && t.fill) return "AREA";
   if (type === "scatter" && mode.includes("lines")) return "LINE";
@@ -83,7 +76,10 @@ function PlotlyMini({ chartConfig }: { chartConfig: Record<string, any> }) {
       const rawData: any[] = chartConfig.data ?? [];
       if (!rawData.length) return;
 
-      const is3D = rawData.some((t: any) =>
+      const types = rawData.map((t: any) => (t.type || "").toLowerCase());
+
+      // 3D charts need WebGL (non-static)
+      const is3D = types.some((t) =>
         [
           "scatter3d",
           "surface",
@@ -92,35 +88,56 @@ function PlotlyMini({ chartConfig }: { chartConfig: Record<string, any> }) {
           "streamtube",
           "isosurface",
           "volume",
-        ].includes((t.type || "").toLowerCase()),
+        ].includes(t),
       );
 
-      const data = rawData.map((trace: any) => ({
-        ...trace,
-        hoverinfo: "none",
-        text: undefined,
-        texttemplate: undefined,
-        textposition: undefined,
-        // hide colorbar/colorscale legend in mini preview
-        showscale: false,
-        colorbar: undefined,
-        marker: trace.marker
-          ? { ...trace.marker, showscale: false, colorbar: undefined }
-          : undefined,
-      }));
+      // contour + heatmap also need canvas rendering — staticPlot breaks them
+      const needsCanvas =
+        is3D ||
+        types.some((t) =>
+          ["contour", "heatmap", "histogram2dcontour"].includes(t),
+        );
+
+      // Strip UI chrome but preserve visual data
+      const data = rawData.map((trace: any) => {
+        const t = (trace.type || "").toLowerCase();
+        const isHeatmapTrace = [
+          "heatmap",
+          "contour",
+          "histogram2dcontour",
+        ].includes(t);
+        const cleaned: any = {
+          ...trace,
+          hoverinfo: "none",
+          text: undefined,
+          texttemplate: undefined,
+          textposition: undefined,
+          showscale: false,
+          colorbar: undefined,
+        };
+        if (!isHeatmapTrace) {
+          cleaned.marker = trace.marker
+            ? { ...trace.marker, showscale: false, colorbar: undefined }
+            : undefined;
+        }
+        return cleaned;
+      });
 
       const base: any = {
         paper_bgcolor: "rgba(0,0,0,0)",
         plot_bgcolor: "rgba(0,0,0,0)",
-        margin: { t: 2, b: 2, l: 2, r: 2, pad: 0 },
+        margin: { t: 0, b: 0, l: 0, r: 0, pad: 0 },
         showlegend: false,
         height: 150,
         title: "",
         annotations: [],
       };
 
+      const isHeatmapLike = types.some((t) =>
+        ["contour", "heatmap", "histogram2dcontour"].includes(t),
+      );
+
       if (is3D) {
-        // 3D: keep the original scene but strip axis labels/titles and fix camera
         const origScene = chartConfig.layout?.scene ?? {};
         base.scene = {
           ...origScene,
@@ -152,6 +169,25 @@ function PlotlyMini({ chartConfig }: { chartConfig: Record<string, any> }) {
           camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
           aspectmode: "cube",
         };
+      } else if (isHeatmapLike) {
+        // heatmap/contour MUST have a solid background — transparent = invisible
+        base.paper_bgcolor = "#0f0f0f";
+        base.plot_bgcolor = "#0f0f0f";
+        base.xaxis = {
+          visible: false,
+          fixedrange: true,
+          showgrid: false,
+          zeroline: false,
+          showline: false,
+        };
+        base.yaxis = {
+          visible: false,
+          fixedrange: true,
+          showgrid: false,
+          zeroline: false,
+          showline: false,
+        };
+        base.margin = { t: 0, b: 0, l: 0, r: 0, pad: 0 };
       } else {
         base.xaxis = {
           visible: false,
@@ -172,11 +208,11 @@ function PlotlyMini({ chartConfig }: { chartConfig: Record<string, any> }) {
         };
       }
 
-      // staticPlot breaks WebGL/3D — only use it for flat charts
       window.Plotly.react(ref.current, data, base, {
         displayModeBar: false,
         responsive: true,
-        staticPlot: !is3D,
+        // staticPlot=true breaks canvas-based charts (contour, heatmap, 3D)
+        staticPlot: !needsCanvas,
       });
     } catch {}
   }, [ready, chartConfig]);
@@ -235,7 +271,6 @@ export default function GraphCard({
     ? detectChartType(graph.chartConfig.data)
     : (graph.tag ?? "CHART").toUpperCase();
 
-  // Real title from layout or graph.title, never fall back to "Untitled Chart" if prompt exists
   const chartTitle =
     graph.chartConfig?.layout?.title?.text ||
     (typeof graph.chartConfig?.layout?.title === "string"
@@ -300,7 +335,7 @@ export default function GraphCard({
           }}
         />
 
-        {/* ── PREVIEW (large) ── */}
+        {/* ── PREVIEW ── */}
         <div
           style={{
             position: "relative",
@@ -313,7 +348,6 @@ export default function GraphCard({
           {hasPlotly ? (
             <PlotlyMini chartConfig={graph.chartConfig} />
           ) : (
-            // no-data placeholder
             <div
               style={{
                 height: 150,
@@ -335,7 +369,7 @@ export default function GraphCard({
             </div>
           )}
 
-          {/* star button — top right */}
+          {/* star button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -412,7 +446,7 @@ export default function GraphCard({
           </span>
         </div>
 
-        {/* ── HOVER OVERLAY: open in editor ── */}
+        {/* ── HOVER OVERLAY ── */}
         <div
           style={{
             position: "absolute",
@@ -425,7 +459,6 @@ export default function GraphCard({
             opacity: hov ? 1 : 0,
             transition: "opacity 0.18s",
             pointerEvents: hov ? "auto" : "none",
-            // don't cover the footer
             bottom: 43,
           }}
         >
@@ -466,6 +499,7 @@ export default function GraphCard({
           message={fakeMessage}
           divRef={plotRef}
           onClose={() => setEditorOpen(false)}
+          existingChartId={graph.id}
         />
       )}
     </>

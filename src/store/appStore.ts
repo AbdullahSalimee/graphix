@@ -34,15 +34,15 @@ export interface SavedChart {
   createdAt: string;
   updatedAt: string;
   // ── Dashboard display fields (populated by bootstrap) ──
-  tag: string; // "Line" | "Bar" | "Area"
+  tag: string;
   category: string;
   views: number;
-  trend: string; // "+18.4%"
+  trend: string;
   up: boolean;
   starred: boolean;
   desc: string;
-  data: number[]; // sparkline points
-  updated: string; // "2h ago"
+  data: number[];
+  updated: string;
 }
 
 export interface GraphTemplate {
@@ -53,7 +53,6 @@ export interface GraphTemplate {
   trend: string;
   isTrending: boolean;
   template: Record<string, any>;
-  // ── Dashboard display fields ──
   tag: string;
   count: number;
   desc: string;
@@ -67,22 +66,20 @@ export interface Feedback {
   createdAt: string;
 }
 
-// ── ADDED: Stat card ───────────────────────────────────────────
 export interface DashboardStat {
-  label: string; // "Total Graphs"
-  value: string; // "24"
-  delta: string; // "+3 this week"
-  icon: string; // SVG path d=""
+  label: string;
+  value: string;
+  delta: string;
+  icon: string;
 }
 
-// ── ADDED: Activity feed item ──────────────────────────────────
 export interface ActivityItem {
   id: string;
-  action: string; // "Edited" | "Shared" | "Created" | "Starred"
-  graph: string; // chart title
-  time: string; // "2h ago"
-  avatar: string; // initials "AC"
-  own: boolean; // true = current user's action
+  action: string;
+  graph: string;
+  time: string;
+  avatar: string;
+  own: boolean;
 }
 
 interface AppState {
@@ -90,19 +87,19 @@ interface AppState {
   token: string | null;
   isAuthenticated: boolean;
 
-  _hasHydrated: boolean; // ✅ ADD THIS
-  setHasHydrated: (v: boolean) => void; // ✅ ADD THIS
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
 
-  // ── User-specific data (private) ──────────────────────────
+  // ── User-specific data ────────────────────────────────────
   user: User | null;
   subscription: Subscription | null;
   savedCharts: SavedChart[];
 
-  // ── ADDED: Dashboard data ──────────────────────────────────
+  // ── Dashboard data ────────────────────────────────────────
   dashboardStats: DashboardStat[];
   activityFeed: ActivityItem[];
 
-  // ── Global data (shared across all users) ─────────────────
+  // ── Global data ───────────────────────────────────────────
   graphTemplates: GraphTemplate[];
   feedbacks: Feedback[];
 
@@ -118,8 +115,9 @@ interface AppState {
 
   addSavedChart: (chart: SavedChart) => void;
   removeSavedChart: (id: string) => void;
+  updateSavedChart: (chart: SavedChart) => void;
   updateChartTitle: (id: string, title: string) => void;
-  toggleStarChart: (id: string) => void; // ADDED
+  toggleStarChart: (id: string) => void;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -134,8 +132,8 @@ export const useAppStore = create<AppState>()(
       user: null,
       subscription: null,
       savedCharts: [],
-      dashboardStats: [], // ADDED
-      activityFeed: [], // ADDED
+      dashboardStats: [],
+      activityFeed: [],
       graphTemplates: [],
       feedbacks: [],
       isBootstrapped: false,
@@ -173,8 +171,8 @@ export const useAppStore = create<AppState>()(
             user: data.user,
             subscription: data.subscription,
             savedCharts: data.savedCharts ?? [],
-            dashboardStats: data.dashboardStats ?? [], // ADDED — backend sends this
-            activityFeed: data.activityFeed ?? [], // ADDED — backend sends this
+            dashboardStats: data.dashboardStats ?? [],
+            activityFeed: data.activityFeed ?? [],
             graphTemplates: data.globalData?.graphTemplates ?? [],
             feedbacks: data.globalData?.feedbacks ?? [],
             isBootstrapped: true,
@@ -214,6 +212,14 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ savedCharts: s.savedCharts.filter((c) => c.id !== id) }));
       },
 
+      updateSavedChart: (chart: SavedChart) => {
+        set((s) => ({
+          savedCharts: s.savedCharts.map((c) =>
+            c.id === chart.id ? chart : c,
+          ),
+        }));
+      },
+
       updateChartTitle: (id: string, title: string) => {
         set((s) => ({
           savedCharts: s.savedCharts.map((c) =>
@@ -222,7 +228,6 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      // ADDED
       toggleStarChart: (id: string) => {
         set((s) => ({
           savedCharts: s.savedCharts.map((c) =>
@@ -235,7 +240,7 @@ export const useAppStore = create<AppState>()(
       name: "graphix-store",
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true); // ✅ fires when localStorage is done reading
+        state?.setHasHydrated(true);
       },
       partialize: (state) => ({
         token: state.token,

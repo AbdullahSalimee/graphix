@@ -13,11 +13,8 @@ function authHeaders(token: string) {
 }
 
 // ── Token helper ──────────────────────────────────────────────
-// Token is stored by Zustand's persist middleware under "graphix-store"
-// as: { state: { token: "eyJ...", isAuthenticated: true }, version: 0 }
-// NOT as a plain string under "graphix_token".
 export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null; // SSR guard
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem("graphix-store");
     if (!raw) return null;
@@ -61,7 +58,7 @@ export async function apiSignup(payload: {
 
 export async function apiSaveChart(
   token: string,
-  payload: { title: string; prompt: string; chartConfig: any }
+  payload: { title: string; prompt: string; chartConfig: any },
 ) {
   const res = await fetch(`${API}/api/charts`, {
     method: "POST",
@@ -70,6 +67,21 @@ export async function apiSaveChart(
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to save chart");
+  return data;
+}
+
+export async function apiUpdateChart(
+  token: string,
+  id: string,
+  payload: { title?: string; chartConfig?: any },
+) {
+  const res = await fetch(`${API}/api/charts/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to update chart");
   return data;
 }
 
@@ -83,7 +95,11 @@ export async function apiDeleteChart(token: string, id: string) {
   return data;
 }
 
-export async function apiUpdateChartTitle(token: string, id: string, title: string) {
+export async function apiUpdateChartTitle(
+  token: string,
+  id: string,
+  title: string,
+) {
   const res = await fetch(`${API}/api/charts/${id}`, {
     method: "PATCH",
     headers: authHeaders(token),
@@ -94,14 +110,11 @@ export async function apiUpdateChartTitle(token: string, id: string, title: stri
   return data;
 }
 
-
 // ── Feedback ──────────────────────────────────────────────────
- 
-/** Submit feedback — public, no token required.
- *  Optionally pass a token so the backend links the row to the user. */
+
 export async function submitFeedback(
   payload: { name: string; email: string; thoughts: string; rating?: number },
-  token?: string
+  token?: string,
 ) {
   const res = await fetch(`${API}/api/feedback`, {
     method: "POST",
@@ -109,14 +122,14 @@ export async function submitFeedback(
       ? authHeaders(token)
       : { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name:     payload.name,
-      email:    payload.email,
+      name: payload.name,
+      email: payload.email,
       thoughts: payload.thoughts,
-      rating:   payload.rating ?? 5,
+      rating: payload.rating ?? 5,
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to submit feedback")
+  if (!res.ok) throw new Error(data.error || "Failed to submit feedback");
   else console.log("Feedback submitted:", data);
   return data as {
     id: string;
@@ -126,8 +139,7 @@ export async function submitFeedback(
     createdAt: string;
   };
 }
- 
-/** Fetch the latest public feedbacks (landing-page testimonials). */
+
 export async function apiFetchFeedbacks() {
   const res = await fetch(`${API}/api/feedback`, {
     method: "GET",
@@ -143,8 +155,7 @@ export async function apiFetchFeedbacks() {
     createdAt: string;
   }[];
 }
- 
-/** Fetch only the current user's submitted feedbacks (auth required). */
+
 export async function apiFetchMyFeedbacks(token: string) {
   const res = await fetch(`${API}/api/feedback/mine`, {
     method: "GET",

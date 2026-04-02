@@ -1,5 +1,6 @@
 // components/Sidebar.tsx
 "use client";
+import { useAppStore } from "@/store/appStore";
 
 import { useState } from "react";
 
@@ -25,6 +26,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true);
 
+  const user = useAppStore((s) => s.user);
+  const workspaceLabel = user ? `${user.firstName}'s Workspace` : "Workspace";
   return (
     <>
       {/* ── Only the truly irreplaceable styles ── */}
@@ -484,7 +487,7 @@ export default function Sidebar({
 
               <div className="sb-label min-w-0">
                 <span className="block text-[11px] font-semibold text-white/60 leading-none mb-[3px] tracking-[-0.01em]">
-                  Workspace
+                  {workspaceLabel}
                 </span>
                 <span
                   className="block text-[9px] uppercase tracking-[0.1em] text-white/20"

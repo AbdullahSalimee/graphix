@@ -9,6 +9,8 @@ import InputBar from "./InputBar";
 import StarField from "./StarField";
 import WaveHero from "./WaveHero";
 import { createConversation } from "./conversations";
+import { useAppStore } from "@/store/appStore";
+import { apiSaveChart } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -26,6 +28,7 @@ interface Conversation {
 }
 
 const STORAGE_KEY = "graphix_conversations_v2";
+
 
 function loadFromStorage(): {
   conversations: Conversation[];
@@ -71,6 +74,18 @@ export default function GraphApp() {
   const [selectedAiId, setSelectedAiId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const { token, isAuthenticated, addSavedChart } = useAppStore();
+
+  const handleSaveChart = async (
+    chartConfig: { data: any[]; layout: any },
+    title: string,
+    prompt: string,
+  ) => {
+    if (!token || !isAuthenticated) return;
+    const saved = await apiSaveChart(token, { title, prompt, chartConfig });
+    addSavedChart(saved);
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth >= 640)
@@ -413,6 +428,7 @@ export default function GraphApp() {
                   <SingleChartArea
                     messages={activeConv?.messages ?? []}
                     selectedAiId={selectedAiId}
+                    onSaveChart={isAuthenticated ? handleSaveChart : undefined}
                   />
                 </div>
               )}

@@ -92,8 +92,8 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
       let fp = input.trim();
       if (chartType)
         fp += chartType.prompt
-          ? ` — make this as a "${chartType.prompt}"`
-          : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+          ? ` — make this  a  new "${chartType.prompt}"`
+          : ` — make this  a new ${chartType.groupLabel} chart `;
       onSend(fp, fileContent, fileName);
       afterSend();
       return;
@@ -103,8 +103,8 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
     let fp = input.trim();
     if (chartType)
       fp += chartType.prompt
-        ? ` — make this as a "${chartType.prompt}"`
-        : ` — make this as a ${chartType.groupLabel} chart (choose the best subtype)`;
+        ? ` — make this  a  new "${chartType.prompt}"`
+        : ` — make this  a new ${chartType.groupLabel} chart `;
     onSend(fp, "", "");
     afterSend();
   };

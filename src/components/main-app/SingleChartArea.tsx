@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ChartEditor from "./ChartEditor";
-
+import { useAppStore } from "@/store/appStore";
+import { apiSaveChart } from "@/lib/api";
 declare global {
   interface Window {
     Plotly: any;
@@ -378,6 +379,8 @@ function buildLayout(base: any, chartType?: string, rawData?: any[]) {
     result.geo = { ...(base.geo || {}), bgcolor: "rgba(0,0,0,0)" };
     return result;
   }
+
+
   const result: any = {
     ...base,
     autosize: true,
@@ -641,11 +644,13 @@ function InlineToolbar({
   messageId,
   onOpenEditor,
   onResetData,
+  onSaveChart,
 }: {
   divRef: React.RefObject<any>;
   messageId: string;
   onOpenEditor: () => void;
   onResetData: () => void;
+  onSaveChart?: () => Promise<void>;
 }) {
   const [gridOn, setGridOn] = useState(true);
   const [legendOn, setLegendOn] = useState(true);
@@ -659,6 +664,9 @@ function InlineToolbar({
   const popupRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLDivElement>(null);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+  const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // FIX: Save toolbar edits under the specific message ID so GraphApp can
@@ -816,6 +824,21 @@ function InlineToolbar({
     }
   };
 
+  const handleSave = async () => {
+    if (!onSaveChart || saving === "saving" || saving === "saved") return;
+    setSaving("saving");
+    try {
+      await onSaveChart();
+      setSaving("saved");
+      setTimeout(() => setSaving("idle"), 2500);
+    } catch {
+      setSaving("error");
+      setTimeout(() => setSaving("idle"), 2500);
+    }
+  };
+
+
+  
   return (
     <div
       className="my-auto"
@@ -1052,6 +1075,60 @@ function InlineToolbar({
           )}
         </TbBtn>
       ))}
+      <TbBtn
+        onClick={handleSave}
+        title={
+          !onSaveChart
+            ? "Sign in to save"
+            : saving === "saving"
+              ? "Saving…"
+              : saving === "saved"
+                ? "Saved ✓"
+                : saving === "error"
+                  ? "Save failed"
+                  : "Save to My Graphs"
+        }
+        active={saving === "saved"}
+      >
+        {saving === "saving" ? (
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+        ) : saving === "saved" ? (
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#22d3ee"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+        )}
+      </TbBtn>
       {(showConvert || showPalettes) && (
         <>
           <div
@@ -1297,10 +1374,18 @@ function PremiumTooltip({
 export default function SingleChartArea({
   messages,
   selectedAiId,
+  onSaveChart,
 }: {
   messages: Message[];
   selectedAiId?: string | null;
-}) {
+  onSaveChart?: (
+    chartConfig: { data: any[]; layout: any },
+    title: string,
+    prompt: string,
+  ) => Promise<void>;
+  }) {
+  
+  
   const divRef = useRef<any>(null);
   const cardRef = useRef<any>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -1315,6 +1400,21 @@ export default function SingleChartArea({
     ? (messages.find((m) => m.id === selectedAiId && m.from === "ai") ??
       messages.filter((m) => m.from === "ai").at(-1))
     : messages.filter((m) => m.from === "ai").at(-1);
+  
+  const handleSaveCurrentChart = onSaveChart
+    ? async () => {
+        const perChartData = (window as any).__graphixChartData?.[
+          aiMsg?.id ?? ""
+        ];
+        const data = perChartData?.data ?? aiMsg?.content?.data ?? [];
+        const layout = perChartData?.layout ?? aiMsg?.content?.layout ?? {};
+        const title =
+          typeof layout.title === "string"
+            ? layout.title
+            : (layout.title?.text ?? "Untitled Chart");
+        await onSaveChart({ data, layout }, title, title);
+      }
+    : undefined;
 
   const showTooltip = useCallback((mx: number, my: number, data: any) => {
     const el = tooltipRef.current;
@@ -1776,6 +1876,7 @@ export default function SingleChartArea({
             messageId={aiMessage.id}
             onOpenEditor={() => setEditorOpen(true)}
             onResetData={resetData}
+            onSaveChart={handleSaveCurrentChart}
           />
         )}
       </div>

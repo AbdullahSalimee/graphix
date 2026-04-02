@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useAppStore } from "@/store/appStore";
+import { apiSaveChart } from "@/lib/api";
 
 declare global {
   interface Window {
@@ -2254,7 +2256,8 @@ export default function ChartEditor({
       layout: message?.content?.layout || {},
     };
   }, [divRef, message]);
-
+const { token, isAuthenticated, addSavedChart } = useAppStore();
+  const [dbSaveStatus, setDbSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [chartTypeId, setChartTypeId] = useState<ChartTypeId>("bar");
   const [paletteIdx, setPaletteIdx] = useState(0);
   const [bgHex, setBgHex] = useState("#111111");
@@ -2960,29 +2963,41 @@ export default function ChartEditor({
     });
   };
 
-  // Commented-out save handler — wire to your DB endpoint when ready
-  /*
   const handleSaveToDatabase = async () => {
-    if (!plotRef.current || !window.Plotly) return;
-    const chartJson = {
-      data: plotRef.current.data,
-      layout: plotRef.current.layout,
-      meta: { title, subtitle, exportW, exportH, createdAt: new Date().toISOString() },
-    };
+    if (
+      !token ||
+      !isAuthenticated ||
+      dbSaveStatus === "saving" ||
+      dbSaveStatus === "saved"
+    )
+      return;
+    setDbSaveStatus("saving");
     try {
-      const res = await fetch("/api/charts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(chartJson),
+      const live = getLiveData();
+      const chartJson = {
+        data: plotRef.current?.data ?? live.data,
+        layout: plotRef.current?.layout ?? live.layout,
+      };
+      const chartTitle =
+        title ||
+        (typeof message?.content?.layout?.title === "string"
+          ? message.content.layout.title
+          : message?.content?.layout?.title?.text) ||
+        "Untitled Chart";
+      const saved = await apiSaveChart(token, {
+        title: chartTitle,
+        prompt: chartTitle,
+        chartConfig: chartJson,
       });
-      if (!res.ok) throw new Error("Failed to save");
-      alert("Chart saved!");
+      addSavedChart(saved);
+      setDbSaveStatus("saved");
+      setTimeout(() => setDbSaveStatus("idle"), 3000);
     } catch (err) {
       console.error("Save error:", err);
-      alert("Could not save chart.");
+      setDbSaveStatus("error");
+      setTimeout(() => setDbSaveStatus("idle"), 3000);
     }
   };
-  */
 
   if (!mounted || typeof document === "undefined") return null;
 
@@ -3827,30 +3842,90 @@ export default function ChartEditor({
 
                     {/* Save to Database button — currently disabled/commented-out */}
                     <button
-                      disabled
-                      // onClick={handleSaveToDatabase}
-                      className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] border border-dashed border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60 text-left"
-                      title="Wire handleSaveToDatabase to your API endpoint to enable this"
+                      onClick={handleSaveToDatabase}
+                      disabled={!isAuthenticated || dbSaveStatus === "saving"}
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] text-left transition-all hover:opacity-90"
+                      style={{
+                        border:
+                          dbSaveStatus === "saved"
+                            ? "1.5px solid #06b6d4"
+                            : "1.5px solid #e5e7eb",
+                        background:
+                          dbSaveStatus === "saved"
+                            ? "rgba(6,182,212,0.08)"
+                            : "#fafafa",
+                        color: dbSaveStatus === "saved" ? "#06b6d4" : "#374151",
+                        cursor:
+                          !isAuthenticated ||
+                          dbSaveStatus === "saving" ||
+                          dbSaveStatus === "saved"
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          !isAuthenticated || dbSaveStatus === "saving"
+                            ? 0.65
+                            : 1,
+                      }}
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      >
-                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-                        <polyline points="17 21 17 13 7 13 7 21" />
-                        <polyline points="7 3 7 8 15 8" />
-                      </svg>
+                      {dbSaveStatus === "saving" ? (
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          style={{
+                            animation: "spin 1s linear infinite",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                      ) : dbSaveStatus === "saved" ? (
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#06b6d4"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          style={{ flexShrink: 0 }}
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          style={{ flexShrink: 0 }}
+                        >
+                          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                      )}
                       <div>
                         <div className="text-xs font-bold">
-                          Save to Database
+                          {dbSaveStatus === "saving"
+                            ? "Saving…"
+                            : dbSaveStatus === "saved"
+                              ? "Saved to My Graphs ✓"
+                              : dbSaveStatus === "error"
+                                ? "Save failed — retry"
+                                : "Save to My Graphs"}
                         </div>
                         <div className="text-[10px] opacity-65 mt-0.5">
-                          Connect API endpoint to enable
+                          {isAuthenticated
+                            ? "Appears in your dashboard"
+                            : "Sign in to save"}
                         </div>
                       </div>
                     </button>

@@ -160,16 +160,4 @@ For support, please open an issue in the GitHub issue tracker or contact the mai
 
 ---
 
-Made with ❤️ and lots of ☕
-```
 
-**Note**: I've made some assumptions about the features and tech stack since I can't access the actual repository content. You may want to:
-
-1. Verify the actual tech stack being used (React Flow, D3.js, Cytoscape.js, etc.)
-2. Add actual screenshots if available
-3. Update the project structure to match your actual folder organization
-4. Add or remove features based on what's actually implemented
-5. Update keyboard shortcuts based on your implementation
-6. Add actual environment variables if any are needed
-
-Would you like me to help you customize any specific section based on the actual repository contents?
